@@ -1,0 +1,67 @@
+[
+  {
+    "seasonId": "8d046823-7777-4a00-f006-000000000001",
+    "producerRut": "12.184.968-2",
+    "userName": "test_admin",
+    "amount": 500000,
+    "paymentMethod": "CASH",
+    "paymentDetails": {
+      "transactionId": "ANT-2025-0001"
+    },
+    "notes": "Anticipo inicial para apoyo de cosecha enero 2025",
+    "createdAt": "2025-01-05T10:30:00-03:00"
+  },
+  {
+    "seasonId": "8d046823-7777-4a00-f006-000000000001",
+    "producerRut": "76.596.396-6",
+    "userName": "admin",
+    "amount": 650000,
+    "paymentMethod": "TRANSFER",
+    "paymentDetails": {
+      "adminBankAccountNumber": "11223344556677889900",
+      "producerAccountId": "agricola-castillo-cuenta",
+      "transactionId": "ANT-2025-0105"
+    },
+    "notes": "Anticipo para financiar mano de obra previa a cosecha principal.",
+    "createdAt": "2025-02-01T11:00:00-03:00"
+  },
+  {
+    "seasonId": "8d046823-7777-4a00-f006-000000000001",
+    "producerRut": "12.966.376-6",
+    "userName": "operador.norte",
+    "amount": 750000,
+    "paymentMethod": "TRANSFER",
+    "paymentDetails": {
+      "adminBankAccountNumber": "12345678901234567890",
+      "producerAccountId": "producer-account-joel",
+      "transactionId": "ANT-2025-0042"
+    },
+    "notes": "Transferencia para compra de insumos",
+    "createdAt": "2025-02-10T09:15:00-03:00"
+  },
+  {
+    "seasonId": "8d046823-7777-4a00-f006-000000000001",
+    "producerRut": "76.596.396-6",
+    "userName": "test_admin",
+    "amount": 480000,
+    "paymentMethod": "CASH",
+    "paymentDetails": {
+      "transactionId": "ANT-2025-0119"
+    },
+    "notes": "Entrega en efectivo para cubrir transporte de fruta a planta.",
+    "createdAt": "2025-03-04T08:45:00-03:00"
+  },
+  {
+    "seasonId": "8d046823-7777-4a00-f006-000000000001",
+    "producerRut": "12.089.775-6",
+    "userName": "admin",
+    "amount": 1200000,
+    "paymentMethod": "CHECK",
+    "paymentDetails": {
+      "adminBankAccountNumber": "09876543210987654321",
+      "checkNumber": "CH-558921"
+    },
+    "notes": "Cheque post fechado a 30 días",
+    "createdAt": "2025-03-01T14:45:00-03:00"
+  }
+]

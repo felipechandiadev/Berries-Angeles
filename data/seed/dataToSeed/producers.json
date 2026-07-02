@@ -1,0 +1,530 @@
+[
+  {
+    "Nombre": "ORTEGA VIVANCO GLADYS",
+    "Rut": "12.184.968-2",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "ORTEGA VIVANCO GLADYS"
+  },
+  {
+    "Nombre": "ORTEGA VIVANCO JOEL",
+    "Rut": "12.966.376-6",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "ORTEGA VIVANCO JOEL"
+  },
+  {
+    "Nombre": "ZUÑIGA MANRIQUEZ MARCELO",
+    "Rut": "12.089.775-6",
+    "Dirección": "LA ORILLA",
+    "UnidadProductiva": "ZUÑIGA MANRIQUEZ MARCELO"
+  },
+  {
+    "Nombre": "VASQUEZ RETAMAL SERVANDO",
+    "Rut": "7.863.534-7",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "VASQUEZ RETAMAL SERVANDO"
+  },
+  {
+    "Nombre": "ORTEGA HERNANDEZ JOSE",
+    "Rut": "6.337.695-7",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "ORTEGA HERNANDEZ JOSE"
+  },
+  {
+    "Nombre": "PONCE MUÑOZ MONICA",
+    "Rut": "7.262.391-6",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "PONCE MUÑOZ MONICA"
+  },
+  {
+    "Nombre": "IBAÑEZ TILLERIA ISABEL",
+    "Rut": "12.966.285-9",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "IBAÑEZ TILLERIA ISABEL"
+  },
+  {
+    "Nombre": "INOSTROZA DIAZ NICOLAS",
+    "Rut": "17.332.322-0",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "INOSTROZA DIAZ NICOLAS"
+  },
+  {
+    "Nombre": "SOTO FERRADA ALEX",
+    "Rut": "12.793.373-1",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "SOTO FERRADA ALEX"
+  },
+  {
+    "Nombre": "FLORES ORTEGA SEBASTIAN ",
+    "Rut": "8.926.251-8",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "FLORES ORTEGA SEBASTIAN"
+  },
+  {
+    "Nombre": "ESCOBAR ORTEGA GUSTAVO",
+    "Rut": "11.788.497-K",
+    "Dirección": "CARMEN ORIENTE",
+    "UnidadProductiva": "ESCOBAR ORTEGA GUSTAVO"
+  },
+  {
+    "Nombre": "SANDOVAL VASQUEZ PATRICIO",
+    "Rut": "13.616.144-K",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "SANDOVAL VASQUEZ PATRICIO"
+  },
+  {
+    "Nombre": "FERNANDEZ FERNANDEZ MARIO",
+    "Rut": "6.280.028-3",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "FERNANDEZ FERNANDEZ MARIO"
+  },
+  {
+    "Nombre": "FLORES RETAMAL ORLANDO",
+    "Rut": "3.996.567-4",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "FLORES RETAMAL ORLANDO"
+  },
+  {
+    "Nombre": "VILLALOBOS HAYDEE",
+    "Rut": "3.762.076-9",
+    "Dirección": "",
+    "UnidadProductiva": "VILLALOBOS HAYDEE"
+  },
+  {
+    "Nombre": "SOTO POBLETE JUAN",
+    "Rut": "9.610.032-9",
+    "Dirección": "",
+    "UnidadProductiva": "SOTO POBLETE JUAN"
+  },
+  {
+    "Nombre": "AGRICOLA EL VALLE  LTDA",
+    "Rut": "77.743.283-4",
+    "Dirección": "",
+    "UnidadProductiva": "AGRICOLA EL VALLE  LTDA"
+  },
+  {
+    "Nombre": "VALVERDE GONZALEZ ROSA",
+    "Rut": "13.841.684-4",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "VALVERDE GONZALEZ ROSA"
+  },
+  {
+    "Nombre": "FLORES ZUÑIGA ISABEL",
+    "Rut": "12.794.199-8",
+    "Dirección": "LA ORILLA",
+    "UnidadProductiva": "FLORES ZUÑIGA ISABEL"
+  },
+  {
+    "Nombre": "IBAÑEZ VILLAGRA JOSE",
+    "Rut": "5.428.889-1",
+    "Dirección": "",
+    "UnidadProductiva": "IBAÑEZ VILLAGRA JOSE"
+  },
+  {
+    "Nombre": "SOTO ULLOA WILLIAMS",
+    "Rut": "15.157.688-5",
+    "Dirección": "LAS CAMELIAS",
+    "UnidadProductiva": "SOTO ULLOA WILLIAMS"
+  },
+  {
+    "Nombre": "ORTEGA VILLAGRA PAULO",
+    "Rut": "13.375.168-8",
+    "Dirección": "",
+    "UnidadProductiva": "ORTEGA VILLAGRA PAULO"
+  },
+  {
+    "Nombre": "ZUÑIGA MANRIQUEZ MANUEL",
+    "Rut": "12.966.978-0",
+    "Dirección": "LA ORILLA",
+    "UnidadProductiva": "ZUÑIGA MANRIQUEZ MANUEL"
+  },
+  {
+    "Nombre": "IBAÑEZ TILLERIA MISAEL",
+    "Rut": "13.615.891-0",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "IBAÑEZ TILLERIA MISAEL"
+  },
+  {
+    "Nombre": "COLCHAMAULE LTDA",
+    "Rut": "76.270.071-9",
+    "Dirección": "PARCELA 10 LOS MAITENES RETIRO",
+    "UnidadProductiva": "COLCHAMAULE LTDA"
+  },
+  {
+    "Nombre": "PRADO TILLERIA JORGE",
+    "Rut": "18.559.079-8",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "PRADO TILLERIA JORGE"
+  },
+  {
+    "Nombre": "AGRICOLA CASTILLO E HIJOS",
+    "Rut": "76.596.396-6",
+    "Dirección": "QUILLAIMO",
+    "UnidadProductiva": "AGRICOLA CASTILLO E HIJOS"
+  },
+  {
+    "Nombre": "HENRIQUEZ SALVO CARLOS",
+    "Rut": "12.545.534-4",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "HENRIQUEZ SALVO CARLOS"
+  },
+  {
+    "Nombre": "AGROFUTURO LTDA.",
+    "Rut": "76.038.959-5",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "AGROFUTURO LTDA."
+  },
+  {
+    "Nombre": "SAN MARTIN MOLINA MARIA",
+    "Rut": "16.827.267-7",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "SAN MARTIN MOLINA MARIA"
+  },
+  {
+    "Nombre": "SIMEONE MARIA PAZ",
+    "Rut": "12.296.219-9",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "SIMEONE MARIA PAZ"
+  },
+  {
+    "Nombre": "AGRICOLA YAÑEZ Y PRADO",
+    "Rut": "76.968.336-4",
+    "Dirección": "",
+    "UnidadProductiva": "AGRICOLA YAÑEZ Y PRADO"
+  },
+  {
+    "Nombre": "ULLOA GONZALEZ MARIA",
+    "Rut": "6.893.738-8",
+    "Dirección": "LAS CAMELIAS",
+    "UnidadProductiva": "ULLOA GONZALEZ MARIA"
+  },
+  {
+    "Nombre": "FUENTES INOSTROZA CLAUDIA",
+    "Rut": "12.186.111-9",
+    "Dirección": "CERRO LO CASTILLO",
+    "UnidadProductiva": "FUENTES INOSTROZA CLAUDIA"
+  },
+  {
+    "Nombre": "MOLINA SEPULVEDA MARIA",
+    "Rut": "9.523.853-K",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "MOLINA SEPULVEDA MARIA"
+  },
+  {
+    "Nombre": "BASOALTO CHANDIA ANA",
+    "Rut": "12.965.686-7",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "BASOALTO CHANDIA ANA"
+  },
+  {
+    "Nombre": "RETAMAL VASQUEZ MARIA",
+    "Rut": "8.694.528-2",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "RETAMAL VASQUEZ MARIA"
+  },
+  {
+    "Nombre": "CAMPO SANTA JOSEFINA",
+    "Rut": "00.195.508-K",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "CAMPO SANTA JOSEFINA"
+  },
+  {
+    "Nombre": "FUENTES INOSTROZA CRISTIAN",
+    "Rut": "13.208.356-8",
+    "Dirección": "LA ORILLA",
+    "UnidadProductiva": "FUENTES INOSTROZA CRISTIAN"
+  },
+  {
+    "Nombre": "RIVERA ALONSO",
+    "Rut": "12.966.070-8",
+    "Dirección": "",
+    "UnidadProductiva": "RIVERA ALONSO"
+  },
+  {
+    "Nombre": "SOC INOSTROZA IBAÑEZ",
+    "Rut": "77.399.140-5",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "SOC INOSTROZA IBAÑEZ"
+  },
+  {
+    "Nombre": "SOC AGRICOLA SAN ALBERTO",
+    "Rut": "77.585.620-3",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "SOC AGRICOLA SAN ALBERTO"
+  },
+  {
+    "Nombre": "FUENTES INOSTROZA PATRICIO",
+    "Rut": "11.566.466-2",
+    "Dirección": "LA ORILLA",
+    "UnidadProductiva": "FUENTES INOSTROZA PATRICIO"
+  },
+  {
+    "Nombre": "HAMAME ORREGO CARLOS",
+    "Rut": "12.522.941-7",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "HAMAME ORREGO CARLOS"
+  },
+  {
+    "Nombre": "SOC. SANTO TOMAS",
+    "Rut": "76.139.293-K",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "SOC. SANTO TOMAS"
+  },
+  {
+    "Nombre": "SAN JOSE",
+    "Rut": "2.587.149-6",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "SAN JOSE"
+  },
+  {
+    "Nombre": "VILLAR FLORES LORENA",
+    "Rut": "16.827.877-2",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "VILLAR FLORES LORENA"
+  },
+  {
+    "Nombre": "soc. agricola el aromo ",
+    "Rut": "76.293.036-6",
+    "Dirección": "parral",
+    "UnidadProductiva": "soc. agricola el aromo"
+  },
+  {
+    "Nombre": "AGRICOLA LOS HUINGANES",
+    "Rut": "76.149.408-2",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "AGRICOLA LOS HUINGANES"
+  },
+  {
+    "Nombre": "ORTEGA VIVANCO LUIS GILBERTO",
+    "Rut": "12.545.520-4",
+    "Dirección": "",
+    "UnidadProductiva": "ORTEGA VIVANCO LUIS GILBERTO"
+  },
+  {
+    "Nombre": "FUENTES PEREZ GILBERTO",
+    "Rut": "4.936.779-1",
+    "Dirección": "",
+    "UnidadProductiva": "FUENTES PEREZ GILBERTO"
+  },
+  {
+    "Nombre": "SOC EL GUINDO",
+    "Rut": "76.145.874-4",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "SOC EL GUINDO"
+  },
+  {
+    "Nombre": "MUÑOZ RIOS CARLOS",
+    "Rut": "12.966.439-8",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "MUÑOZ RIOS CARLOS"
+  },
+  {
+    "Nombre": "LOPEZ BEYZAGA VICTORIA",
+    "Rut": "13.842.014-0",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "LOPEZ BEYZAGA VICTORIA"
+  },
+  {
+    "Nombre": "AGRICOLA CASAS VIEJAS",
+    "Rut": "77.960.729-1",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "AGRICOLA CASAS VIEJAS"
+  },
+  {
+    "Nombre": "FRUTOS DEL MAULE SUR LTDA",
+    "Rut": "77.952.396-9",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "FRUTOS DEL MAULE SUR LTDA"
+  },
+  {
+    "Nombre": "PINO ANDRADES LUIS",
+    "Rut": "15.500.478-9",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "PINO ANDRADES LUIS"
+  },
+  {
+    "Nombre": "VIVANCO BASOALTO JUAN",
+    "Rut": "15.826.142-1",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "VIVANCO BASOALTO JUAN"
+  },
+  {
+    "Nombre": "SOTO VILLAGRA ANA",
+    "Rut": "11.567.289-4",
+    "Dirección": "LA ORILLA",
+    "UnidadProductiva": "SOTO VILLAGRA ANA"
+  },
+  {
+    "Nombre": "SALDAÑA INOSTROZA ROSA",
+    "Rut": "10.502.628-5",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "SALDAÑA INOSTROZA ROSA"
+  },
+  {
+    "Nombre": "SEPULVEDA SOTO NELSON",
+    "Rut": "7.725.820-5",
+    "Dirección": "",
+    "UnidadProductiva": "SEPULVEDA SOTO NELSON"
+  },
+  {
+    "Nombre": "INOSTROZA MERIÑO ELISA",
+    "Rut": "7.015.410-2",
+    "Dirección": "LA ORILLA",
+    "UnidadProductiva": "INOSTROZA MERIÑO ELISA"
+  },
+  {
+    "Nombre": "CASTILLO CASTILLO ISABEL",
+    "Rut": "14.322.698-0",
+    "Dirección": "LA ORILLA",
+    "UnidadProductiva": "CASTILLO CASTILLO ISABEL"
+  },
+  {
+    "Nombre": "ORTEGA ASCENCIO SOLEDAD",
+    "Rut": "11.289.159-5",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "ORTEGA ASCENCIO SOLEDAD"
+  },
+  {
+    "Nombre": "AGRICOLA LOS ACACIOS",
+    "Rut": "77.200.129-0",
+    "Dirección": "COLBUN",
+    "UnidadProductiva": "AGRICOLA LOS ACACIOS"
+  },
+  {
+    "Nombre": "YAÑEZ CHANDIA GABRIEL",
+    "Rut": "12.966.221-2",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "YAÑEZ CHANDIA GABRIEL"
+  },
+  {
+    "Nombre": "AGRICOLA LAS ENCINAS",
+    "Rut": "76.845.104-4",
+    "Dirección": "CATILLO",
+    "UnidadProductiva": "AGRICOLA LAS ENCINAS"
+  },
+  {
+    "Nombre": "RETAMAL INOSTROZA GLADYS",
+    "Rut": "11.999.052-1",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "RETAMAL INOSTROZA GLADYS"
+  },
+  {
+    "Nombre": "TUNAL NORTE SPA",
+    "Rut": "78.034.226-9",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "TUNAL NORTE SPA"
+  },
+  {
+    "Nombre": "INOSTROZA XIMENA",
+    "Rut": "13.615.381-1",
+    "Dirección": "PARCELA 29 RETIRO",
+    "UnidadProductiva": "INOSTROZA XIMENA"
+  },
+  {
+    "Nombre": "SANTA ISABEL",
+    "Rut": "11.111.111-1",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "SANTA ISABEL"
+  },
+  {
+    "Nombre": "SOC AGRICOLA EL PERAL SPA",
+    "Rut": "76.674.494-K",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "SOC AGRICOLA EL PERAL SPA"
+  },
+  {
+    "Nombre": "FLORES ORTEGA DELERINO",
+    "Rut": "9.430.046-0",
+    "Dirección": "romeral",
+    "UnidadProductiva": "FLORES ORTEGA DELERINO"
+  },
+  {
+    "Nombre": "CARLOS AGUERO ORTEGA",
+    "Rut": "20.189.222-8",
+    "Dirección": "SAN  ALEJO",
+    "UnidadProductiva": "CARLOS AGUERO ORTEGA"
+  },
+  {
+    "Nombre": "JUAN ORTEGA ALFARO",
+    "Rut": "8.553.991-4",
+    "Dirección": "LOS CUARTELES",
+    "UnidadProductiva": "JUAN ORTEGA ALFARO"
+  },
+  {
+    "Nombre": "RETAMAL GONZLEZ GLORIA",
+    "Rut": "13.207.636-7",
+    "Dirección": "ROMERAL S/N",
+    "UnidadProductiva": "RETAMAL GONZLEZ GLORIA"
+  },
+  {
+    "Nombre": "HAMAME ORREGO MARIA",
+    "Rut": "11.675.803-2",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "HAMAME ORREGO MARIA"
+  },
+  {
+    "Nombre": "ESPINOZA GUTIERREZ FERNANDO",
+    "Rut": "7.098.283-8",
+    "Dirección": "PARRAL",
+    "UnidadProductiva": "ESPINOZA GUTIERREZ FERNANDO"
+  },
+  {
+    "Nombre": "INOSTROZA IBAÑEZ JOSE PABLO",
+    "Rut": "21.963.081-6",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "INOSTROZA IBAÑEZ JOSE PABLO"
+  },
+  {
+    "Nombre": "BASOALTO CASTILLO ESTER",
+    "Rut": "7.868.337-6",
+    "Dirección": "ROMERAL",
+    "UnidadProductiva": "BASOALTO CASTILLO ESTER"
+  },
+  {
+    "Nombre": "PARADA OSORES JOEL",
+    "Rut": "6.644.850-9",
+    "Dirección": "AJIAL VALDIVIESO",
+    "UnidadProductiva": "PARADA OSORES JOEL"
+  },
+  {
+    "Nombre": "FERNANDEZ OLGUIN LUIS",
+    "Rut": "14.050.273-1",
+    "Dirección": "LA ORILLA",
+    "UnidadProductiva": "FERNANDEZ OLGUIN LUIS"
+  },
+  {
+    "Nombre": "GUTIERREZ CASTILLO ROBERTO ",
+    "Rut": "8.553.482-3",
+    "Dirección": "ROMERAL ",
+    "UnidadProductiva": "GUTIERREZ CASTILLO ROBERTO"
+  },
+  {
+    "Nombre": "AGRICOLA SERMAR",
+    "Rut": "78.186.861-2",
+    "Dirección": "SECTOR PORVENIR",
+    "UnidadProductiva": "AGRICOLA SERMAR"
+  },
+  {
+    "Nombre": "MENDEZ VELOZO NATALY",
+    "Rut": "16.827.230-3",
+    "Dirección": "RINCON VALDEZ",
+    "UnidadProductiva": "MENDEZ VELOZO NATALY"
+  },
+  {
+    "Nombre": "MENDEZ CONTRERAS SOLEDAD",
+    "Rut": "17.717.968-K",
+    "Dirección": "QUILLAIMO",
+    "UnidadProductiva": "MENDEZ CONTRERAS SOLEDAD"
+  },
+  {
+    "Nombre": "COMERCIALIZADORA QUILLAIMO",
+    "Rut": "78.198.081-1",
+    "Dirección": "QUILLAIMO",
+    "UnidadProductiva": "COMERCIALIZADORA QUILLAIMO"
+  },
+  {
+    "Nombre": "CALLUCURA MAÑIL GLORIA",
+    "Rut": "10.160.538-8",
+    "Dirección": "LOS CUARTELES",
+    "UnidadProductiva": "CALLUCURA MAÑIL GLORIA"
+  }
+]

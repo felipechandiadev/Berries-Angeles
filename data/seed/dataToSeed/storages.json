@@ -1,0 +1,18 @@
+[
+  {
+    "id": "3ccba123-5555-4d12-e005-000000000001",
+    "name": "Cámara Fría Central",
+    "type": "COLD_ROOM",
+    "capacityPallets": 180,
+    "location": "Planta Romeral",
+    "active": true
+  },
+  {
+    "id": "3ccba123-5555-4d12-e005-000000000002",
+    "name": "Túnel IQF Norte",
+    "type": "IQF_TUNNEL",
+    "capacityPallets": 90,
+    "location": "Planta Linares",
+    "active": true
+  }
+]

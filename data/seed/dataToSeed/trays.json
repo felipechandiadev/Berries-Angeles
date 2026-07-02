@@ -1,0 +1,74 @@
+[
+  {
+    "name": "ESPARRAGUERA",
+    "weight": 1.5,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "VERDE",
+    "weight": 0.35,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "NEGRA CHICA",
+    "weight": 0.35,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "BLANCA CHICA",
+    "weight": 0.35,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "FRESCO BLANCAS",
+    "weight": 0.2,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "FRUTILLERA",
+    "weight": 1,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "CARTON",
+    "weight": 0.2,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "ARANDANERA",
+    "weight": 0.3,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "AZUL",
+    "weight": 0.3,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "BINS CHICO",
+    "weight": 1,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "BINS GRANDE CERRADO",
+    "weight": 1,
+    "stock": 300,
+    "active": true
+  },
+  {
+    "name": "BINS RANURADO SIN TACC",
+    "weight": 1,
+    "stock": 300,
+    "active": true
+  }
+]

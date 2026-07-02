@@ -1,0 +1,26 @@
+[
+  {
+    "id": "5a8b58a0-4444-4f77-a007-000000000001",
+    "userName": "test_admin",
+    "pass": "$2b$10$OgEdag8Q/F10q8bA8D4FQ.zMUbc8D2kX9ou55Bn2ZNEZ0kMVyYQ0u",
+    "mail": "admin@example.com",
+    "rol": "ADMIN",
+    "personId": "c5c9b202-1111-4a4f-a001-000000000001"
+  },
+  {
+    "id": "5a8b58a0-4444-4f77-a007-000000000002",
+    "userName": "operador.norte",
+    "pass": "$2b$10$XYLBScJv5f1ealXt5NN5g.126kgM6fr7e9jkp.jcQKTQ.OWO/pPlO",
+    "mail": "operador.norte@example.com",
+    "rol": "OPERATOR",
+    "personId": "c5c9b202-1111-4a4f-a001-000000000002"
+  },
+  {
+    "id": "5a8b58a0-4444-4f77-a007-000000000003",
+    "userName": "admin",
+    "pass": "$2b$10$E3YQuynhyGfPUj8dqp6nvu4J0ujCPOZABpx3S/jcGeizp98zUPZHW",
+    "mail": "admin@electnext.test",
+    "rol": "ADMIN",
+    "personId": "c5c9b202-1111-4a4f-a001-000000000003"
+  }
+]

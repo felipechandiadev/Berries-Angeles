@@ -1,0 +1,18 @@
+[
+  {
+    "id": "8d046823-7777-4a00-f006-000000000001",
+    "name": "Temporada 2025",
+    "startDate": "2025-01-01",
+    "endDate": "2025-12-31",
+    "description": "Temporada agrícola completa 2025",
+    "active": true
+  },
+  {
+    "id": "8d046823-7777-4a00-f006-000000000002",
+    "name": "Temporada 2024",
+    "startDate": "2024-01-01",
+    "endDate": "2024-12-31",
+    "description": "Temporada de referencia del año anterior",
+    "active": false
+  }
+]

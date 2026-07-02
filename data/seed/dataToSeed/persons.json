@@ -1,0 +1,646 @@
+[
+  {
+    "id": "c5c9b202-1111-4a4f-a001-000000000001",
+    "name": "Test Admin Persona",
+    "dni": "11.111.111-1",
+    "phone": "+56940000001",
+    "mail": "test.admin@electnext.test"
+  },
+  {
+    "id": "c5c9b202-1111-4a4f-a001-000000000002",
+    "name": "Operador Norte Persona",
+    "dni": "22.222.222-2",
+    "phone": "+56940000002",
+    "mail": "operador.norte@electnext.test"
+  },
+  {
+    "id": "c5c9b202-1111-4a4f-a001-000000000003",
+    "name": "Administrador General",
+    "dni": "33.333.333-3",
+    "phone": "+56940000003",
+    "mail": "admin@electnext.test"
+  },
+  {
+    "id": "c5c9b202-1111-4a4f-a001-000000000004",
+    "name": "Contacto Agrícola Los Boldos",
+    "dni": "44.444.444-4",
+    "phone": "+56944444444",
+    "mail": "contacto@losboldos.cl"
+  },
+  {
+    "id": "c5c9b202-1111-4a4f-a001-000000000005",
+    "name": "Contacto Cooperativa Santa Elena",
+    "dni": "55.555.555-5",
+    "phone": "+56955555555",
+    "mail": "cooperativa@santaelena.cl"
+  },
+  {
+    "id": "f825d505-503f-49f6-ba80-323a49549283",
+    "name": "ORTEGA VIVANCO GLADYS",
+    "dni": "12.184.968-2",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "67b848e5-4676-4652-b7d9-688afbf16248",
+    "name": "ORTEGA VIVANCO JOEL",
+    "dni": "12.966.376-6",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "5def7da0-d374-4e4c-af13-342bc3386cd8",
+    "name": "ZUÑIGA MANRIQUEZ MARCELO",
+    "dni": "12.089.775-6",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "dbf3dda7-6715-4e20-b55d-6f0ce4dba7d4",
+    "name": "VASQUEZ RETAMAL SERVANDO",
+    "dni": "7.863.534-7",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "56ae4e3c-c3fd-4a8a-a34b-e626a291295c",
+    "name": "ORTEGA HERNANDEZ JOSE",
+    "dni": "6.337.695-7",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "451699a6-3315-40e7-8735-77e2d2e1d23b",
+    "name": "PONCE MUÑOZ MONICA",
+    "dni": "7.262.391-6",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "8118cc24-8c6c-46d0-be0f-66ac64f5d4a7",
+    "name": "IBAÑEZ TILLERIA ISABEL",
+    "dni": "12.966.285-9",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "2189e353-8ee9-43f2-8840-a26c16ffc327",
+    "name": "INOSTROZA DIAZ NICOLAS",
+    "dni": "17.332.322-0",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "04f74256-20a3-498b-a717-ae830ffa33cc",
+    "name": "SOTO FERRADA ALEX",
+    "dni": "12.793.373-1",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "dad404df-1fa2-4211-8997-116e74040ac6",
+    "name": "FLORES ORTEGA SEBASTIAN",
+    "dni": "8.926.251-8",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "c09db5c5-9bf4-4fd4-aecf-842787da18b0",
+    "name": "ESCOBAR ORTEGA GUSTAVO",
+    "dni": "11.788.497-K",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "b2f1ca3d-520e-4139-8728-5d235a7bd719",
+    "name": "SANDOVAL VASQUEZ PATRICIO",
+    "dni": "13.616.144-K",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "92335b17-6ff4-4c92-a158-41df9f45bcf8",
+    "name": "FERNANDEZ FERNANDEZ MARIO",
+    "dni": "6.280.028-3",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "58304c57-60dd-47ff-af7e-6c3985b605c1",
+    "name": "FLORES RETAMAL ORLANDO",
+    "dni": "3.996.567-4",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "45a3555b-b822-482e-b6e9-db8655df634d",
+    "name": "VILLALOBOS HAYDEE",
+    "dni": "3.762.076-9",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "36d64585-12d1-40ab-b01a-820be274619f",
+    "name": "SOTO POBLETE JUAN",
+    "dni": "9.610.032-9",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "0d257f4d-60ed-4603-90ce-ddeece3311c0",
+    "name": "AGRICOLA EL VALLE  LTDA",
+    "dni": "77.743.283-4",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "e6a936ab-3104-4773-81f4-cf1d06da9d2e",
+    "name": "VALVERDE GONZALEZ ROSA",
+    "dni": "13.841.684-4",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "e49ae718-fa99-4764-998c-9e8b297b033b",
+    "name": "FLORES ZUÑIGA ISABEL",
+    "dni": "12.794.199-8",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "2bd7e2d8-dfdf-474b-b1f5-9c8acc152955",
+    "name": "IBAÑEZ VILLAGRA JOSE",
+    "dni": "5.428.889-1",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "5f8ba760-663f-4c62-9f52-da98e285c855",
+    "name": "SOTO ULLOA WILLIAMS",
+    "dni": "15.157.688-5",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "0a28e17c-1fe8-477f-ad35-b2b0c73f4a06",
+    "name": "ORTEGA VILLAGRA PAULO",
+    "dni": "13.375.168-8",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "31989274-af53-4b6a-976d-de8ae7793275",
+    "name": "ZUÑIGA MANRIQUEZ MANUEL",
+    "dni": "12.966.978-0",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "9865bc2a-3cb2-4c36-9c50-d4246e5c6a0e",
+    "name": "IBAÑEZ TILLERIA MISAEL",
+    "dni": "13.615.891-0",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "9f6548f2-6292-4850-b065-8196fbb55d75",
+    "name": "COLCHAMAULE LTDA",
+    "dni": "76.270.071-9",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "56e6707d-1b74-47c3-aabe-052ac7de4b2e",
+    "name": "PRADO TILLERIA JORGE",
+    "dni": "18.559.079-8",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "1bea585c-6512-4721-97bb-425439b108c2",
+    "name": "AGRICOLA CASTILLO E HIJOS",
+    "dni": "76.596.396-6",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "91484a92-4836-407c-abd3-ba2d6427d0f5",
+    "name": "HENRIQUEZ SALVO CARLOS",
+    "dni": "12.545.534-4",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "25ee016a-9e19-4813-a6fc-ae8fd8d32e9e",
+    "name": "AGROFUTURO LTDA.",
+    "dni": "76.038.959-5",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "172fdde3-8528-4659-b485-c1e23077fef4",
+    "name": "SAN MARTIN MOLINA MARIA",
+    "dni": "16.827.267-7",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "6fd9d242-ba4b-40ab-9d04-07cef484e568",
+    "name": "SIMEONE MARIA PAZ",
+    "dni": "12.296.219-9",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "59593ecf-a4af-4aa9-bcdc-e9c1738a2e97",
+    "name": "AGRICOLA YAÑEZ Y PRADO",
+    "dni": "76.968.336-4",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "9c68fb2a-6015-43c8-8cb7-d7a53a47a682",
+    "name": "ULLOA GONZALEZ MARIA",
+    "dni": "6.893.738-8",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "3b2fd2a7-fa82-4f26-ae58-171bbc1cc4f1",
+    "name": "FUENTES INOSTROZA CLAUDIA",
+    "dni": "12.186.111-9",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "dedb6527-44ab-4770-9b3e-72a8ff6d11da",
+    "name": "MOLINA SEPULVEDA MARIA",
+    "dni": "9.523.853-K",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "1ff47a08-ec57-4044-b75c-b365f6b1a674",
+    "name": "BASOALTO CHANDIA ANA",
+    "dni": "12.965.686-7",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "536a169f-89c3-40e4-ad6a-1f2fea665cb2",
+    "name": "RETAMAL VASQUEZ MARIA",
+    "dni": "8.694.528-2",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "fb65ab69-b3b3-419d-9480-faa1eaf34035",
+    "name": "CAMPO SANTA JOSEFINA",
+    "dni": "00.195.508-K",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "8669944b-5804-4d29-ae81-25f5d25385e1",
+    "name": "FUENTES INOSTROZA CRISTIAN",
+    "dni": "13.208.356-8",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "23fde916-0ef5-4676-ab35-f4f4dbe147da",
+    "name": "RIVERA ALONSO",
+    "dni": "12.966.070-8",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "51b5f923-fd1a-49b4-8bcb-6edcce49c195",
+    "name": "SOC INOSTROZA IBAÑEZ",
+    "dni": "77.399.140-5",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "d3423093-c2d9-42c3-a9fe-58f459d5bb94",
+    "name": "SOC AGRICOLA SAN ALBERTO",
+    "dni": "77.585.620-3",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "27f51fbe-faf3-42ba-a341-edf1faa8c8e0",
+    "name": "FUENTES INOSTROZA PATRICIO",
+    "dni": "11.566.466-2",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "06cf692f-f14e-4b33-8ffa-425320838586",
+    "name": "HAMAME ORREGO CARLOS",
+    "dni": "12.522.941-7",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "09b7dc7e-dd14-4afb-b2f2-9d26ca45e5a5",
+    "name": "SOC. SANTO TOMAS",
+    "dni": "76.139.293-K",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "fad4201d-b9f7-4465-9800-e42b98d15b83",
+    "name": "SAN JOSE",
+    "dni": "2.587.149-6",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "7fc0371e-3ee1-43b1-a519-5bf526847f55",
+    "name": "VILLAR FLORES LORENA",
+    "dni": "16.827.877-2",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "536105b1-6eb2-47ca-a3c8-e3084374d099",
+    "name": "soc. agricola el aromo",
+    "dni": "76.293.036-6",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "069575c6-2b98-457b-9484-ce9e5980b958",
+    "name": "AGRICOLA LOS HUINGANES",
+    "dni": "76.149.408-2",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "9b4102a0-db56-4d6e-aecf-eaf066694693",
+    "name": "ORTEGA VIVANCO LUIS GILBERTO",
+    "dni": "12.545.520-4",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "52075fc2-9ed4-4a97-b0ff-db9780869c50",
+    "name": "FUENTES PEREZ GILBERTO",
+    "dni": "4.936.779-1",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "7ded4021-641b-4e61-a50e-d6e3dbc0d011",
+    "name": "SOC EL GUINDO",
+    "dni": "76.145.874-4",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "469f5605-b554-49e0-927f-844ec95eb514",
+    "name": "MUÑOZ RIOS CARLOS",
+    "dni": "12.966.439-8",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "be46346c-750c-4735-996a-6535586ce039",
+    "name": "LOPEZ BEYZAGA VICTORIA",
+    "dni": "13.842.014-0",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "3a98977d-4073-4fe9-a6f6-91f8de78f29d",
+    "name": "AGRICOLA CASAS VIEJAS",
+    "dni": "77.960.729-1",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "f91f1874-ddd3-4f37-bde6-25ba08e90f70",
+    "name": "FRUTOS DEL MAULE SUR LTDA",
+    "dni": "77.952.396-9",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "225bff0a-cae8-4f05-95cb-fed06da55b89",
+    "name": "PINO ANDRADES LUIS",
+    "dni": "15.500.478-9",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "a1752395-bdbb-4543-b39a-590e7257d3d4",
+    "name": "VIVANCO BASOALTO JUAN",
+    "dni": "15.826.142-1",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "c5024241-bc74-4330-9b8e-d33162893523",
+    "name": "SOTO VILLAGRA ANA",
+    "dni": "11.567.289-4",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "99b8a14a-a508-4eb1-acac-4f67e224a681",
+    "name": "SALDAÑA INOSTROZA ROSA",
+    "dni": "10.502.628-5",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "247c8822-a834-4bef-91e3-b2248ebbbd55",
+    "name": "SEPULVEDA SOTO NELSON",
+    "dni": "7.725.820-5",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "9eb988fa-913d-4f78-9e84-80dc93d0dbcc",
+    "name": "INOSTROZA MERIÑO ELISA",
+    "dni": "7.015.410-2",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "32170983-95d1-424e-a77a-47056fabe280",
+    "name": "CASTILLO CASTILLO ISABEL",
+    "dni": "14.322.698-0",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "2249ae24-0ebe-4158-99b9-417af5354437",
+    "name": "ORTEGA ASCENCIO SOLEDAD",
+    "dni": "11.289.159-5",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "93a78f4a-41dd-4f5e-a078-570a6a5d729e",
+    "name": "AGRICOLA LOS ACACIOS",
+    "dni": "77.200.129-0",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "2192a243-bfba-451d-bd7c-133ab4007dbe",
+    "name": "YAÑEZ CHANDIA GABRIEL",
+    "dni": "12.966.221-2",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "2814cba1-b5a1-4b6a-8524-01328193b546",
+    "name": "AGRICOLA LAS ENCINAS",
+    "dni": "76.845.104-4",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "28be7560-f4db-4845-a8ea-9fab7311d133",
+    "name": "RETAMAL INOSTROZA GLADYS",
+    "dni": "11.999.052-1",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "ed65abec-b5aa-4658-a391-bbab5b42e09a",
+    "name": "TUNAL NORTE SPA",
+    "dni": "78.034.226-9",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "ce36c619-a8b1-4e05-ae85-29aa22dd3363",
+    "name": "INOSTROZA XIMENA",
+    "dni": "13.615.381-1",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "e7b68f37-9a0f-4f63-8335-8983456aa633",
+    "name": "SOC AGRICOLA EL PERAL SPA",
+    "dni": "76.674.494-K",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "ce8420f2-c819-4626-bce3-5289a1930c97",
+    "name": "FLORES ORTEGA DELERINO",
+    "dni": "9.430.046-0",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "cbca12c3-9c8c-451e-a5e4-e30cf16eaac2",
+    "name": "CARLOS AGUERO ORTEGA",
+    "dni": "20.189.222-8",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "121960e2-a456-499f-8059-2067c0a59007",
+    "name": "JUAN ORTEGA ALFARO",
+    "dni": "8.553.991-4",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "b47753e2-87eb-4521-b94a-767d6697d28e",
+    "name": "RETAMAL GONZLEZ GLORIA",
+    "dni": "13.207.636-7",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "9afb9294-978d-42cb-b516-9e75818cefac",
+    "name": "HAMAME ORREGO MARIA",
+    "dni": "11.675.803-2",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "d4475f11-11ff-417f-9da4-79d6c4b5ccb6",
+    "name": "ESPINOZA GUTIERREZ FERNANDO",
+    "dni": "7.098.283-8",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "fb324ae3-413e-4c44-98d7-4d58affaaaa4",
+    "name": "INOSTROZA IBAÑEZ JOSE PABLO",
+    "dni": "21.963.081-6",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "62934fbe-e533-443d-ad4d-9ec4a575cd9f",
+    "name": "BASOALTO CASTILLO ESTER",
+    "dni": "7.868.337-6",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "a097b1ca-af1b-4fa9-ab3c-9e18662705e6",
+    "name": "PARADA OSORES JOEL",
+    "dni": "6.644.850-9",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "93bd74be-86f4-420a-b6d8-4a53328788bc",
+    "name": "FERNANDEZ OLGUIN LUIS",
+    "dni": "14.050.273-1",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "00f6c904-ae91-47bd-b1f3-b467a541f973",
+    "name": "GUTIERREZ CASTILLO ROBERTO",
+    "dni": "8.553.482-3",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "b7ae053b-373c-459e-8115-6ec472dfae14",
+    "name": "AGRICOLA SERMAR",
+    "dni": "78.186.861-2",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "4f60b5c5-6129-4012-b35e-49d6772f9460",
+    "name": "MENDEZ VELOZO NATALY",
+    "dni": "16.827.230-3",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "8c9352b6-03e8-45dd-9e48-68aaebb77310",
+    "name": "MENDEZ CONTRERAS SOLEDAD",
+    "dni": "17.717.968-K",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "bb7f0ca8-e102-4d9b-881a-831e11f22808",
+    "name": "COMERCIALIZADORA QUILLAIMO",
+    "dni": "78.198.081-1",
+    "phone": "",
+    "mail": ""
+  },
+  {
+    "id": "7908b2fc-51a2-4717-bb40-4b2c35847d40",
+    "name": "CALLUCURA MAÑIL GLORIA",
+    "dni": "10.160.538-8",
+    "phone": "",
+    "mail": ""
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "ESPARRAGOS ORGANICOS",
+    "priceCLP": 500,
+    "priceUSD": 0,
+    "currency": "CLP"
+  },
+  {
+    "name": "FRAMBUESA ORGANICA",
+    "priceCLP": 500,
+    "priceUSD": 0,
+    "currency": "CLP"
+  },
+  {
+    "name": "ARANDANO ORGANICO",
+    "priceCLP": 500,
+    "priceUSD": 0,
+    "currency": "CLP"
+  },
+  {
+    "name": "MORA ORGANICA",
+    "priceCLP": 500,
+    "priceUSD": 0,
+    "currency": "CLP"
+  }
+]

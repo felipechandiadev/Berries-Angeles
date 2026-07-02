@@ -1,0 +1,30 @@
+[
+  {
+    "id": "d34a53d1-aaaa-4e50-b501-000000000001",
+    "entityName": "User",
+    "entityId": "5a8b58a0-4444-4f77-a007-000000000001",
+    "userId": "5a8b58a0-4444-4f77-a007-000000000001",
+    "action": "LOGIN",
+    "description": "Ingreso al sistema para registrar recepción",
+    "createdAt": "2025-01-05T09:15:00.000Z"
+  },
+  {
+    "id": "d34a53d1-aaaa-4e50-b501-000000000002",
+    "entityName": "Producer",
+    "entityId": "701f9588-3333-4b20-c003-000000000001",
+    "userId": "5a8b58a0-4444-4f77-a007-000000000002",
+    "action": "UPDATE",
+    "changes": {
+      "fields": {
+        "phone": {
+          "oldValue": "+56900000000",
+          "newValue": "+56944444444"
+        }
+      },
+      "summary": "Actualización de contacto del productor",
+      "changeCount": 1
+    },
+    "description": "Se ajustó el teléfono de contacto del productor",
+    "createdAt": "2025-02-12T14:22:30.000Z"
+  }
+]

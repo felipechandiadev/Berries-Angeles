@@ -1,0 +1,23 @@
+[
+  {
+    "accountType": "Cuenta Corriente",
+    "bank": "Banco de Chile",
+    "accountNumber": "12345678901234567890",
+    "alias": "Cuenta Principal Administración",
+    "isActive": true
+  },
+  {
+    "accountType": "Cuenta de Ahorro",
+    "bank": "Banco del Estado de Chile",
+    "accountNumber": "09876543210987654321",
+    "alias": "Cuenta de Reserva",
+    "isActive": true
+  },
+  {
+    "accountType": "Cuenta Vista",
+    "bank": "Banco Santander Chile",
+    "accountNumber": "11223344556677889900",
+    "alias": "Cuenta Operativa",
+    "isActive": true
+  }
+]

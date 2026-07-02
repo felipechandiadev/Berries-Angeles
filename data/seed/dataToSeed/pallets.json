@@ -1,0 +1,63 @@
+[
+  {
+    "storageId": "3ccba123-5555-4d12-e005-000000000001",
+    "trayName": "AZUL",
+    "traysQuantity": 48,
+    "capacity": 60,
+    "weightKg": 720,
+    "dispatchWeightKg": 0,
+    "status": "FULL",
+    "metadata": {
+      "batchCode": "PAL-IQF-2025-0001",
+      "sealedBy": "test_admin",
+      "sealedAt": "2025-03-03T16:20:00.000Z",
+      "notes": "Frambuesa orgánica congelada lista para despacho."
+    },
+    "createdAt": "2025-03-03T16:20:00.000Z"
+  },
+  {
+    "storageName": "Cámara Fría Central",
+    "trayName": "ARANDANERA",
+    "traysQuantity": 30,
+    "capacity": 40,
+    "weightKg": 360,
+    "dispatchWeightKg": 0,
+    "status": "CLOSED",
+    "metadata": {
+      "batchCode": "PAL-IQF-2025-0002",
+      "sealedBy": "operador.norte",
+      "sealedAt": "2025-03-04T09:50:00.000Z",
+      "notes": "Asignado a mezcla de arándanos IQF."
+    },
+    "createdAt": "2025-03-04T09:50:00.000Z"
+  },
+  {
+    "storageId": "3ccba123-5555-4d12-e005-000000000002",
+    "trayName": "ESPARRAGUERA",
+    "traysQuantity": 15,
+    "capacity": 30,
+    "weightKg": 210,
+    "dispatchWeightKg": 0,
+    "status": "AVAILABLE",
+    "metadata": {
+      "batchCode": "PAL-BLOCK-2025-0003",
+      "notes": "Parcialmente ocupado con espárragos en bloque.",
+      "temperatureC": -20
+    },
+    "createdAt": "2025-03-05T08:05:00.000Z"
+  },
+  {
+    "storageName": "Túnel IQF Norte",
+    "trayName": "NEGRA CHICA",
+    "traysQuantity": 0,
+    "capacity": 50,
+    "weightKg": 0,
+    "dispatchWeightKg": 0,
+    "status": "AVAILABLE",
+    "metadata": {
+      "batchCode": "PAL-RESERVA-2025-0004",
+      "notes": "Pallet reservado para próxima recepción nocturna."
+    },
+    "createdAt": "2025-03-05T12:00:00.000Z"
+  }
+]

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Electron build output (legacy)
+dist/
+
+# Env files
+.env
+.env.local
+.env*.local
+
+# OS / IDE
+.DS_Store
+.vscode/
+
+# Next.js
+.next/
+out/
+build/
+public/sw.js
+public/sw.js.map
+
+# Playwright (legacy)
+playwright-report/
+test-results/
