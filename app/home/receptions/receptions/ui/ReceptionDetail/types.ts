@@ -1,3 +1,7 @@
+import type { ReceptionPaymentStatus } from '@/lib/receptionPayment';
+
+export type { ReceptionPaymentStatus };
+
 export type ReceptionRelationType =
   | 'RECEPTION_PACK'
   | 'TRAY_RECEPTION'
@@ -35,6 +39,7 @@ export interface ReceptionDetailSummary {
   exchangeRate?: number | null;
   totalCLPToPay?: number | null;
   payableUSD?: number | null;
+  paymentStatus?: ReceptionPaymentStatus;
 }
 
 export interface ReceptionDetailProducerInfo {

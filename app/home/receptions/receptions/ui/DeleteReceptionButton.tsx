@@ -6,6 +6,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { deleteReception, type ReceptionGridRow } from '@/app/actions/receptions';
+import { isPaidOnReception } from '@/lib/receptionPayment';
 
 interface DeleteReceptionButtonProps {
   reception: ReceptionGridRow;
@@ -59,6 +60,7 @@ export default function DeleteReceptionButton({ reception, onSuccess }: DeleteRe
   };
 
   const guideLabel = reception.guideNumber ? `guía ${reception.guideNumber}` : `ID ${reception.id}`;
+  const paidOnReception = isPaidOnReception(reception.paymentStatus);
 
   return (
     <>
@@ -67,7 +69,12 @@ export default function DeleteReceptionButton({ reception, onSuccess }: DeleteRe
         variant="basicSecondary"
         size="sm"
         onClick={() => setOpen(true)}
-        title="Eliminar"
+        title={
+          paidOnReception
+            ? 'No se puede eliminar una recepción pagada contra recepción'
+            : 'Eliminar'
+        }
+        disabled={paidOnReception}
       />
       <Dialog
         open={open}

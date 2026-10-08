@@ -593,6 +593,7 @@ export interface ReceptionExcelRow {
   payableUSD: number;
   exchangeRate: number;
   totalCLP: number;
+  paymentStatus: string;
   createdAt: string;
 }
 
@@ -601,6 +602,9 @@ export function formatReceptionsDataForExcel(receptionsData: any[]): ReceptionEx
     const varieties = Array.isArray(reception.varieties)
       ? reception.varieties.filter((value: unknown) => typeof value === 'string' && value.trim() !== '').join(', ')
       : '-';
+
+    const paymentStatus =
+      reception.paymentStatus === 'PAID_ON_RECEPTION' ? 'Pagada' : 'Pendiente';
 
     return {
       id: typeof reception.id === 'string' ? reception.id : String(reception.id ?? ''),
@@ -614,6 +618,7 @@ export function formatReceptionsDataForExcel(receptionsData: any[]): ReceptionEx
       payableUSD: Number(reception.payableUSD ?? 0),
       exchangeRate: Number(reception.exchangeRate ?? 0),
       totalCLP: Number(reception.totalCLP ?? 0),
+      paymentStatus,
       createdAt: reception.createdAt
         ? formatAuditDate(reception.createdAt)
         : '-',
@@ -646,6 +651,7 @@ export function createReceptionsWorkbook(data: ReceptionExcelRow[], options: Exc
     'USD': row.payableUSD,
     'Cambio': row.exchangeRate,
     'A Pagar (CLP)': row.totalCLP,
+    'Estado pago': row.paymentStatus,
     'Creado': row.createdAt,
   }));
 
@@ -682,6 +688,7 @@ export function createReceptionsWorkbook(data: ReceptionExcelRow[], options: Exc
     { wch: 18 }, // USD
     { wch: 14 }, // Cambio
     { wch: 20 }, // A Pagar
+    { wch: 14 }, // Estado pago
     { wch: 20 }, // Creado
   ];
   dataSheet['!cols'] = colWidths;

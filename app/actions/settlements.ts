@@ -134,6 +134,10 @@ export async function listPendingReceptions(
     .andWhere('reception.deletedAt IS NULL')
     .andWhere('reception.producerId = :producerId', { producerId })
     .andWhere('settlementRelation.id IS NULL')
+    .andWhere(
+      `COALESCE(JSON_UNQUOTE(JSON_EXTRACT(reception.metadata, '$.paymentStatus')), 'PENDING') <> :paidOnReception`,
+      { paidOnReception: 'PAID_ON_RECEPTION' },
+    )
     .orderBy('reception.createdAt', 'DESC');
 
   if (input.seasonId?.trim()) {

@@ -2,6 +2,7 @@
 
 import { Button } from '@/app/baseComponents/Button/Button';
 import type { ReceptionDetailSummary, ReceptionDetailTotals } from './types';
+import { paymentStatusLabel } from '@/lib/receptionPayment';
 
 interface ReceptionDetailHeaderProps {
   summary: ReceptionDetailSummary;
@@ -64,6 +65,16 @@ export function ReceptionDetailHeader({ summary, totals, onClose }: ReceptionDet
         <div className="flex flex-col items-center px-3 py-2 rounded-lg bg-blue-100 text-blue-800">
           <span className="text-xs font-medium">A PAGAR</span>
           <span className="text-lg font-semibold">{formattedPayLabel}</span>
+        </div>
+        <div
+          className={`flex flex-col items-center px-3 py-2 rounded-lg ${
+            summary.paymentStatus === 'PAID_ON_RECEPTION'
+              ? 'bg-green-100 text-green-800'
+              : 'bg-amber-100 text-amber-800'
+          }`}
+        >
+          <span className="text-xs font-medium">ESTADO</span>
+          <span className="text-lg font-semibold">{paymentStatusLabel(summary.paymentStatus)}</span>
         </div>
       </div>
     </header>

@@ -6,6 +6,7 @@ import DataGrid from '@/app/baseComponents/DataGrid/DataGrid';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import {
   getReceptionsExportData,
+  getReceptionPrintData,
   type ReceptionGridRow,
   type ReceptionsGridFilters,
 } from '@/app/actions/receptions';
@@ -13,6 +14,10 @@ import { exportReceptionsToExcel } from '@/lib/excelExport';
 import { formatAuditDate } from '@/lib/dateTimeUtils';
 import DetailReceptionButton from './DetailReceptionButton';
 import DeleteReceptionButton from './DeleteReceptionButton';
+import IconButton from '@/app/baseComponents/IconButton/IconButton';
+import PrintReceptionDialog from '@/app/home/receptions/newRecepcion/ui/PrintReceptionDialog';
+import type { ReceptionDataSnapshot } from '@/app/home/receptions/newRecepcion/ui/TransactionData';
+import { paymentStatusLabel } from '@/lib/receptionPayment';
 
 type SortDirection = 'ASC' | 'DESC';
 
@@ -55,6 +60,10 @@ export default function ReceptionsGrid({
   const searchParams = useSearchParams();
   const { showAlert } = useAlert();
   const [isExporting, setIsExporting] = useState(false);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printSnapshot, setPrintSnapshot] = useState<ReceptionDataSnapshot | null>(null);
+  const [printReceptionId, setPrintReceptionId] = useState<string | null>(null);
+  const [loadingPrintId, setLoadingPrintId] = useState<string | null>(null);
 
   const handleRefresh = () => {
     router.refresh();
@@ -127,6 +136,48 @@ export default function ReceptionsGrid({
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleOpenPrintDialog = async (reception: ReceptionGridRow) => {
+    const receptionId = String(reception.id);
+
+    if (loadingPrintId) {
+      return;
+    }
+
+    setPrintSnapshot(null);
+    setPrintReceptionId(null);
+    setLoadingPrintId(receptionId);
+
+    try {
+      const result = await getReceptionPrintData(receptionId);
+
+      if (!result.success || !result.data) {
+        showAlert({
+          message: result.error || 'No fue posible preparar el recibo de impresión.',
+          type: 'error',
+          duration: 5000,
+        });
+        return;
+      }
+
+      setPrintSnapshot(result.data.snapshot as ReceptionDataSnapshot);
+      setPrintReceptionId(result.data.receptionTransactionId ?? receptionId);
+      setPrintDialogOpen(true);
+    } catch (error) {
+      console.error('[ReceptionsGrid] Error loading print data:', error);
+      showAlert({
+        message: 'Error inesperado al preparar la impresión de la recepción.',
+        type: 'error',
+        duration: 5000,
+      });
+    } finally {
+      setLoadingPrintId((current) => (current === receptionId ? null : current));
+    }
+  };
+
+  const handleClosePrintDialog = () => {
+    setPrintDialogOpen(false);
   };
 
   const columns = [
@@ -243,13 +294,43 @@ export default function ReceptionsGrid({
       ),
     },
     {
+      field: 'paymentStatus',
+      headerName: 'Estado',
+      flex: 0.8,
+      sortable: false,
+      renderCell: ({ value }: { value: string }) => {
+        const label = paymentStatusLabel(value);
+        const isPaid = value === 'PAID_ON_RECEPTION';
+        return (
+          <span
+            className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
+              isPaid
+                ? 'bg-green-100 text-green-800'
+                : 'bg-amber-100 text-amber-800'
+            }`}
+          >
+            {label}
+          </span>
+        );
+      },
+    },
+    {
       field: 'actions',
       headerName: '',
-      flex: 0.6,
+      flex: 0.9,
       sortable: false,
       actionComponent: ({ row }: { row: ReceptionGridRow }) => (
         <div className="flex gap-1">
           <DetailReceptionButton reception={row} />
+          <IconButton
+            icon={loadingPrintId === String(row.id) ? 'hourglass_top' : 'print'}
+            variant="basicSecondary"
+            size="xs"
+            title="Reimprimir ticket"
+            ariaLabel="Reimprimir ticket de recepción"
+            disabled={loadingPrintId === String(row.id)}
+            onClick={() => handleOpenPrintDialog(row)}
+          />
           <DeleteReceptionButton reception={row} onSuccess={handleRefresh} />
         </div>
       ),
@@ -270,6 +351,13 @@ export default function ReceptionsGrid({
         filters={currentFilters}
         height={'85vh'}
         showBorder={false}
+      />
+
+      <PrintReceptionDialog
+        open={printDialogOpen}
+        onClose={handleClosePrintDialog}
+        snapshot={printSnapshot}
+        receptionTransactionId={printReceptionId}
       />
     </div>
   );

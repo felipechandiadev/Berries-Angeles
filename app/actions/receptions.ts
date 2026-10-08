@@ -31,6 +31,10 @@ import {
   type ReceptionTransactionType,
   type ReceptionTransactionUnit,
 } from '@/app/home/receptions/receptions/ui/ReceptionDetail/types';
+import {
+  normalizePaymentStatus,
+  type ReceptionPaymentStatus,
+} from '@/lib/receptionPayment';
 
 export interface ReceptionProducerOption {
   id: string | number;
@@ -87,6 +91,7 @@ export interface ProcessReceptionInput {
   trayDevolutions: TrayDevolutionInput[];
   totals: ProcessReceptionTotalsInput;
   exchangeRate: number;
+  paymentStatus?: ReceptionPaymentStatus;
   userId?: string;
 }
 
@@ -120,6 +125,66 @@ export interface RemoveReceptionPackResult {
   error?: string;
 }
 
+export interface ReceptionPrintPackSummary {
+  id: number;
+  packNumber: number;
+  varietyId: number | null;
+  varietyName: string | null;
+  formatId: number | null;
+  formatName: string | null;
+  trayId: string | null;
+  trayLabel: string | null;
+  traysQuantity: number;
+  impurityPercent: number;
+  price: number;
+  currency: Currency | null;
+  grossWeight: number;
+  unitTrayWeight: number;
+  traysTotalWeight: number;
+  netWeightBeforeImpurities: number;
+  netWeight: number;
+  totalToPay: number;
+  palletAssignments: Array<{ palletId: number; traysAssigned: number; grossWeightKg?: number }>;
+}
+
+export interface ReceptionPrintTrayDevolution {
+  id: number;
+  trayId: string | null;
+  trayLabel: string | null;
+  quantity: number;
+}
+
+export interface ReceptionPrintTotals {
+  totalPacks: number;
+  totalTraysInPacks: number;
+  totalTraysDevolved: number;
+  totalGrossWeight: number;
+  totalNetWeight: number;
+  totalToPayUSD: number;
+  totalToPayCLP: number;
+  totalCLPToPay: number;
+}
+
+export interface ReceptionPrintSnapshot {
+  producer: ReceptionProducerOption | null;
+  guide: string;
+  packs: ReceptionPrintPackSummary[];
+  trayDevolutions: ReceptionPrintTrayDevolution[];
+  totals: ReceptionPrintTotals;
+  exchangeRate: number;
+  createdAt?: string | null;
+  paymentStatus?: ReceptionPaymentStatus;
+}
+
+export interface ReceptionPrintDataResponse {
+  success: boolean;
+  data?: {
+    snapshot: ReceptionPrintSnapshot;
+    receptionTransactionId: string | null;
+  };
+  error?: string;
+}
+
 interface ResolvedUser {
   id: string;
   name: string;
@@ -136,6 +201,24 @@ const normalizeNumber = (value: unknown, fallback = 0): number => {
     return Number.isFinite(parsed) ? parsed : fallback;
   }
   return fallback;
+};
+
+const toCurrencyEnum = (value: unknown): Currency | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value).trim().toUpperCase();
+
+  if (normalized === Currency.CLP) {
+    return Currency.CLP;
+  }
+
+  if (normalized === Currency.USD) {
+    return Currency.USD;
+  }
+
+  return null;
 };
 
 async function resolveUser(manager: EntityManager, explicitUserId?: string): Promise<ResolvedUser> {
@@ -611,6 +694,8 @@ export async function processReception(input: ProcessReceptionInput): Promise<Pr
         stockAfter: normalizeNumber(item.stockAfter),
       }));
 
+      const paymentStatus = normalizePaymentStatus(input.paymentStatus);
+
       const changesHistory = [
         {
           changedAt: nowIso,
@@ -620,6 +705,7 @@ export async function processReception(input: ProcessReceptionInput): Promise<Pr
           details: [
             { field: 'exchangeRate', previousValue: null, newValue: exchangeRate },
             { field: 'totalCLPToPay', previousValue: null, newValue: totalCLPToPay },
+            { field: 'paymentStatus', previousValue: null, newValue: paymentStatus },
           ],
         },
       ];
@@ -650,6 +736,7 @@ export async function processReception(input: ProcessReceptionInput): Promise<Pr
         },
         exchangeRate,
         totalCLPToPay,
+        paymentStatus,
         changesHistory,
       };
 
@@ -1282,6 +1369,7 @@ export interface ReceptionGridRow {
   payableUSD: number;
   exchangeRate: number;
   totalCLP: number;
+  paymentStatus: ReceptionPaymentStatus;
   createdAt?: string;
 }
 
@@ -1372,6 +1460,7 @@ const formatReceptionRow = (raw: RawReceptionRow): ReceptionGridRow => {
     payableUSD,
     exchangeRate,
     totalCLP,
+    paymentStatus: normalizePaymentStatus(metadata?.paymentStatus),
     createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : undefined,
   };
 };
@@ -1936,6 +2025,7 @@ export async function getReceptionDetail(receptionId: string): Promise<Reception
         exchangeRate: metadata?.exchangeRate ?? null,
         totalCLPToPay: totals.totalCLPToPay,
         payableUSD: totals.payableUSD,
+        paymentStatus: normalizePaymentStatus(metadata?.paymentStatus),
       },
       producer: producerInfo,
       documents: {
@@ -1965,6 +2055,191 @@ export async function getReceptionDetail(receptionId: string): Promise<Reception
   }
 }
 
+const buildReceptionPrintSnapshot = (detail: ReceptionDetailData): ReceptionPrintSnapshot => {
+  const packs = Array.isArray(detail.packs) ? detail.packs : [];
+  const trayReturns = Array.isArray(detail.trayReturns) ? detail.trayReturns : [];
+  const metadata = detail.metadataRaw ?? {};
+  const exchangeRate = normalizeNumber(
+    (detail.summary.exchangeRate ?? (metadata as any)?.exchangeRate) ?? 0,
+    0
+  );
+
+  const packSummaries: ReceptionPrintPackSummary[] = packs.map((pack, index) => {
+    const packNumber = Number.isFinite(pack.packNumber)
+      ? Number(pack.packNumber)
+      : index + 1;
+    const currency = toCurrencyEnum(pack.currency);
+    const assignments = Array.isArray(pack.palletAssignments)
+      ? pack.palletAssignments.map((assignment) => ({
+          palletId: normalizeNumber(assignment.palletId, 0),
+          traysAssigned: normalizeNumber(assignment.traysAssigned, 0),
+        }))
+      : [];
+
+    return {
+      id: index + 1,
+      packNumber,
+      varietyId: null,
+      varietyName: pack.varietyName ?? null,
+      formatId: null,
+      formatName: pack.formatName ?? null,
+      trayId: pack.trayId ?? null,
+      trayLabel: pack.trayLabel ?? null,
+      traysQuantity: normalizeNumber(pack.traysQuantity, 0),
+      impurityPercent: normalizeNumber(pack.impurityPercent, 0),
+      price: normalizeNumber(pack.pricePerKg, 0),
+      currency,
+      grossWeight: normalizeNumber(pack.grossWeightKg, 0),
+      unitTrayWeight: normalizeNumber(pack.unitTrayWeightKg, 0),
+      traysTotalWeight: normalizeNumber(pack.traysTotalWeightKg, 0),
+      netWeightBeforeImpurities: normalizeNumber(pack.netWeightBeforeImpuritiesKg, 0),
+      netWeight: normalizeNumber(pack.netWeightKg, 0),
+      totalToPay: normalizeNumber(pack.totalToPay, 0),
+      palletAssignments: assignments,
+    };
+  });
+
+  const trayDevolutions: ReceptionPrintTrayDevolution[] = trayReturns.map((item, index) => ({
+    id: index + 1,
+    trayId: item.trayId ? String(item.trayId) : null,
+    trayLabel: item.trayLabel ?? null,
+    quantity: normalizeNumber(item.quantityReturned, 0),
+  }));
+
+  const computedTraysInPacks = packSummaries.reduce(
+    (sum, pack) => sum + normalizeNumber(pack.traysQuantity, 0),
+    0
+  );
+  const computedGrossWeight = packSummaries.reduce(
+    (sum, pack) => sum + normalizeNumber(pack.grossWeight, 0),
+    0
+  );
+  const computedNetWeight = packSummaries.reduce(
+    (sum, pack) => sum + normalizeNumber(pack.netWeight, 0),
+    0
+  );
+  const computedToPayCLP = packSummaries.reduce(
+    (sum, pack) =>
+      sum + (pack.currency === Currency.CLP ? normalizeNumber(pack.totalToPay, 0) : 0),
+    0
+  );
+  const computedToPayUSD = packSummaries.reduce(
+    (sum, pack) =>
+      sum + (pack.currency === Currency.USD ? normalizeNumber(pack.totalToPay, 0) : 0),
+    0
+  );
+  const computedTrayReturns = trayDevolutions.reduce(
+    (sum, item) => sum + normalizeNumber(item.quantity, 0),
+    0
+  );
+
+  const totalsSource = detail.totals ?? null;
+  const summaryAmount = normalizeNumber(detail.summary.totalCLPToPay ?? detail.summary.amount, 0);
+  const fallbackTotalCLP = summaryAmount || computedToPayCLP + (exchangeRate > 0
+    ? computedToPayUSD * exchangeRate
+    : 0);
+
+  const totals: ReceptionPrintTotals = {
+    totalPacks: totalsSource
+      ? normalizeNumber(totalsSource.packsCount, packSummaries.length)
+      : packSummaries.length,
+    totalTraysInPacks: totalsSource
+      ? normalizeNumber(totalsSource.traysInPacks, computedTraysInPacks)
+      : computedTraysInPacks,
+    totalTraysDevolved: computedTrayReturns,
+    totalGrossWeight: totalsSource
+      ? normalizeNumber(totalsSource.grossWeightKg, computedGrossWeight)
+      : computedGrossWeight,
+    totalNetWeight: totalsSource
+      ? normalizeNumber(totalsSource.netWeightKg, computedNetWeight)
+      : computedNetWeight,
+    totalToPayUSD: totalsSource
+      ? normalizeNumber(totalsSource.payableUSD, computedToPayUSD)
+      : computedToPayUSD,
+    totalToPayCLP: totalsSource
+      ? normalizeNumber(totalsSource.payableCLP, computedToPayCLP)
+      : computedToPayCLP,
+    totalCLPToPay: totalsSource
+      ? normalizeNumber(totalsSource.totalCLPToPay, fallbackTotalCLP)
+      : fallbackTotalCLP,
+  };
+
+  const producerName = detail.producer?.name ?? detail.summary.producerName ?? null;
+  const producerDni = detail.producer?.dni ?? detail.producer?.personDni ?? null;
+  const labelParts: string[] = [];
+  if (producerName) {
+    labelParts.push(String(producerName));
+  }
+  if (producerDni) {
+    labelParts.push(String(producerDni));
+  }
+  const producerLabel = labelParts.join(' - ');
+  const producerId = detail.producer?.id ?? detail.summary.id ?? null;
+
+  const producerOption = producerLabel
+    ? {
+        id: producerId !== null && producerId !== undefined ? producerId : producerLabel,
+        label: producerLabel,
+      }
+    : null;
+
+  const guide = detail.summary.guideNumber ?? detail.documents?.guideNumber ?? '';
+
+  return {
+    producer: producerOption
+      ? {
+          id:
+            typeof producerOption.id === 'number'
+              ? producerOption.id
+              : String(producerOption.id),
+          label: producerOption.label,
+        }
+      : null,
+    guide: guide ? String(guide) : '',
+    packs: packSummaries,
+    trayDevolutions,
+    totals,
+    exchangeRate,
+    createdAt: detail.summary.createdAt ?? null,
+    paymentStatus: normalizePaymentStatus(
+      detail.summary.paymentStatus ?? (metadata as any)?.paymentStatus
+    ),
+  };
+};
+
+export async function getReceptionPrintData(receptionId: string): Promise<ReceptionPrintDataResponse> {
+  if (!receptionId) {
+    return { success: false, error: 'Debes proporcionar un ID de recepción válido.' };
+  }
+
+  try {
+    const detailResult = await getReceptionDetail(receptionId);
+
+    if (!detailResult.success || !detailResult.data) {
+      return {
+        success: false,
+        error: detailResult.error || 'No fue posible obtener el detalle de la recepción.',
+      };
+    }
+
+    const snapshot = buildReceptionPrintSnapshot(detailResult.data);
+
+    return {
+      success: true,
+      data: {
+        snapshot,
+        receptionTransactionId: detailResult.data.summary?.id ?? receptionId,
+      },
+    };
+  } catch (error) {
+    console.error('[getReceptionPrintData] Error preparando datos de impresión:', error);
+    return {
+      success: false,
+      error: 'No fue posible preparar la información para imprimir la recepción.',
+    };
+  }
+}
+
 export async function deleteReception(receptionId: string, auditUserId?: string): Promise<{ success: boolean; error?: string }> {
   try {
     if (!receptionId) {
@@ -1987,6 +2262,13 @@ export async function deleteReception(receptionId: string, auditUserId?: string)
 
       if (!reception) {
         throw new Error('La recepción no existe o ya fue eliminada');
+      }
+
+      const receptionMetadata = toReceptionMetadata(reception.metadata) || {};
+      if (normalizePaymentStatus(receptionMetadata.paymentStatus) === 'PAID_ON_RECEPTION') {
+        throw new Error(
+          'No se puede eliminar una recepción pagada contra recepción.'
+        );
       }
 
       const relationsRepo = manager.getRepository(TransactionRelation);

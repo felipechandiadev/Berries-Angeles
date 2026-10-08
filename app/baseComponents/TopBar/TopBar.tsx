@@ -3,6 +3,7 @@ import React, { useState, useContext, useTransition } from 'react';
 import Image from 'next/image';
 import SideBar, { SideBarMenuItem } from './SideBar';
 import UserProfileDropdown from '@/app/home/users/ui/UserProfileDropdown';
+import PrinterSetupButton from './PrinterSetupButton';
 
 interface TopBarProps {
   title?: string;
@@ -53,6 +54,22 @@ const TopBar: React.FC<TopBarProps> = ({
         <div data-test-id="top-bar-root">
       <header className={`fixed top-0 z-30 w-full flex items-center justify-between px-10 py-2 pb-3 bg-background border-b-[2px] border-primary ${className}`}>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={open}
+              className="rounded-full transition-colors text-foreground hover:text-secondary focus:outline-none"
+              data-test-id="top-bar-menu-button"
+              aria-label="Abrir menú"
+            >
+              <span
+                className="material-symbols-outlined cursor-pointer"
+                style={{ fontSize: 36, width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                aria-hidden
+              >
+                menu
+              </span>
+            </button>
+
             {logoSrc ? (
               <>
                 {(!logoLoaded || logoError) && (
@@ -89,6 +106,8 @@ const TopBar: React.FC<TopBarProps> = ({
 
           {/* Right side elements */}
           <div className="flex items-center gap-2">
+            <PrinterSetupButton />
+
             {/* User name */}
             {userName && (
               <span className="text-sm font-weight-300 text-foreground" data-test-id="top-bar-user-name">
@@ -100,23 +119,6 @@ const TopBar: React.FC<TopBarProps> = ({
             {showUserButton && (
               <UserProfileDropdown />
             )}
-
-            {/* Menu button */}
-            <button
-              type="button"
-              onClick={open}
-              className=" rounded-full transition-colors text-foreground hover:text-secondary focus:outline-none"
-              data-test-id="top-bar-menu-button"
-              aria-label="Abrir menú"
-            >
-              <span
-                className="material-symbols-outlined cursor-pointer"
-                style={{ fontSize: 36, width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                aria-hidden
-              >
-                menu
-              </span>
-            </button>
           </div>
         </header>
         {/* Renderizar SideBar como modal, solo si showSidebar está activo */}

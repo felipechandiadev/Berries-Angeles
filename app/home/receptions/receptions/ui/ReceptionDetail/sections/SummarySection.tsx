@@ -11,6 +11,7 @@ import { updateReceptionDate, updateReceptionExchangeRate } from '@/app/actions/
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { useSession } from 'next-auth/react';
 import type { ReceptionDetailSummary, ReceptionDetailTotals, ReceptionDetailDocumentInfo } from '../types';
+import { paymentStatusLabel } from '@/lib/receptionPayment';
 
 interface SummarySectionProps {
   summary: ReceptionDetailSummary;
@@ -260,6 +261,12 @@ export function SummarySection({ summary, totals, documents, onRefresh }: Summar
                 Equivalente USD: {Number(summary.payableUSD).toLocaleString('es-CL', { maximumFractionDigits: 2 })}
               </p>
             )}
+          </div>
+          <div className="border border-gray-200 rounded-md p-3">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Estado de pago</p>
+            <p className="text-base font-medium text-gray-900">
+              {paymentStatusLabel(summary.paymentStatus)}
+            </p>
           </div>
         </div>
       {summary.updatedAt && summary.updatedAt !== summary.createdAt && (

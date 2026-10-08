@@ -1,7 +1,8 @@
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { Button } from '@/app/baseComponents/Button/Button';
+import Switch from '@/app/baseComponents/Switch/Switch';
 import type { ReceptionDataSnapshot, ReceptionTotals, ReceptionPackSummary } from './TransactionData';
 import type { TrayDevolutionItem } from './TrayDevolutionContainer';
 import { Currency } from '@/data/entities/Variety';
@@ -78,6 +79,14 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
   const trayDevolutions: TrayDevolutionItem[] = snapshot?.trayDevolutions ?? [];
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pagoContraRecepcion, setPagoContraRecepcion] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setPagoContraRecepcion(false);
+      setErrorMessage(null);
+    }
+  }, [open]);
 
   const receptionMetadata = useMemo(() => {
     const varieties = new Set<string>();
@@ -305,6 +314,7 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
           totalCLPToPay: totals.totalCLPToPay,
         },
         exchangeRate: snapshot.exchangeRate ?? 0,
+        paymentStatus: pagoContraRecepcion ? 'PAID_ON_RECEPTION' : 'PENDING',
       };
 
       const response = await processReception(payload);
@@ -314,7 +324,11 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
       }
 
       const receptionId = response.data?.receptionTransactionId ?? null;
-      onSave?.({ snapshot, receptionTransactionId: receptionId });
+      const snapshotWithPayment: ReceptionDataSnapshot = {
+        ...snapshot,
+        paymentStatus: pagoContraRecepcion ? 'PAID_ON_RECEPTION' : 'PENDING',
+      };
+      onSave?.({ snapshot: snapshotWithPayment, receptionTransactionId: receptionId });
       onClose();
     } catch (error: any) {
       console.error('[ProcessedReceptionDialog] Error guardando recepción:', error);
@@ -361,6 +375,13 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
               </div>
             ))}
           </div>
+          <Switch
+            checked={pagoContraRecepcion}
+            onChange={setPagoContraRecepcion}
+            label="pago contra recepción"
+            labelPosition="right"
+            data-test-id="pago-contra-recepcion-switch"
+          />
         </section>
 
         <section className="space-y-3">

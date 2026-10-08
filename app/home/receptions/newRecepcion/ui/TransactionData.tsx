@@ -7,6 +7,7 @@ import { DetailsContainer } from './DetailsContainer';
 import TrayDevolutionContainer, { type TrayDevolutionItem } from './TrayDevolutionContainer';
 import { Currency } from '@/data/entities/Variety';
 import { useRouter } from 'next/navigation';
+import type { ReceptionPaymentStatus } from '@/lib/receptionPayment';
 
 export interface ReceptionTotals {
   totalPacks: number;
@@ -31,6 +32,9 @@ export interface ReceptionDataSnapshot {
   trayDevolutions: TrayDevolutionItem[];
   totals: ReceptionTotals;
   exchangeRate: number;
+  /** Fecha de registro de la recepción (ISO); usada al reimprimir. */
+  createdAt?: string | null;
+  paymentStatus?: ReceptionPaymentStatus;
 }
 
 interface TransactionDataProps {
