@@ -59,6 +59,38 @@ const PRINT_PREVIEW_LOGO_STYLE: React.CSSProperties = {
   objectFit: 'contain',
 };
 
+/** Inline layout — survives print iframe (Tailwind utilities often do not). */
+const TICKET_ROOT_STYLE: React.CSSProperties = {
+  width: '76mm',
+  maxWidth: '76mm',
+  padding: 0,
+  margin: '0 auto',
+  boxSizing: 'border-box',
+  color: '#111',
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+  fontSize: '13px',
+  lineHeight: 1.25,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+};
+
+const TICKET_SECTION_STYLE: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+  borderTop: '1px solid #333',
+  paddingTop: '4px',
+};
+
+const TICKET_HEADER_STYLE: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '2px',
+  textAlign: 'center',
+};
+
 const formatNumber = (value: number, decimals = 2) =>
   new Intl.NumberFormat('es-CL', {
     minimumFractionDigits: decimals,
@@ -91,12 +123,22 @@ const formatCurrency = (value: number, currency: Currency | null) => {
   return formatNumber(value, 2);
 };
 
-/** Two-column ticket row; both columns left-aligned (80mm). */
+/** Two-column ticket row; both columns left-aligned (80mm). Inline styles for print. */
 function TicketRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[1fr_1fr] items-baseline gap-2 text-[13px]">
-      <span className="text-left">{label}</span>
-      <span className="min-w-0 text-left break-words">{value}</span>
+    <div
+      className="ticket-row"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        alignItems: 'baseline',
+        columnGap: '8px',
+        fontSize: '13px',
+        width: '100%',
+      }}
+    >
+      <span style={{ textAlign: 'left' }}>{label}</span>
+      <span style={{ textAlign: 'left', wordBreak: 'break-word', minWidth: 0 }}>{value}</span>
     </div>
   );
 }
@@ -109,12 +151,27 @@ function TicketPaymentFooter({
   paymentLabel: string;
 }) {
   return (
-    <section className="border-t border-border pt-2 text-center">
-      <p className="text-[12px] font-semibold uppercase tracking-wide">A PAGAR</p>
-      <p className="text-[20px] font-bold leading-tight">{amountLabel}</p>
-      <div className="my-2 border-t border-border" />
-      <p className="text-[11px] font-semibold uppercase tracking-wide">Estado del pago</p>
-      <p className="text-[16px] font-bold leading-tight">{paymentLabel}</p>
+    <section
+      className="ticket-payment-footer"
+      style={{
+        borderTop: '1px solid #333',
+        paddingTop: '8px',
+        textAlign: 'center',
+      }}
+    >
+      <p style={{ margin: 0, fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        A PAGAR
+      </p>
+      <p style={{ margin: '2px 0 0', fontSize: '14px', fontWeight: 700, lineHeight: 1.15 }}>
+        {amountLabel}
+      </p>
+      <div style={{ margin: '8px 0', borderTop: '1px solid #333' }} />
+      <p style={{ margin: 0, fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        Estado del pago
+      </p>
+      <p style={{ margin: '2px 0 0', fontSize: '11px', fontWeight: 700, lineHeight: 1.15 }}>
+        {paymentLabel}
+      </p>
     </section>
   );
 }
@@ -371,7 +428,7 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
   }, [receptionMetadata, totals, totalTraysReturned, currencyBreakdown, printOptions.showPrices, printOptions.showTrayDevolutions]);
 
   const companyHeader = printOptions.showCompanyHeader ? (
-    <header className="flex flex-col items-center gap-1 text-center">
+    <header style={TICKET_HEADER_STYLE}>
       {printOptions.showLogo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -380,13 +437,13 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
           style={PRINT_PREVIEW_LOGO_STYLE}
         />
       ) : null}
-      <p className="text-[13px] font-semibold">{COMPANY_PRINT_HEADER.legalName}</p>
-      <p className="text-[12px]">{COMPANY_PRINT_HEADER.rut}</p>
-      <p className="text-[11px]">{COMPANY_PRINT_HEADER.address}</p>
-      <p className="text-[11px]">{COMPANY_PRINT_HEADER.phones}</p>
+      <p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>{COMPANY_PRINT_HEADER.legalName}</p>
+      <p style={{ margin: 0, fontSize: '12px' }}>{COMPANY_PRINT_HEADER.rut}</p>
+      <p style={{ margin: 0, fontSize: '11px' }}>{COMPANY_PRINT_HEADER.address}</p>
+      <p style={{ margin: 0, fontSize: '11px' }}>{COMPANY_PRINT_HEADER.phones}</p>
     </header>
   ) : printOptions.showLogo ? (
-    <header className="flex flex-col items-center gap-1 text-center">
+    <header style={TICKET_HEADER_STYLE}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/logoPrint.png"
@@ -401,17 +458,48 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
       size: 80mm auto;
       margin: 0;
     }
-    @media print {
-      html, body {
-        width: 80mm !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-      #print-root {
-        width: 80mm !important;
-        padding: 2mm !important;
-        margin: 0 !important;
-      }
+    html, body {
+      width: 80mm !important;
+      max-width: 80mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #fff !important;
+      color: #111 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    #print-root {
+      width: 80mm !important;
+      max-width: 80mm !important;
+      padding: 2mm !important;
+      margin: 0 auto !important;
+      box-sizing: border-box !important;
+    }
+    #print-root .ticket-root,
+    #print-root [data-test-id="print-preview-classic"] {
+      width: 76mm !important;
+      max-width: 76mm !important;
+      margin: 0 auto !important;
+    }
+    #print-root .ticket-row {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      column-gap: 8px !important;
+      width: 100% !important;
+      font-size: 13px !important;
+    }
+    #print-root .ticket-row > span {
+      text-align: left !important;
+    }
+    #print-root .ticket-payment-footer {
+      text-align: center !important;
+    }
+    #print-root img {
+      max-width: 14mm !important;
+      height: auto !important;
+      display: block !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
     }
   `;
 
@@ -443,13 +531,13 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
     >
       {isClassic ? (
         <div
-          className="flex flex-col gap-1 text-[13px] leading-tight text-foreground"
-          style={{ width: '76mm', maxWidth: '76mm', padding: '0' }}
+          className="ticket-root"
+          style={TICKET_ROOT_STYLE}
           data-test-id="print-preview-classic"
         >
           {companyHeader}
 
-          <section className="flex flex-col gap-0.5 border-t border-border pt-1">
+          <section style={TICKET_SECTION_STYLE}>
             <TicketRow label="Recepción" value={receptionTransactionId ?? '—'} />
             <TicketRow label="Fecha" value={formattedDate} />
             <TicketRow label="Hora" value={formattedTime} />
@@ -463,7 +551,7 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
             <TicketRow label="Precio" value={classicPriceLabel} />
           </section>
 
-          <section className="flex flex-col gap-0.5 border-t border-border pt-1">
+          <section style={TICKET_SECTION_STYLE}>
             <TicketRow
               label="Cantidad bandejas"
               value={formatNumber(totals.totalTraysInPacks ?? 0, 0)}
@@ -497,18 +585,15 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
           <TicketPaymentFooter amountLabel={amountToPayLabel} paymentLabel={paymentLabel} />
         </div>
       ) : (
-        <div
-          className="flex flex-col gap-1 text-[13px] leading-tight text-foreground"
-          style={{ width: '76mm', maxWidth: '76mm', padding: '0' }}
-        >
+        <div className="ticket-root" style={TICKET_ROOT_STYLE}>
           {companyHeader}
           {!printOptions.showCompanyHeader ? (
-            <header className="text-center">
-              <p className="text-[13px]">Comprobante recepción</p>
+            <header style={{ textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: '13px' }}>Comprobante recepción</p>
             </header>
           ) : null}
 
-          <section className="flex flex-col gap-0.5 border-t border-border pt-1">
+          <section style={TICKET_SECTION_STYLE}>
             <TicketRow label="Recepción" value={`#${receptionTransactionId ?? '—'}`} />
             <TicketRow label="Fecha" value={formattedDate} />
             <TicketRow label="Hora" value={formattedTime} />
@@ -519,9 +604,11 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
             ) : null}
           </section>
 
-          <section className="border-t border-border pt-1">
-            <h4 className="mb-0.5 text-left text-[12px] font-semibold uppercase">Resumen</h4>
-            <div className="flex flex-col gap-0.5">
+          <section style={TICKET_SECTION_STYLE}>
+            <h4 style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left' }}>
+              Resumen
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               {receptionOverviewRows.map((row) => (
                 <TicketRow key={row.key} label={row.label} value={row.value} />
               ))}
@@ -529,16 +616,21 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
           </section>
 
           {printOptions.showPackDetails && packs.length > 0 ? (
-            <section className="border-t border-border pt-1">
-              <h4 className="text-left text-[12px] font-semibold uppercase">
+            <section style={TICKET_SECTION_STYLE}>
+              <h4 style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left' }}>
                 Packs ({packs.length})
               </h4>
               {packs.map((pack, index) => (
                 <div
                   key={pack.id ?? index}
-                  className="mb-1 border-b border-dotted border-border pb-1 text-[12px]"
+                  style={{
+                    marginBottom: '4px',
+                    borderBottom: '1px dotted #999',
+                    paddingBottom: '4px',
+                    fontSize: '12px',
+                  }}
                 >
-                  <div className="font-medium">Pack #{pack.packNumber || index + 1}</div>
+                  <div style={{ fontWeight: 600 }}>Pack #{pack.packNumber || index + 1}</div>
                   <TicketRow label="Variedad" value={pack.varietyName || '—'} />
                   <TicketRow label="Bandeja" value={pack.trayLabel || '—'} />
                   <TicketRow label="Cant" value={`${pack.traysQuantity || 0} uds`} />
@@ -555,9 +647,11 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
           ) : null}
 
           {printOptions.showPallets ? (
-            <section className="border-t border-border pt-1">
-              <h4 className="mb-0.5 text-left text-[12px] font-semibold uppercase">Pallets</h4>
-              <div className="flex flex-col gap-0.5">
+            <section style={TICKET_SECTION_STYLE}>
+              <h4 style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left' }}>
+                Pallets
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {palletLines.length > 0 ? (
                   palletLines.map((line) => (
                     <TicketRow
@@ -577,18 +671,18 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
                     />
                   ))
                 ) : (
-                  <div className="text-left text-muted-foreground">Sin asignación a pallets</div>
+                  <div style={{ textAlign: 'left', color: '#666' }}>Sin asignación a pallets</div>
                 )}
               </div>
             </section>
           ) : null}
 
           {printOptions.showTrayDevolutions && trayDevolutions.length > 0 ? (
-            <section className="border-t border-border pt-1">
-              <h4 className="mb-0.5 text-left text-[12px] font-semibold uppercase">
+            <section style={TICKET_SECTION_STYLE}>
+              <h4 style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left' }}>
                 Devolución de bandejas
               </h4>
-              <div className="flex flex-col gap-0.5">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {trayDevolutions.map((item, index) => (
                   <TicketRow
                     key={`${item.trayId ?? 'tray'}-${index}`}

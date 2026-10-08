@@ -235,6 +235,14 @@ async function appendCompanyHeader(
   }
 }
 
+/** Two left-aligned columns (matches HTML preview / Maugro ticket). */
+function kvLeft(enc: EscPosEncoder, label: string, value: string, width = 42): void {
+  const col = Math.floor(width / 2);
+  const left = String(label ?? '').slice(0, col).padEnd(col, ' ');
+  const right = String(value ?? '').slice(0, width - col);
+  enc.line(left + right);
+}
+
 function appendPaymentFooter(
   enc: EscPosEncoder,
   amountToPay: number,
@@ -242,12 +250,13 @@ function appendPaymentFooter(
 ): void {
   enc.separator();
   enc.align('center');
-  enc.bold(true).size(2, 2);
+  // ~30% smaller than prior size(2,2): double-height only + bold
+  enc.bold(true).size(1, 2);
   enc.line('A PAGAR');
   enc.line(formatCurrency(amountToPay, 'CLP'));
   enc.size(1, 1).bold(false);
   enc.separator();
-  enc.bold(true).size(2, 2);
+  enc.bold(true).size(1, 2);
   enc.line('Estado del pago');
   enc.line(paymentStatusLabel(paymentStatus));
   enc.size(1, 1).bold(false);
@@ -310,21 +319,21 @@ export async function buildClassicReceptionTicketEscPos(
   await appendCompanyHeader(enc, options);
   enc.align('left');
   enc.separator();
-  enc.kv('Recepcion', String(receptionTransactionId ?? '—'));
-  enc.kv('Fecha', date);
-  enc.kv('Hora', time);
-  enc.kv('Productor', parties.displayProducerName);
-  enc.kv('Rut', parties.displayProducerDni);
-  enc.kv('Chofer', String(data.driver ?? '').trim() || '—');
-  enc.kv('Guia', String(data.guide ?? '').trim() || '—');
-  enc.kv('Precio', classicPriceLabel(packs));
+  kvLeft(enc, 'Recepcion', String(receptionTransactionId ?? '—'));
+  kvLeft(enc, 'Fecha', date);
+  kvLeft(enc, 'Hora', time);
+  kvLeft(enc, 'Productor', parties.displayProducerName);
+  kvLeft(enc, 'Rut', parties.displayProducerDni);
+  kvLeft(enc, 'Chofer', String(data.driver ?? '').trim() || '—');
+  kvLeft(enc, 'Guia', String(data.guide ?? '').trim() || '—');
+  kvLeft(enc, 'Precio', classicPriceLabel(packs));
   enc.separator();
-  enc.kv('Cantidad bandejas', formatNumber(traysCount, 0));
-  enc.kv('Kg Bruto', formatNumber(gross, gross % 1 === 0 ? 0 : 1));
-  enc.kv('Descuento Kg', formatNumber(discountKg, discountKg % 1 === 0 ? 0 : 1));
-  enc.kv('Kg Neto', formatNumber(net, net % 1 === 0 ? 0 : 1));
-  enc.kv('Variedad', meta.varieties.length ? meta.varieties.join(', ') : '—');
-  enc.kv('Bandejas devueltas', formatNumber(totalTraysReturned, 0));
+  kvLeft(enc, 'Cantidad bandejas', formatNumber(traysCount, 0));
+  kvLeft(enc, 'Kg Bruto', formatNumber(gross, gross % 1 === 0 ? 0 : 1));
+  kvLeft(enc, 'Descuento Kg', formatNumber(discountKg, discountKg % 1 === 0 ? 0 : 1));
+  kvLeft(enc, 'Kg Neto', formatNumber(net, net % 1 === 0 ? 0 : 1));
+  kvLeft(enc, 'Variedad', meta.varieties.length ? meta.varieties.join(', ') : '—');
+  kvLeft(enc, 'Bandejas devueltas', formatNumber(totalTraysReturned, 0));
   appendPaymentFooter(enc, amountToPay, data.paymentStatus);
   enc.feed(1);
   enc.cut();
@@ -402,36 +411,36 @@ export async function buildReceptionTicketEscPos(
   }
   enc.align('left');
   enc.separator();
-  enc.kv('Recepcion', `#${receptionTransactionId ?? '—'}`);
-  enc.kv('Fecha', date);
-  enc.kv('Hora', time);
-  enc.kv('Productor', parties.displayProducerName);
-  enc.kv('RUT', parties.displayProducerDni);
+  kvLeft(enc, 'Recepcion', `#${receptionTransactionId ?? '—'}`);
+  kvLeft(enc, 'Fecha', date);
+  kvLeft(enc, 'Hora', time);
+  kvLeft(enc, 'Productor', parties.displayProducerName);
+  kvLeft(enc, 'RUT', parties.displayProducerDni);
   if (options.showGuideDriver) {
-    enc.kv('Guia', String(data.guide ?? '').trim() || '—');
+    kvLeft(enc, 'Guia', String(data.guide ?? '').trim() || '—');
   }
   if (parties.hasProductiveUnit && parties.deliveredBy) {
-    enc.kv('Entregada por', parties.deliveredBy);
+    kvLeft(enc, 'Entregada por', parties.deliveredBy);
   } else if (options.showGuideDriver && parties.deliveredBy) {
-    enc.kv('Entregada por', parties.deliveredBy);
+    kvLeft(enc, 'Entregada por', parties.deliveredBy);
   }
   enc.separator();
   enc.bold(true).line('RESUMEN').bold(false);
-  enc.kv('Variedad', meta.varieties.length ? meta.varieties.join(', ') : '—');
-  enc.kv('Tipo bandeja', meta.trayTypes.length ? meta.trayTypes.join(', ') : '—');
-  enc.kv('Total bandejas', formatNumber(totals.totalTraysInPacks ?? 0, 0));
-  enc.kv('Kg bandejas', `${formatNumber(meta.traysWeightKg, 2)} kg`);
-  enc.kv('kg bruto', `${formatNumber(totals.totalGrossWeight ?? 0, 2)} kg`);
-  enc.kv('kg neto', `${formatNumber(totals.totalNetWeight ?? 0, 2)} kg`);
+  kvLeft(enc, 'Variedad', meta.varieties.length ? meta.varieties.join(', ') : '—');
+  kvLeft(enc, 'Tipo bandeja', meta.trayTypes.length ? meta.trayTypes.join(', ') : '—');
+  kvLeft(enc, 'Total bandejas', formatNumber(totals.totalTraysInPacks ?? 0, 0));
+  kvLeft(enc, 'Kg bandejas', `${formatNumber(meta.traysWeightKg, 2)} kg`);
+  kvLeft(enc, 'kg bruto', `${formatNumber(totals.totalGrossWeight ?? 0, 2)} kg`);
+  kvLeft(enc, 'kg neto', `${formatNumber(totals.totalNetWeight ?? 0, 2)} kg`);
   if (meta.totalImpurities > 0) {
-    enc.kv('Kg impurezas', `${formatNumber(meta.totalImpurities, 2)} kg`);
+    kvLeft(enc, 'Kg impurezas', `${formatNumber(meta.totalImpurities, 2)} kg`);
   }
   if (options.showPrices) {
-    enc.kv('Total CLP', formatCurrency(money.clp, 'CLP'));
-    enc.kv('Total USD', formatCurrency(money.usd, 'USD'));
+    kvLeft(enc, 'Total CLP', formatCurrency(money.clp, 'CLP'));
+    kvLeft(enc, 'Total USD', formatCurrency(money.usd, 'USD'));
   }
   if (options.showTrayDevolutions && totalTraysReturned > 0) {
-    enc.kv('Bandejas devueltas', formatNumber(totalTraysReturned, 0));
+    kvLeft(enc, 'Bandejas devueltas', formatNumber(totalTraysReturned, 0));
   }
 
   if (options.showPackDetails && packs.length > 0) {
@@ -439,12 +448,12 @@ export async function buildReceptionTicketEscPos(
     enc.bold(true).line(`PACKS (${packs.length})`).bold(false);
     packs.forEach((pack, index) => {
       enc.line(`Pack #${pack.packNumber || index + 1}`);
-      enc.kv('  Variedad', pack.varietyName || '—');
-      enc.kv('  Bandeja', pack.trayLabel || '—');
-      enc.kv('  Cant', `${pack.traysQuantity || 0} uds`);
-      enc.kv('  P.Neto', `${formatNumber(pack.netWeight ?? 0)} kg`);
+      kvLeft(enc, '  Variedad', pack.varietyName || '—');
+      kvLeft(enc, '  Bandeja', pack.trayLabel || '—');
+      kvLeft(enc, '  Cant', `${pack.traysQuantity || 0} uds`);
+      kvLeft(enc, '  P.Neto', `${formatNumber(pack.netWeight ?? 0)} kg`);
       if (options.showPrices) {
-        enc.kv('  Total', formatCurrency(pack.totalToPay ?? 0, pack.currency));
+        kvLeft(enc, '  Total', formatCurrency(pack.totalToPay ?? 0, pack.currency));
       }
     });
   }
@@ -457,7 +466,7 @@ export async function buildReceptionTicketEscPos(
     enc.separator();
     enc.bold(true).line('DEVOLUCION BANDEJAS').bold(false);
     trayDevolutions.forEach((item) => {
-      enc.kv(
+      kvLeft(enc, 
         item.trayLabel ?? item.trayId ?? 'Bandeja',
         formatNumber(item.quantity ?? 0, 0)
       );
@@ -515,54 +524,54 @@ export async function buildMultipackReceptionTicketEscPos(
   }
   enc.align('left');
   enc.separator();
-  enc.kv('Folio', `#${receptionTransactionId ?? '—'}`);
-  enc.kv('Productor', parties.displayProducerName);
-  enc.kv('RUT', parties.displayProducerDni);
-  enc.kv('Fecha', date);
-  enc.kv('Hora', time);
+  kvLeft(enc, 'Folio', `#${receptionTransactionId ?? '—'}`);
+  kvLeft(enc, 'Productor', parties.displayProducerName);
+  kvLeft(enc, 'RUT', parties.displayProducerDni);
+  kvLeft(enc, 'Fecha', date);
+  kvLeft(enc, 'Hora', time);
   if (options.showGuideDriver) {
-    enc.kv('Guia', String(data.guide ?? '').trim() || '—');
+    kvLeft(enc, 'Guia', String(data.guide ?? '').trim() || '—');
   }
   if (parties.hasProductiveUnit && parties.deliveredBy) {
-    enc.kv('Entregada por', parties.deliveredBy);
+    kvLeft(enc, 'Entregada por', parties.deliveredBy);
   } else if (options.showGuideDriver && parties.deliveredBy) {
-    enc.kv('Entregada por', parties.deliveredBy);
+    kvLeft(enc, 'Entregada por', parties.deliveredBy);
   }
   enc.separator();
   enc.bold(true).line('RESUMEN').bold(false);
-  enc.kv(
+  kvLeft(enc, 
     'Variedad',
     meta.varieties.length > 1
       ? `${meta.varieties.length} variedades`
       : meta.varieties[0] || '—'
   );
-  enc.kv(
+  kvLeft(enc, 
     'Formato',
     meta.formats.length > 1 ? `${meta.formats.length} formatos` : meta.formats[0] || '—'
   );
-  enc.kv(
+  kvLeft(enc, 
     'Tipo bandeja',
     meta.trayTypes.length > 1 ? `${meta.trayTypes.length} tipos` : meta.trayTypes[0] || '—'
   );
-  enc.kv('Packs', String(packs.length));
-  enc.kv(
+  kvLeft(enc, 'Packs', String(packs.length));
+  kvLeft(enc, 
     'Bandejas',
     String(packs.reduce((sum, p) => sum + (p.traysQuantity ?? 0), 0))
   );
-  enc.kv(
+  kvLeft(enc, 
     'Peso bruto',
     `${formatNumber(packs.reduce((s, p) => s + (p.grossWeight ?? 0), 0))} kg`
   );
-  enc.kv('Peso bandejas', `${formatNumber(meta.traysWeightKg)} kg`);
-  enc.kv(
+  kvLeft(enc, 'Peso bandejas', `${formatNumber(meta.traysWeightKg)} kg`);
+  kvLeft(enc, 
     'Peso neto',
     `${formatNumber(packs.reduce((s, p) => s + (p.netWeight ?? 0), 0))} kg`
   );
   if (meta.totalImpurities > 0) {
-    enc.kv('Impurezas', `${formatNumber(meta.totalImpurities)} kg`);
+    kvLeft(enc, 'Impurezas', `${formatNumber(meta.totalImpurities)} kg`);
   }
   if (options.showTrayDevolutions) {
-    enc.kv('Bandejas devueltas', String(totalTraysReturned));
+    kvLeft(enc, 'Bandejas devueltas', String(totalTraysReturned));
   }
 
   if (options.showPackDetails) {
@@ -570,15 +579,15 @@ export async function buildMultipackReceptionTicketEscPos(
     enc.bold(true).line(`PACKS (${packs.length})`).bold(false);
     packs.forEach((pack, index) => {
       enc.line(`Pack #${pack.packNumber || index + 1}`);
-      enc.kv('  Variedad', pack.varietyName || '—');
-      enc.kv('  Formato', pack.formatName || '—');
-      enc.kv('  Bandeja', pack.trayLabel || '—');
-      enc.kv('  Cant', `${pack.traysQuantity || 0} uds`);
-      enc.kv('  P.Bruto', `${formatNumber(pack.grossWeight ?? 0)} kg`);
-      enc.kv('  P.Neto', `${formatNumber(pack.netWeight ?? 0)} kg`);
+      kvLeft(enc, '  Variedad', pack.varietyName || '—');
+      kvLeft(enc, '  Formato', pack.formatName || '—');
+      kvLeft(enc, '  Bandeja', pack.trayLabel || '—');
+      kvLeft(enc, '  Cant', `${pack.traysQuantity || 0} uds`);
+      kvLeft(enc, '  P.Bruto', `${formatNumber(pack.grossWeight ?? 0)} kg`);
+      kvLeft(enc, '  P.Neto', `${formatNumber(pack.netWeight ?? 0)} kg`);
       if (options.showPrices) {
-        enc.kv('  Precio', `${formatCurrency(pack.price ?? 0, pack.currency)}/kg`);
-        enc.kv('  Total', formatCurrency(pack.totalToPay ?? 0, pack.currency));
+        kvLeft(enc, '  Precio', `${formatCurrency(pack.price ?? 0, pack.currency)}/kg`);
+        kvLeft(enc, '  Total', formatCurrency(pack.totalToPay ?? 0, pack.currency));
       }
     });
   }
@@ -591,7 +600,7 @@ export async function buildMultipackReceptionTicketEscPos(
     enc.separator();
     enc.bold(true).line(`BANDEJAS DEV (${totalTraysReturned})`).bold(false);
     trayDevolutions.forEach((item) => {
-      enc.kv(
+      kvLeft(enc, 
         item.trayLabel || item.trayId || 'Bandeja',
         `${item.quantity || 0} uds`
       );
@@ -601,10 +610,10 @@ export async function buildMultipackReceptionTicketEscPos(
   if (options.showPrices && (clpTotal > 0 || usdTotal > 0)) {
     enc.separator();
     enc.bold(true).line('TOTALES').bold(false);
-    if (clpTotal > 0) enc.kv('Total CLP', formatCurrency(clpTotal, 'CLP'));
-    if (usdTotal > 0) enc.kv('Total USD', formatCurrency(usdTotal, 'USD'));
+    if (clpTotal > 0) kvLeft(enc, 'Total CLP', formatCurrency(clpTotal, 'CLP'));
+    if (usdTotal > 0) kvLeft(enc, 'Total USD', formatCurrency(usdTotal, 'USD'));
     if (exchangeRate > 0 && usdTotal > 0) {
-      enc.kv('T.Cambio', `${formatNumber(exchangeRate, 0)} CLP/USD`);
+      kvLeft(enc, 'T.Cambio', `${formatNumber(exchangeRate, 0)} CLP/USD`);
     }
   }
 
