@@ -1362,6 +1362,7 @@ export interface ReceptionGridRow {
   producerName: string;
   guideNumber: string;
   varieties: string[];
+  formats: string[];
   totalTrays: number;
   grossWeightKg: number;
   netWeightKg: number;
@@ -1437,6 +1438,12 @@ const formatReceptionRow = (raw: RawReceptionRow): ReceptionGridRow => {
 
   const uniqueVarieties = Array.from(new Set<string>(varietyNames));
 
+  const formatNames = packs
+    .map((pack: any) => (typeof pack?.formatName === 'string' ? pack.formatName.trim() : undefined))
+    .filter((value: string | undefined): value is string => Boolean(value && value.length > 0));
+
+  const uniqueFormats = Array.from(new Set<string>(formatNames));
+
   const totalTrays = normalizeNumber(raw.totalTrays ?? totals?.traysInPacks, 0);
   const grossWeightKg = normalizeNumber(raw.grossWeightKg ?? totals?.grossWeightKg, 0);
   const netWeightKg = normalizeNumber(raw.netWeightKg ?? totals?.netWeightKg, 0);
@@ -1453,6 +1460,7 @@ const formatReceptionRow = (raw: RawReceptionRow): ReceptionGridRow => {
     producerName: raw.producerName || metadata?.producerName || '—',
     guideNumber: raw.guideNumber || metadata?.guideNumber || '—',
     varieties: uniqueVarieties,
+    formats: uniqueFormats,
     totalTrays,
     grossWeightKg,
     netWeightKg,

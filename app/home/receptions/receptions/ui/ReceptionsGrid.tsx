@@ -15,6 +15,7 @@ import { formatAuditDate } from '@/lib/dateTimeUtils';
 import DetailReceptionButton from './DetailReceptionButton';
 import DeleteReceptionButton from './DeleteReceptionButton';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
+import Badge from '@/app/baseComponents/Badge/Badge';
 import PrintReceptionDialog from '@/app/home/receptions/newRecepcion/ui/PrintReceptionDialog';
 import type { ReceptionDataSnapshot } from '@/app/home/receptions/newRecepcion/ui/TransactionData';
 import { paymentStatusLabel } from '@/lib/receptionPayment';
@@ -184,8 +185,9 @@ export default function ReceptionsGrid({
     {
       field: 'id',
       headerName: 'Folio',
-      flex: 0.6,
+      flex: 0.3,
       sortable: true,
+      filterable: true,
       renderCell: ({ value }: { value: string | number }) => (
         <span className="font-mono text-xs truncate">{value ?? '—'}</span>
       ),
@@ -193,14 +195,16 @@ export default function ReceptionsGrid({
     {
       field: 'producerName',
       headerName: 'Productor',
-      flex: 1.2,
+      flex: 1.8,
       sortable: true,
+      filterable: true,
     },
     {
       field: 'guideNumber',
       headerName: 'Guía',
-      flex: 0.8,
+      flex: 0.7,
       sortable: true,
+      filterable: true,
       renderCell: ({ value }: { value: string }) => (
         <span>{value && value.trim() ? value : '—'}</span>
       ),
@@ -208,17 +212,29 @@ export default function ReceptionsGrid({
     {
       field: 'createdAt',
       headerName: 'Fecha/Hora',
-      flex: 1,
+      flex: 0.8,
       sortable: true,
+      filterable: true,
       renderCell: ({ value }: { value: string }) => (
         <span>{value ? formatAuditDate(value) : '—'}</span>
       ),
     },
     {
       field: 'varieties',
-      headerName: 'Variedades',
-      flex: 1.5,
+      headerName: 'Variedad',
+      flex: 1,
       sortable: false,
+      filterable: false,
+      renderCell: ({ value }: { value: string[] }) => (
+        <span className="truncate">{Array.isArray(value) && value.length ? value.join(', ') : '—'}</span>
+      ),
+    },
+    {
+      field: 'formats',
+      headerName: 'Formato',
+      flex: 1,
+      sortable: false,
+      filterable: false,
       renderCell: ({ value }: { value: string[] }) => (
         <span className="truncate">{Array.isArray(value) && value.length ? value.join(', ') : '—'}</span>
       ),
@@ -228,6 +244,7 @@ export default function ReceptionsGrid({
       headerName: 'Bandejas',
       flex: 0.7,
       sortable: true,
+      filterable: false,
       align: 'left' as const,
       renderCell: ({ value }: { value: number }) => (
         <span>{numberFormatter.format(Number(value) || 0)}</span>
@@ -235,9 +252,10 @@ export default function ReceptionsGrid({
     },
     {
       field: 'grossWeightKg',
-      headerName: 'Peso bruto (kg)',
-      flex: 0.9,
+      headerName: 'Bruto (kg)',
+      flex: 0.7,
       sortable: true,
+      filterable: false,
       align: 'left' as const,
       renderCell: ({ value }: { value: number }) => (
         <span>{numberFormatter.format(Number(value) || 0)}</span>
@@ -245,52 +263,41 @@ export default function ReceptionsGrid({
     },
     {
       field: 'netWeightKg',
-      headerName: 'Peso neto (kg)',
-      flex: 0.9,
+      headerName: 'Neto (kg)',
+      flex: 0.7,
       sortable: true,
+      filterable: false,
       align: 'left' as const,
       renderCell: ({ value }: { value: number }) => (
         <span>{numberFormatter.format(Number(value) || 0)}</span>
       ),
     },
     {
-      field: 'payableCLP',
-      headerName: 'CLP',
-      flex: 1,
-      sortable: true,
-      align: 'left' as const,
-      renderCell: ({ value }: { value: number }) => (
-        <span>{currencyFormatter.format(Number(value) || 0)}</span>
-      ),
-    },
-    {
-      field: 'payableUSD',
-      headerName: 'USD',
-      flex: 0.9,
-      sortable: true,
-      align: 'left' as const,
-      renderCell: ({ value }: { value: number }) => (
-        <span>{usdFormatter.format(Number(value) || 0)}</span>
-      ),
-    },
-    {
-      field: 'exchangeRate',
-      headerName: 'Cambio',
-      flex: 0.8,
-      sortable: true,
-      align: 'left' as const,
-      renderCell: ({ value }: { value: number }) => (
-        <span>{numberFormatter.format(Number(value) || 0)}</span>
-      ),
-    },
-    {
-      field: 'totalCLP',
+      field: 'paymentSummary',
       headerName: 'A PAGAR',
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filterable: false,
       align: 'left' as const,
-      renderCell: ({ value }: { value: number }) => (
-        <span>{currencyFormatter.format(Number(value) || 0)}</span>
+      renderCell: ({ row }: { row: ReceptionGridRow }) => (
+        <div className="py-1 space-y-0.5 text-xs">
+          <div className="flex justify-between gap-2">
+            <span className="text-gray-600">CLP:</span>
+            <span className="font-medium">{currencyFormatter.format(Number(row.payableCLP) || 0)}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-gray-600">USD:</span>
+            <span className="font-medium">{usdFormatter.format(Number(row.payableUSD) || 0)}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-gray-600">Cambio:</span>
+            <span className="font-medium">{numberFormatter.format(Number(row.exchangeRate) || 0)}</span>
+          </div>
+          <div className="flex justify-between gap-2 border-t pt-0.5">
+            <span className="text-gray-800 font-semibold">Total:</span>
+            <span className="font-bold text-green-700">{currencyFormatter.format(Number(row.totalCLP) || 0)}</span>
+          </div>
+        </div>
       ),
     },
     {
@@ -298,27 +305,23 @@ export default function ReceptionsGrid({
       headerName: 'Estado',
       flex: 0.8,
       sortable: false,
+      filterable: false,
       renderCell: ({ value }: { value: string }) => {
         const label = paymentStatusLabel(value);
         const isPaid = value === 'PAID_ON_RECEPTION';
-        return (
-          <span
-            className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
-              isPaid
-                ? 'bg-green-100 text-green-800'
-                : 'bg-amber-100 text-amber-800'
-            }`}
-          >
-            {label}
-          </span>
+        return isPaid ? (
+          <Badge variant="success">{label}</Badge>
+        ) : (
+          <Badge variant="warning">{label}</Badge>
         );
       },
     },
     {
       field: 'actions',
       headerName: '',
-      flex: 0.9,
+      flex: 0.8,
       sortable: false,
+      filterable: false,
       actionComponent: ({ row }: { row: ReceptionGridRow }) => (
         <div className="flex gap-1">
           <DetailReceptionButton reception={row} />

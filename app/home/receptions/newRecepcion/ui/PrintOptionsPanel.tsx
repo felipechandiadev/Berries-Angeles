@@ -58,62 +58,61 @@ const PrintOptionsPanel: React.FC<PrintOptionsPanelProps> = ({ options, onChange
         })}
       </div>
 
-      {isClassic ? (
-        <div className="grid grid-cols-1 gap-1">
-          <Switch
-            label="Logo"
-            labelPosition="right"
-            checked={options.showLogo}
-            onChange={(v) => setFlag('showLogo', v)}
-            data-test-id="print-opt-logo"
-          />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-          <Switch
-            label="Logo"
-            labelPosition="right"
-            checked={options.showLogo}
-            onChange={(v) => setFlag('showLogo', v)}
-            data-test-id="print-opt-logo"
-          />
-          <Switch
-            label="Pallets asociados"
-            labelPosition="right"
-            checked={options.showPallets}
-            onChange={(v) => setFlag('showPallets', v)}
-            data-test-id="print-opt-pallets"
-          />
-          <Switch
-            label="Detalle de packs"
-            labelPosition="right"
-            checked={options.showPackDetails}
-            onChange={(v) => setFlag('showPackDetails', v)}
-            data-test-id="print-opt-packs"
-          />
-          <Switch
-            label="Precios / totales"
-            labelPosition="right"
-            checked={options.showPrices}
-            onChange={(v) => setFlag('showPrices', v)}
-            data-test-id="print-opt-prices"
-          />
-          <Switch
-            label="Devolución bandejas"
-            labelPosition="right"
-            checked={options.showTrayDevolutions}
-            onChange={(v) => setFlag('showTrayDevolutions', v)}
-            data-test-id="print-opt-devolutions"
-          />
-          <Switch
-            label="Guía / conductor"
-            labelPosition="right"
-            checked={options.showGuideDriver}
-            onChange={(v) => setFlag('showGuideDriver', v)}
-            data-test-id="print-opt-guide"
-          />
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+        <Switch
+          label="Logo"
+          labelPosition="right"
+          checked={options.showLogo}
+          onChange={(v) => setFlag('showLogo', v)}
+          data-test-id="print-opt-logo"
+        />
+        <Switch
+          label="Datos de la empresa"
+          labelPosition="right"
+          checked={options.showCompanyHeader}
+          onChange={(v) => setFlag('showCompanyHeader', v)}
+          data-test-id="print-opt-company-header"
+        />
+        {!isClassic ? (
+          <>
+            <Switch
+              label="Pallets asociados"
+              labelPosition="right"
+              checked={options.showPallets}
+              onChange={(v) => setFlag('showPallets', v)}
+              data-test-id="print-opt-pallets"
+            />
+            <Switch
+              label="Detalle de packs"
+              labelPosition="right"
+              checked={options.showPackDetails}
+              onChange={(v) => setFlag('showPackDetails', v)}
+              data-test-id="print-opt-packs"
+            />
+            <Switch
+              label="Precios / totales"
+              labelPosition="right"
+              checked={options.showPrices}
+              onChange={(v) => setFlag('showPrices', v)}
+              data-test-id="print-opt-prices"
+            />
+            <Switch
+              label="Devolución bandejas"
+              labelPosition="right"
+              checked={options.showTrayDevolutions}
+              onChange={(v) => setFlag('showTrayDevolutions', v)}
+              data-test-id="print-opt-devolutions"
+            />
+            <Switch
+              label="Guía / conductor"
+              labelPosition="right"
+              checked={options.showGuideDriver}
+              onChange={(v) => setFlag('showGuideDriver', v)}
+              data-test-id="print-opt-guide"
+            />
+          </>
+        ) : null}
+      </div>
     </div>
   );
 };

@@ -8,6 +8,8 @@ export type ReceptionPrintProfile = 'classic' | 'producer' | 'warehouse' | 'full
 export interface ReceptionPrintOptions {
   profile: ReceptionPrintProfile;
   showLogo: boolean;
+  /** Company legal name, RUT, address, phones (Maugro header). */
+  showCompanyHeader: boolean;
   showPallets: boolean;
   showPackDetails: boolean;
   showPrices: boolean;
@@ -37,6 +39,7 @@ const PROFILE_DEFAULTS: Record<
 > = {
   classic: {
     showLogo: true,
+    showCompanyHeader: true,
     showPallets: false,
     showPackDetails: false,
     showPrices: true,
@@ -45,6 +48,7 @@ const PROFILE_DEFAULTS: Record<
   },
   producer: {
     showLogo: true,
+    showCompanyHeader: true,
     showPallets: false,
     showPackDetails: false,
     showPrices: true,
@@ -53,6 +57,7 @@ const PROFILE_DEFAULTS: Record<
   },
   warehouse: {
     showLogo: true,
+    showCompanyHeader: true,
     showPallets: true,
     showPackDetails: true,
     showPrices: false,
@@ -61,6 +66,7 @@ const PROFILE_DEFAULTS: Record<
   },
   full: {
     showLogo: true,
+    showCompanyHeader: true,
     showPallets: true,
     showPackDetails: true,
     showPrices: true,
@@ -98,6 +104,10 @@ export function loadReceptionPrintOptions(): ReceptionPrintOptions {
     return {
       profile,
       showLogo: typeof parsed.showLogo === 'boolean' ? parsed.showLogo : base.showLogo,
+      showCompanyHeader:
+        typeof parsed.showCompanyHeader === 'boolean'
+          ? parsed.showCompanyHeader
+          : base.showCompanyHeader,
       showPallets: typeof parsed.showPallets === 'boolean' ? parsed.showPallets : base.showPallets,
       showPackDetails:
         typeof parsed.showPackDetails === 'boolean' ? parsed.showPackDetails : base.showPackDetails,
@@ -121,6 +131,7 @@ export function saveReceptionPrintOptions(options: ReceptionPrintOptions): void 
     const payload: ReceptionPrintOptions = {
       profile,
       showLogo: Boolean(options.showLogo),
+      showCompanyHeader: Boolean(options.showCompanyHeader),
       showPallets: Boolean(options.showPallets),
       showPackDetails: Boolean(options.showPackDetails),
       showPrices: Boolean(options.showPrices),

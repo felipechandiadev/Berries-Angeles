@@ -586,6 +586,7 @@ export interface ReceptionExcelRow {
   producerName: string;
   guideNumber: string;
   varieties: string;
+  formats: string;
   totalTrays: number;
   grossWeightKg: number;
   netWeightKg: number;
@@ -603,6 +604,10 @@ export function formatReceptionsDataForExcel(receptionsData: any[]): ReceptionEx
       ? reception.varieties.filter((value: unknown) => typeof value === 'string' && value.trim() !== '').join(', ')
       : '-';
 
+    const formats = Array.isArray(reception.formats)
+      ? reception.formats.filter((value: unknown) => typeof value === 'string' && value.trim() !== '').join(', ')
+      : '-';
+
     const paymentStatus =
       reception.paymentStatus === 'PAID_ON_RECEPTION' ? 'Pagada' : 'Pendiente';
 
@@ -611,6 +616,7 @@ export function formatReceptionsDataForExcel(receptionsData: any[]): ReceptionEx
       producerName: reception.producerName || '-',
       guideNumber: reception.guideNumber || '-',
       varieties: varieties || '-',
+      formats: formats || '-',
       totalTrays: Number(reception.totalTrays ?? 0),
       grossWeightKg: Number(reception.grossWeightKg ?? 0),
       netWeightKg: Number(reception.netWeightKg ?? 0),
@@ -643,10 +649,11 @@ export function createReceptionsWorkbook(data: ReceptionExcelRow[], options: Exc
     'ID': row.id,
     'Productor': row.producerName,
     'Guía': row.guideNumber,
-    'Variedades': row.varieties,
+    'Variedad': row.varieties,
+    'Formato': row.formats,
     'Bandejas': row.totalTrays,
-    'Peso bruto (kg)': row.grossWeightKg,
-    'Peso neto (kg)': row.netWeightKg,
+    'Bruto (kg)': row.grossWeightKg,
+    'Neto (kg)': row.netWeightKg,
     'CLP': row.payableCLP,
     'USD': row.payableUSD,
     'Cambio': row.exchangeRate,
@@ -680,10 +687,11 @@ export function createReceptionsWorkbook(data: ReceptionExcelRow[], options: Exc
     { wch: 20 }, // ID
     { wch: 28 }, // Productor
     { wch: 18 }, // Guía
-    { wch: 32 }, // Variedades
+    { wch: 28 }, // Variedad
+    { wch: 28 }, // Formato
     { wch: 16 }, // Bandejas
-    { wch: 18 }, // Peso bruto
-    { wch: 18 }, // Peso neto
+    { wch: 14 }, // Bruto
+    { wch: 14 }, // Neto
     { wch: 18 }, // CLP
     { wch: 18 }, // USD
     { wch: 14 }, // Cambio

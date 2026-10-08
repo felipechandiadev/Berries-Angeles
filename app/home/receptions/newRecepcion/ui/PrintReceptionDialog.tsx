@@ -91,6 +91,34 @@ const formatCurrency = (value: number, currency: Currency | null) => {
   return formatNumber(value, 2);
 };
 
+/** Two-column ticket row; both columns left-aligned (80mm). */
+function TicketRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[1fr_1fr] items-baseline gap-2 text-[13px]">
+      <span className="text-left">{label}</span>
+      <span className="min-w-0 text-left break-words">{value}</span>
+    </div>
+  );
+}
+
+function TicketPaymentFooter({
+  amountLabel,
+  paymentLabel,
+}: {
+  amountLabel: string;
+  paymentLabel: string;
+}) {
+  return (
+    <section className="border-t border-border pt-2 text-center">
+      <p className="text-[12px] font-semibold uppercase tracking-wide">A PAGAR</p>
+      <p className="text-[20px] font-bold leading-tight">{amountLabel}</p>
+      <div className="my-2 border-t border-border" />
+      <p className="text-[11px] font-semibold uppercase tracking-wide">Estado del pago</p>
+      <p className="text-[16px] font-bold leading-tight">{paymentLabel}</p>
+    </section>
+  );
+}
+
 const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
   open,
   onClose,
@@ -227,12 +255,14 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
   const classicGross = Math.max(0, totals.totalGrossWeight ?? 0);
   const classicNet = Math.max(0, totals.totalNetWeight ?? 0);
   const classicDiscount = Math.max(0, classicGross - classicNet);
-  const classicAmountToPay = Math.max(
+  const amountToPay = Math.max(
     0,
     totals.totalCLPToPay && totals.totalCLPToPay > 0
       ? totals.totalCLPToPay
       : currencyBreakdown.total
   );
+  const amountToPayLabel = formatCurrency(amountToPay, Currency.CLP);
+  const paymentLabel = paymentStatusLabel(data.paymentStatus);
 
   const receptionMetadata = useMemo(() => {
     const varieties = new Set<string>();
@@ -337,14 +367,34 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
       });
     }
 
-    rows.push({
-      key: 'paymentStatus',
-      label: 'Estado del pago',
-      value: paymentStatusLabel(data.paymentStatus),
-    });
-
     return rows;
-  }, [receptionMetadata, totals, totalTraysReturned, currencyBreakdown, printOptions.showPrices, printOptions.showTrayDevolutions, data.paymentStatus]);
+  }, [receptionMetadata, totals, totalTraysReturned, currencyBreakdown, printOptions.showPrices, printOptions.showTrayDevolutions]);
+
+  const companyHeader = printOptions.showCompanyHeader ? (
+    <header className="flex flex-col items-center gap-1 text-center">
+      {printOptions.showLogo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src="/logoPrint.png"
+          alt="MAUGRO"
+          style={PRINT_PREVIEW_LOGO_STYLE}
+        />
+      ) : null}
+      <p className="text-[13px] font-semibold">{COMPANY_PRINT_HEADER.legalName}</p>
+      <p className="text-[12px]">{COMPANY_PRINT_HEADER.rut}</p>
+      <p className="text-[11px]">{COMPANY_PRINT_HEADER.address}</p>
+      <p className="text-[11px]">{COMPANY_PRINT_HEADER.phones}</p>
+    </header>
+  ) : printOptions.showLogo ? (
+    <header className="flex flex-col items-center gap-1 text-center">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/logoPrint.png"
+        alt="MAUGRO"
+        style={PRINT_PREVIEW_LOGO_STYLE}
+      />
+    </header>
+  ) : null;
 
   const thermalPrintStyles = `
     @page {
@@ -397,157 +447,90 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
           style={{ width: '76mm', maxWidth: '76mm', padding: '0' }}
           data-test-id="print-preview-classic"
         >
-          <header className="flex flex-col items-center gap-1 text-center">
-            {printOptions.showLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src="/logoPrint.png"
-                alt="MAUGRO"
-                style={PRINT_PREVIEW_LOGO_STYLE}
-              />
-            ) : null}
-            <p className="text-[13px] font-semibold">{COMPANY_PRINT_HEADER.legalName}</p>
-            <p className="text-[12px]">{COMPANY_PRINT_HEADER.rut}</p>
-            <p className="text-[11px]">{COMPANY_PRINT_HEADER.address}</p>
-            <p className="text-[11px]">{COMPANY_PRINT_HEADER.phones}</p>
-          </header>
+          {companyHeader}
 
-          <section className="flex flex-col border-t border-border pt-1 text-[13px]">
-            <div>
-              <span>Recepción N°: </span>
-              <span>{receptionTransactionId ?? '—'}</span>
-            </div>
-            <div>
-              <span>Fecha: </span>
-              <span>{formattedDate}</span>
-            </div>
-            <div>
-              <span>Hora: </span>
-              <span>{formattedTime}</span>
-            </div>
-            <div>
-              <span>Productor: </span>
-              <span>{ticketParties.displayProducerName}</span>
-            </div>
-            <div>
-              <span>Rut: </span>
-              <span>{ticketParties.displayProducerDni}</span>
-            </div>
-            <div>
-              <span>Chófer: </span>
-              <span>{String((data as { driver?: string | null })?.driver ?? '').trim() || '—'}</span>
-            </div>
-            <div>
-              <span>Guía: </span>
-              <span>{data.guide?.trim() || '—'}</span>
-            </div>
-            <div>
-              <span>Variedad: </span>
-              <span>
-                {receptionMetadata.varieties.length
+          <section className="flex flex-col gap-0.5 border-t border-border pt-1">
+            <TicketRow label="Recepción" value={receptionTransactionId ?? '—'} />
+            <TicketRow label="Fecha" value={formattedDate} />
+            <TicketRow label="Hora" value={formattedTime} />
+            <TicketRow label="Productor" value={ticketParties.displayProducerName} />
+            <TicketRow label="Rut" value={ticketParties.displayProducerDni} />
+            <TicketRow
+              label="Chofer"
+              value={String((data as { driver?: string | null })?.driver ?? '').trim() || '—'}
+            />
+            <TicketRow label="Guía" value={data.guide?.trim() || '—'} />
+            <TicketRow label="Precio" value={classicPriceLabel} />
+          </section>
+
+          <section className="flex flex-col gap-0.5 border-t border-border pt-1">
+            <TicketRow
+              label="Cantidad bandejas"
+              value={formatNumber(totals.totalTraysInPacks ?? 0, 0)}
+            />
+            <TicketRow
+              label="Kg Bruto"
+              value={formatNumber(classicGross, classicGross % 1 === 0 ? 0 : 1)}
+            />
+            <TicketRow
+              label="Descuento Kg"
+              value={formatNumber(classicDiscount, classicDiscount % 1 === 0 ? 0 : 1)}
+            />
+            <TicketRow
+              label="Kg Neto"
+              value={formatNumber(classicNet, classicNet % 1 === 0 ? 0 : 1)}
+            />
+            <TicketRow
+              label="Variedad"
+              value={
+                receptionMetadata.varieties.length
                   ? receptionMetadata.varieties.join(', ')
-                  : '—'}
-              </span>
-            </div>
-            <div>
-              <span>Precio: </span>
-              <span>{classicPriceLabel}</span>
-            </div>
+                  : '—'
+              }
+            />
+            <TicketRow
+              label="Bandejas devueltas"
+              value={formatNumber(totalTraysReturned, 0)}
+            />
           </section>
 
-          <section className="flex flex-col border-t border-border pt-1 text-[13px]">
-            <div>
-              <span>Cantidad bandejas: </span>
-              <span>{formatNumber(totals.totalTraysInPacks ?? 0, 0)}</span>
-            </div>
-            <div>
-              <span>Kg Bruto: </span>
-              <span>{formatNumber(classicGross, classicGross % 1 === 0 ? 0 : 1)}</span>
-            </div>
-            <div>
-              <span>Descuento Kg: </span>
-              <span>{formatNumber(classicDiscount, classicDiscount % 1 === 0 ? 0 : 1)}</span>
-            </div>
-            <div>
-              <span>Kg Neto: </span>
-              <span>{formatNumber(classicNet, classicNet % 1 === 0 ? 0 : 1)}</span>
-            </div>
-            <div>
-              <span>Bandejas devueltas: </span>
-              <span>{formatNumber(totalTraysReturned, 0)}</span>
-            </div>
-            <div>
-              <span>Estado del pago: </span>
-              <span>{paymentStatusLabel(data.paymentStatus)}</span>
-            </div>
-          </section>
-
-          <section className="border-t border-border pt-1 text-right text-[14px] font-semibold">
-            <span>A pagar: {formatCurrency(classicAmountToPay, Currency.CLP)}</span>
-          </section>
+          <TicketPaymentFooter amountLabel={amountToPayLabel} paymentLabel={paymentLabel} />
         </div>
       ) : (
         <div
           className="flex flex-col gap-1 text-[13px] leading-tight text-foreground"
           style={{ width: '76mm', maxWidth: '76mm', padding: '0' }}
         >
-          <header className="flex flex-col items-center gap-1 text-center">
-            <p className="text-[13px]">Comprobante recepción</p>
-            {printOptions.showLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src="/logoPrint.png"
-                alt="MAUGRO"
-                style={PRINT_PREVIEW_LOGO_STYLE}
-              />
-            ) : null}
-            <p className="text-[18px] font-bold tracking-wide">MAUGRO</p>
-          </header>
+          {companyHeader}
+          {!printOptions.showCompanyHeader ? (
+            <header className="text-center">
+              <p className="text-[13px]">Comprobante recepción</p>
+            </header>
+          ) : null}
 
-          <section className="flex flex-col border-t border-dashed border-border pt-1">
-            <div className="text-[13px] uppercase">
-              <span className="font-semibold">Recepción: </span>
-              <span>#{receptionTransactionId ?? '—'}</span>
-            </div>
-            <div className="text-[13px]">
-              <span>Fecha: </span>
-              <span>{formattedDate}</span>
-            </div>
-            <div className="text-[13px]">
-              <span>Hora: </span>
-              <span>{formattedTime}</span>
-            </div>
-            <div className="text-[13px]">
-              <span>Productor: </span>
-              <span>{ticketParties.displayProducerName}</span>
-            </div>
-            <div className="text-[13px]">
-              <span>RUT: </span>
-              <span>{ticketParties.displayProducerDni}</span>
-            </div>
-            {printOptions.showGuideDriver && data.guide ? (
-              <div className="text-[13px]">
-                <span>Guía: </span>
-                <span>{data.guide}</span>
-              </div>
+          <section className="flex flex-col gap-0.5 border-t border-border pt-1">
+            <TicketRow label="Recepción" value={`#${receptionTransactionId ?? '—'}`} />
+            <TicketRow label="Fecha" value={formattedDate} />
+            <TicketRow label="Hora" value={formattedTime} />
+            <TicketRow label="Productor" value={ticketParties.displayProducerName} />
+            <TicketRow label="RUT" value={ticketParties.displayProducerDni} />
+            {printOptions.showGuideDriver ? (
+              <TicketRow label="Guía" value={data.guide?.trim() || '—'} />
             ) : null}
           </section>
 
-          <section className="border-t border-dashed border-border pt-1">
-            <h4 className="text-left text-[13px] font-semibold uppercase">Resumen</h4>
-            <div className="flex flex-col text-[13px]">
+          <section className="border-t border-border pt-1">
+            <h4 className="mb-0.5 text-left text-[12px] font-semibold uppercase">Resumen</h4>
+            <div className="flex flex-col gap-0.5">
               {receptionOverviewRows.map((row) => (
-                <div key={row.key} className="text-left">
-                  <span>{row.label}: </span>
-                  <span>{row.value}</span>
-                </div>
+                <TicketRow key={row.key} label={row.label} value={row.value} />
               ))}
             </div>
           </section>
 
           {printOptions.showPackDetails && packs.length > 0 ? (
-            <section className="border-t border-dashed border-border pt-1">
-              <h4 className="text-left text-[13px] font-semibold uppercase">
+            <section className="border-t border-border pt-1">
+              <h4 className="text-left text-[12px] font-semibold uppercase">
                 Packs ({packs.length})
               </h4>
               {packs.map((pack, index) => (
@@ -556,27 +539,15 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
                   className="mb-1 border-b border-dotted border-border pb-1 text-[12px]"
                 >
                   <div className="font-medium">Pack #{pack.packNumber || index + 1}</div>
-                  <div>
-                    <span>Variedad: </span>
-                    <span>{pack.varietyName || '—'}</span>
-                  </div>
-                  <div>
-                    <span>Bandeja: </span>
-                    <span>{pack.trayLabel || '—'}</span>
-                  </div>
-                  <div>
-                    <span>Cant: </span>
-                    <span>{pack.traysQuantity || 0} uds</span>
-                  </div>
-                  <div>
-                    <span>P.Neto: </span>
-                    <span>{formatNumber(pack.netWeight ?? 0)} kg</span>
-                  </div>
+                  <TicketRow label="Variedad" value={pack.varietyName || '—'} />
+                  <TicketRow label="Bandeja" value={pack.trayLabel || '—'} />
+                  <TicketRow label="Cant" value={`${pack.traysQuantity || 0} uds`} />
+                  <TicketRow label="P.Neto" value={`${formatNumber(pack.netWeight ?? 0)} kg`} />
                   {printOptions.showPrices ? (
-                    <div>
-                      <span>Total: </span>
-                      <span>{formatCurrency(pack.totalToPay ?? 0, pack.currency)}</span>
-                    </div>
+                    <TicketRow
+                      label="Total"
+                      value={formatCurrency(pack.totalToPay ?? 0, pack.currency)}
+                    />
                   ) : null}
                 </div>
               ))}
@@ -584,23 +555,26 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
           ) : null}
 
           {printOptions.showPallets ? (
-            <section className="border-t border-dashed border-border pt-1">
-              <h4 className="text-left text-[13px] font-semibold uppercase">Pallets</h4>
-              <div className="flex flex-col text-[13px]">
+            <section className="border-t border-border pt-1">
+              <h4 className="mb-0.5 text-left text-[12px] font-semibold uppercase">Pallets</h4>
+              <div className="flex flex-col gap-0.5">
                 {palletLines.length > 0 ? (
                   palletLines.map((line) => (
-                    <div key={line.palletId} className="text-left">
-                      <span>Pallet #{line.palletId}: </span>
-                      <span>
-                        {formatNumber(line.traysAssigned, 0)} ban.
-                        {line.grossWeightKg > 0
-                          ? ` · ${formatNumber(line.grossWeightKg, 2)} kg`
-                          : ''}
-                        {line.packNumbers.length
-                          ? ` (pack ${line.packNumbers.join(',')})`
-                          : ''}
-                      </span>
-                    </div>
+                    <TicketRow
+                      key={line.palletId}
+                      label={`Pallet #${line.palletId}`}
+                      value={
+                        <>
+                          {formatNumber(line.traysAssigned, 0)} ban.
+                          {line.grossWeightKg > 0
+                            ? ` · ${formatNumber(line.grossWeightKg, 2)} kg`
+                            : ''}
+                          {line.packNumbers.length
+                            ? ` (pack ${line.packNumbers.join(',')})`
+                            : ''}
+                        </>
+                      }
+                    />
                   ))
                 ) : (
                   <div className="text-left text-muted-foreground">Sin asignación a pallets</div>
@@ -610,23 +584,23 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
           ) : null}
 
           {printOptions.showTrayDevolutions && trayDevolutions.length > 0 ? (
-            <section className="border-t border-dashed border-border pt-1">
-              <h4 className="text-left text-[13px] font-semibold uppercase">Devolución de bandejas</h4>
-              <div className="flex flex-col text-[13px]">
+            <section className="border-t border-border pt-1">
+              <h4 className="mb-0.5 text-left text-[12px] font-semibold uppercase">
+                Devolución de bandejas
+              </h4>
+              <div className="flex flex-col gap-0.5">
                 {trayDevolutions.map((item, index) => (
-                  <div key={`${item.trayId ?? 'tray'}-${index}`} className="text-left">
-                    <span>{item.trayLabel ?? item.trayId ?? 'Bandeja'}: </span>
-                    <span>{formatNumber(item.quantity ?? 0, 0)}</span>
-                  </div>
+                  <TicketRow
+                    key={`${item.trayId ?? 'tray'}-${index}`}
+                    label={item.trayLabel ?? item.trayId ?? 'Bandeja'}
+                    value={formatNumber(item.quantity ?? 0, 0)}
+                  />
                 ))}
               </div>
             </section>
           ) : null}
 
-          <footer className="border-t border-dashed border-border pt-1 text-left text-[13px] text-muted-foreground">
-            <p>Gracias por su entrega.</p>
-            <p>Conserve este comprobante.</p>
-          </footer>
+          <TicketPaymentFooter amountLabel={amountToPayLabel} paymentLabel={paymentLabel} />
         </div>
       )}
     </DialogToPrint>
