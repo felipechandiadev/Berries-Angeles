@@ -35,11 +35,11 @@ export default function DetailReceptionButton({ reception }: DetailReceptionButt
   const handleClose = () => setOpen(false);
 
   return (
-    <>
+    <div className="inline-flex items-center">
       <IconButton
         icon="more_horiz"
         variant="basicSecondary"
-        size="sm"
+        size="xs"
         title={buttonTitle}
         ariaLabel={buttonTitle}
         onClick={handleOpen}
@@ -84,6 +84,6 @@ export default function DetailReceptionButton({ reception }: DetailReceptionButt
           />
         )}
       </Dialog>
-    </>
+    </div>
   );
 }

@@ -323,7 +323,7 @@ export default function ReceptionsGrid({
       sortable: false,
       filterable: false,
       actionComponent: ({ row }: { row: ReceptionGridRow }) => (
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1">
           <DetailReceptionButton reception={row} />
           <IconButton
             icon={loadingPrintId === String(row.id) ? 'hourglass_top' : 'print'}
@@ -343,6 +343,7 @@ export default function ReceptionsGrid({
   return (
     <div >
       <DataGrid
+        title="Recepciones"
         columns={columns}
         rows={initialData}
         limit={currentLimit}

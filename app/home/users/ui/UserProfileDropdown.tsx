@@ -5,6 +5,7 @@ import { signOut, useSession } from 'next-auth/react';
 import { CircleUser } from 'lucide-react';
 import UpdateUserPasswordDialog from '@/app/home/users/ui/UpdateUserPasswordDialog';
 import ViewUserPermissionsDialog from '@/app/home/users/ui/ViewUserPermissionsDialog';
+import { TopBarIconSkeleton } from '@/app/baseComponents/TopBar/TopBarIconSkeleton';
 
 interface UserProfileDropdownProps {
   className?: string;
@@ -12,7 +13,7 @@ interface UserProfileDropdownProps {
 
 const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '' }) => {
   const [isMounted, setIsMounted] = useState(false);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
@@ -22,9 +23,9 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
     setIsMounted(true);
   }, []);
 
-  // Don't render until mounted on client
-  if (!isMounted) {
-    return null;
+  // Reserve space while hydrating / session loading (avoids TopBar jump).
+  if (!isMounted || status === 'loading') {
+    return <TopBarIconSkeleton kind="user" className={className} testId="user-profile-skeleton" />;
   }
 
   const handleLogout = async () => {
@@ -116,12 +117,12 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
       {/* Profile Button */}
       <button
         onClick={() => setOpen(!open)}
-        className="group flex items-center justify-center w-10 h-10 rounded-full bg-secondary/10 hover:bg-secondary/20 transition-colors duration-200"
+        className="group flex items-center justify-center w-9 h-9 rounded-full bg-secondary/10 hover:bg-secondary/20 transition-colors duration-200"
         title={`${userName} (${userEmail})`}
         data-test-id="user-profile-button"
       >
         <CircleUser
-          size={28}
+          size={22}
           className="text-foreground transition-colors duration-200 group-hover:text-secondary"
           aria-hidden
         />

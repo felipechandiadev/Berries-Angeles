@@ -3,6 +3,8 @@
  * Requires Chrome/Edge on HTTPS or localhost and a user gesture to pair.
  */
 
+import { localizePrinterError } from './localizePrinterError';
+
 export class WebUsbPrinterError extends Error {
   constructor(message: string) {
     super(message);
@@ -23,10 +25,12 @@ function getUsb(): USB {
   return navigator.usb;
 }
 
-/** Prefer printer-class devices; empty filters still lets the user pick any USB device. */
-const DEVICE_FILTERS: USBDeviceFilter[] = [
-  { classCode: 7 }, // Printer class
-];
+/**
+ * Match any USB device. Many thermal printers are not USB class 7 ("Printer"),
+ * so a class filter shows them as "Unsupported device" in Chrome.
+ * `{}` matches all devices (Chrome/Edge).
+ */
+const DEVICE_FILTERS: USBDeviceFilter[] = [{}];
 
 export async function listPairedPrinters(): Promise<USBDevice[]> {
   const usb = getUsb();
@@ -42,18 +46,16 @@ export async function hasPairedPrinter(): Promise<boolean> {
 
 /**
  * Opens the browser device chooser. Must be called from a user gesture (click).
+ * Note: OS-level pairing ≠ WebUSB permission; the user must pick the device here once.
  */
 export async function requestPrinter(): Promise<USBDevice> {
   const usb = getUsb();
   try {
     const device = await usb.requestDevice({ filters: DEVICE_FILTERS });
     return device;
-  } catch (error: any) {
-    if (error?.name === 'NotFoundError') {
-      throw new WebUsbPrinterError('No se seleccionó ninguna impresora.');
-    }
+  } catch (error: unknown) {
     throw new WebUsbPrinterError(
-      error?.message || 'No fue posible emparejar la impresora USB.'
+      localizePrinterError(error, 'No fue posible emparejar la impresora USB.')
     );
   }
 }
@@ -123,15 +125,11 @@ async function openOutEndpoint(device: USBDevice): Promise<OutEndpoint> {
     }
 
     return { device, endpointNumber, interfaceNumber };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof WebUsbPrinterError) throw error;
-    const message = String(error?.message || error);
-    if (/claim|Access|Security/i.test(message)) {
-      throw new WebUsbPrinterError(
-        'No se pudo reclamar la interfaz USB. En Windows puede hacer falta WinUSB (Zadig); en macOS quita la impresora de “Impresoras y escáneres”.'
-      );
-    }
-    throw new WebUsbPrinterError(message || 'Error abriendo la impresora USB.');
+    throw new WebUsbPrinterError(
+      localizePrinterError(error, 'Error abriendo la impresora USB.')
+    );
   }
 }
 
@@ -163,10 +161,10 @@ export async function printRaw(
         );
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof WebUsbPrinterError) throw error;
     throw new WebUsbPrinterError(
-      error?.message || 'Error enviando el ticket a la impresora.'
+      localizePrinterError(error, 'Error enviando el ticket a la impresora.')
     );
   }
 }

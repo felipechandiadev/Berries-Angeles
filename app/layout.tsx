@@ -31,9 +31,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es">
       <body>
-        <Providers>
-          {children}
-        </Providers>
+        <div className="berries-app-shell flex min-h-dvh flex-1 flex-col">
+          <Providers>{children}</Providers>
+        </div>
       </body>
     </html>
   );

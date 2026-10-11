@@ -524,7 +524,7 @@ const PrintReceptionDialog: React.FC<PrintReceptionDialogProps> = ({
       onBeforePrint={onClose}
       printStyles={thermalPrintStyles}
       onPrintTicket={handlePrintTicket}
-      ticketLabel="Ticket USB"
+      ticketLabel="Ticket"
       controls={
         <PrintOptionsPanel options={printOptions} onChange={handlePrintOptionsChange} />
       }

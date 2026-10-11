@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import Dialog from './Dialog';
 import { Button } from '../Button/Button';
 import IconButton from '../IconButton/IconButton';
-import { hasPairedPrinter, isWebUsbSupported } from '@/lib/printing';
+import { hasPairedPrinter, isAnyTicketTransportSupported } from '@/lib/printing';
 
 interface DialogToPrintProps {
   open: boolean;
@@ -58,13 +58,13 @@ interface DialogToPrintProps {
    */
   printStyles?: string;
   /**
-   * When provided, shows Ticket USB action.
+   * When provided, shows Ticket action.
    * Emparejar impresora vive en la TopBar.
-   * Should send ESC/POS bytes via WebUSB.
+   * Should send ESC/POS bytes via the multi-transport printer facade.
    */
   onPrintTicket?: () => Promise<void>;
   /**
-   * Label for the USB ticket button.
+   * Label for the thermal ticket button.
    */
   ticketLabel?: string;
   /**
@@ -90,7 +90,7 @@ const DialogToPrint: React.FC<DialogToPrintProps> = ({
   scroll = 'paper',
   printStyles,
   onPrintTicket,
-  ticketLabel = 'Ticket USB',
+  ticketLabel = 'Ticket',
   controls,
 }) => {
   const printableRef = useRef<HTMLDivElement | null>(null);
@@ -98,7 +98,7 @@ const DialogToPrint: React.FC<DialogToPrintProps> = ({
   const [ticketBusy, setTicketBusy] = useState(false);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [printerPaired, setPrinterPaired] = useState(false);
-  const [webUsbAvailable, setWebUsbAvailable] = useState(false);
+  const [ticketTransportAvailable, setTicketTransportAvailable] = useState(false);
   const isBrowser = typeof window !== 'undefined';
   const showTicketActions = typeof onPrintTicket === 'function';
 
@@ -124,8 +124,8 @@ const DialogToPrint: React.FC<DialogToPrintProps> = ({
     }
 
     setTicketError(null);
-    const supported = isWebUsbSupported();
-    setWebUsbAvailable(supported);
+    const supported = isAnyTicketTransportSupported();
+    setTicketTransportAvailable(supported);
     if (!supported) {
       setPrinterPaired(false);
       return;
@@ -348,16 +348,17 @@ ${inlinePrintStyles}
         </div>
       ) : null}
 
-      {showTicketActions && !webUsbAvailable ? (
+      {showTicketActions && !ticketTransportAvailable ? (
         <p className="mt-3 text-xs text-muted-foreground">
-          Ticket USB requiere Chrome o Edge en HTTPS o localhost. Emparejá la impresora desde la
-          barra superior.
+          Ticket térmico requiere Chrome o Edge en HTTPS o localhost (USB, Bluetooth LE o Serial).
+          Emparejá la impresora desde la barra superior.
         </p>
       ) : null}
 
-      {showTicketActions && webUsbAvailable && !printerPaired ? (
+      {showTicketActions && ticketTransportAvailable && !printerPaired ? (
         <p className="mt-3 text-xs text-muted-foreground">
-          Sin impresora emparejada. Usá el botón Impresora en la barra superior.
+          Sin impresora emparejada. Usá el botón Impresora en la barra superior (busca USB,
+          Bluetooth o Serial).
         </p>
       ) : null}
 
@@ -384,7 +385,7 @@ ${inlinePrintStyles}
             variant="containedPrimary"
             size="md"
             onClick={handlePrintTicket}
-            disabled={!webUsbAvailable || ticketBusy}
+            disabled={!ticketTransportAvailable || ticketBusy}
             ariaLabel={ticketLabel}
             title={ticketLabel}
             data-test-id="print-dialog-ticket-usb"

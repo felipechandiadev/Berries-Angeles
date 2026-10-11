@@ -1,6 +1,5 @@
 import React, { Suspense } from 'react';
 import { redirect } from 'next/navigation';
-import { BasicPageLayout } from '@felipechandiadev/ui';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import { getReceptionsGridData } from '@/app/actions/receptions';
 import ReceptionsGrid from './ui/ReceptionsGrid';
@@ -81,7 +80,7 @@ export default async function Page({ searchParams }: PageProps) {
   if (fields) navSearch.set('fields', fields);
 
   return (
-    <BasicPageLayout title="Recepciones" data-test-id="receptions-page">
+    <div data-test-id="receptions-page">
       <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
         <WithNavSearch search={navSearch.toString()}>
           <ReceptionsGrid
@@ -95,6 +94,6 @@ export default async function Page({ searchParams }: PageProps) {
           />
         </WithNavSearch>
       </Suspense>
-    </BasicPageLayout>
+    </div>
   );
 }

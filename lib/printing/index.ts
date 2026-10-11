@@ -5,11 +5,48 @@ export {
   WebUsbPrinterError,
   isWebUsbSupported,
   listPairedPrinters,
-  hasPairedPrinter,
   requestPrinter,
+} from './webUsbPrinter';
+
+export {
+  WebBluetoothPrinterError,
+  isWebBluetoothSupported,
+  hasPairedBluetoothPrinter,
+  listPairedBluetoothPrinters,
+  requestBluetoothPrinter,
+  pairBluetoothPrinter,
+  printRawBluetooth,
+} from './webBluetoothPrinter';
+
+export {
+  WebSerialPrinterError,
+  isWebSerialSupported,
+  hasPairedSerialPrinter,
+  listPairedSerialPrinters,
+  requestSerialPrinter,
+  pairSerialPrinter,
+  printRawSerial,
+} from './webSerialPrinter';
+
+export {
+  PrinterTransportError,
+  isAnyTicketTransportSupported,
+  isKindSupported,
+  listSupportedTransports,
+  hasPairedPrinter,
+  getLinkedPrinterInfo,
   pairPrinter,
   printRaw,
-} from './webUsbPrinter';
+  getPreferredTransport,
+  setPreferredTransport,
+  getStoredPrinterName,
+  setStoredPrinterName,
+  PRINTER_TRANSPORT_HINTS,
+  PRINTER_TRANSPORT_LABELS,
+  PRINTER_TRANSPORT_ORDER,
+} from './printerTransport';
+export type { PrinterTransportKind } from './types';
+export type { LinkedPrinterInfo } from './printerTransport';
 
 export {
   buildReceptionTicketEscPos,

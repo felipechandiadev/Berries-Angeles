@@ -67,17 +67,18 @@ export default function DeleteReceptionButton({ reception, onSuccess }: DeleteRe
   const paidOnReception = isPaidOnReception(reception.paymentStatus);
 
   return (
-    <>
+    <div className="inline-flex items-center">
       <IconButton
         icon="delete"
         variant="basicSecondary"
-        size="sm"
+        size="xs"
         onClick={() => setOpen(true)}
         title={
           paidOnReception
             ? 'No se puede eliminar una recepción pagada contra recepción'
             : 'Eliminar'
         }
+        ariaLabel="Eliminar recepción"
         disabled={paidOnReception}
       />
       <Dialog
@@ -98,6 +99,6 @@ export default function DeleteReceptionButton({ reception, onSuccess }: DeleteRe
           title="Eliminar Recepción"
         />
       </Dialog>
-    </>
+    </div>
   );
 }

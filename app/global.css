@@ -33,9 +33,14 @@
   --color-neutral: #F3F4F6;
   --color-link: var(--color-accent);
   --color-text-on-primary: #ffffff;
+  /* Same shell chrome recipe as kai-admin: soft neutral wash under content. */
+  --color-shell-chrome: var(--color-neutral);
 
   /* Shell inset: solo TopBar + <main> (layouts de página sin px exterior). */
-  --app-topbar-height: 3.75rem;
+  /* Must match fixed TopBar (py-1.5 + h-9 row). */
+  --app-topbar-height: 3rem;
+  /* Gap between TopBar and page content (kai-admin: +1rem). */
+  --app-content-top-gap: 1rem;
   --page-gutter: 1rem; /* < sm */
 }
 
@@ -52,7 +57,24 @@
 }
 
 body {
-  background-color: var(--color-background);
+  margin: 0;
+  color: var(--color-foreground);
+  background-color: color-mix(
+    in srgb,
+    var(--color-shell-chrome) 30%,
+    var(--color-background)
+  );
+}
+
+.berries-app-shell {
+  position: relative;
+  min-height: 100dvh;
+  background-color: color-mix(
+    in srgb,
+    var(--color-shell-chrome) 30%,
+    var(--color-background)
+  );
+  color: var(--color-foreground);
 }
 
 /* Material Symbols Classes */
@@ -105,7 +127,6 @@ body {
 
   body {
     font-family: "Inter", "System UI", sans-serif;
-    background-color: var(--color-background);
     color: var(--color-foreground);
   }
 

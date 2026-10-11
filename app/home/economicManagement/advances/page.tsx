@@ -1,6 +1,5 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
-import { BasicPageLayout } from '@felipechandiadev/ui';
 import {
   listAdvances,
   type ListAdvancesFilters,
@@ -112,12 +111,12 @@ export default async function Page({ searchParams }: PageProps) {
   if (params?.fields) navSearch.set('fields', params.fields);
 
   return (
-    <BasicPageLayout title="Anticipos" data-test-id="advances-page">
+    <div data-test-id="advances-page">
       <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
         <WithNavSearch search={navSearch.toString()}>
           <AdvancesContent filters={filters} />
         </WithNavSearch>
       </Suspense>
-    </BasicPageLayout>
+    </div>
   );
 }
