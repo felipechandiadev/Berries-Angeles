@@ -5,8 +5,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "seed": "node run-seed.js test",
-    "seed:test": "node run-seed.js test"
+    "seed": "node run-seed.js test full",
+    "seed:test": "node run-seed.js test full",
+    "seed:minimal": "node run-seed.js test minimal",
+    "seed:full": "node run-seed.js test full",
+    "test": "vitest run",
+    "test:reports": "vitest run lib/reports/__tests__/receptions.variants.test.ts",
+    "test:watch": "vitest",
+    "eval:reports": "vitest run lib/reports/__tests__/receptions.variants.test.ts"
   },
   "keywords": [],
   "author": "Felipe",
@@ -14,6 +20,7 @@
   "description": "Berries Angeles - Next.js PWA",
   "devDependencies": {
     "@serwist/next": "^9.0.15",
+    "@swc/core": "^1.16.13",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.6",
@@ -25,7 +32,9 @@
     "serwist": "^9.0.15",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.22.5",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "unplugin-swc": "^2.0.0",
+    "vitest": "^3.2.7"
   },
   "dependencies": {
     "@fontsource/material-symbols-outlined": "^5.2.30",
@@ -42,6 +51,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-leaflet": "^5.0.0",
+    "recharts": "^3.10.1",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^0.3.27",
     "xlsx": "^0.18.5"

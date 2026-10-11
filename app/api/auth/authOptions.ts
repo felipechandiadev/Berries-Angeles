@@ -46,7 +46,8 @@ export async function logLoginAudit(
     };
     audit.createdAt = now; // Assign explicit timestamp in Chile timezone
 
-    await db.getRepository(Audit).save(audit);
+    // Nombre de entidad (string): evita EntityMetadataNotFoundError tras HMR/bundles RSC
+    await db.getRepository<Audit>("Audit").save(audit);
     console.log('[logLoginAudit] Auditoría registrada exitosamente:', action, 'para usuario:', userName, 'en:', chileNow.format('DD-MM-YYYY HH:mm'));
   } catch (error) {
     console.error('[logLoginAudit] Error logging audit:', error instanceof Error ? error.message : String(error));
@@ -84,7 +85,7 @@ export const authOptions: NextAuthOptions = {
           const db = await getDb();
           console.log("DB Connected. Searching user:", credentials.username);
           
-          const userRepo = db.getRepository(User);
+          const userRepo = db.getRepository<User>("User");
           const count = await userRepo.count();
           console.log(`Total users in DB: ${count}`);
 
@@ -113,7 +114,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           console.log("Fetching permissions for user", user.id);
-          const permissionRepo = db.getRepository(Permission);
+          const permissionRepo = db.getRepository<Permission>("Permission");
           const userPermissions = await permissionRepo.find({
             select: ['ability'],
             where: { userId: user.id },
@@ -212,14 +213,14 @@ export const authOptions: NextAuthOptions = {
       if (token.sub) {
         try {
           const db = await getDb();
-          const userRepo = db.getRepository(User);
+          const userRepo = db.getRepository<User>("User");
           const dbUser = await userRepo.findOne({ where: { id: token.sub } });
           if (dbUser?.rol) {
             token.role = dbUser.rol;
           }
 
           if (!Array.isArray(token.permissions)) {
-            const permissionRepo = db.getRepository(Permission);
+            const permissionRepo = db.getRepository<Permission>("Permission");
             const dbPermissions = await permissionRepo.find({
               select: ['ability'],
               where: { userId: token.sub },
@@ -245,7 +246,7 @@ export const authOptions: NextAuthOptions = {
       if (token?.userId) {
         try {
           const db = await getDb();
-          const userRepo = db.getRepository(User);
+          const userRepo = db.getRepository<User>("User");
           const user = await userRepo.findOneBy({ id: token.userId as string });
           if (user) {
             await logLoginAudit(user.userName, AuditActionType.LOGOUT, user.id);

@@ -1,0 +1,120 @@
+/* Impresión del preview de reportes.
+   Los charts usan tamaño fijo vía prop `printing` (ResponsiveContainer = 0×0 en print). */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  header,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  main {
+    margin: 0 !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .report-print-root {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .report-print-root * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    box-shadow: none !important;
+  }
+
+  .report-print-root .report-kpi-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #c8c8c8 !important;
+    border-radius: 2px !important;
+    background: #fff !important;
+  }
+
+  .report-print-root .report-charts-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    width: 100% !important;
+    justify-items: center;
+  }
+
+  .report-print-root .report-chart-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #b0b0b0 !important;
+    border-radius: 2px !important;
+    background: #fff !important;
+    padding: 8px 10px !important;
+    overflow: visible !important;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .report-print-root .report-chart-title {
+    font-size: 11pt !important;
+    font-weight: 600 !important;
+    color: #222 !important;
+    margin: 0 0 6px !important;
+  }
+
+  .report-print-root .report-chart-canvas {
+    overflow: visible !important;
+  }
+
+  /* No forzar width/height del SVG: el chart ya viene con dimensiones fijas en píxeles */
+  .report-print-root .recharts-tooltip-wrapper,
+  .report-print-root .recharts-default-tooltip {
+    display: none !important;
+  }
+
+  .report-print-root .report-table-wrap {
+    border: 1px solid #b0b0b0 !important;
+    border-radius: 2px !important;
+    overflow: visible !important;
+  }
+
+  .report-print-root table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9pt !important;
+  }
+
+  .report-print-root th,
+  .report-print-root td {
+    border-bottom: 1px solid #ddd !important;
+    padding: 4px 6px !important;
+  }
+
+  .report-print-root thead {
+    display: table-header-group;
+  }
+
+  .report-print-root tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

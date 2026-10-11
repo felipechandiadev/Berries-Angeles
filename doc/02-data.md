@@ -97,13 +97,20 @@ Sistema de inicialización de base de datos para desarrollo y pruebas.
 | Archivo | Función |
 |---------|---------|
 | `seed.ts` | Orquestador principal del seed |
+| `seedFullHistory.ts` | Historia operativa generada (perfil `full`) |
+| `generators/` | RNG, calendario, recepciones, anticipos, liquidaciones, pallets |
 | `sql/create-tables.sql` | DDL para crear todas las tablas |
 | `sql/drop-all-tables.sql` | Elimina todas las tablas |
 | `sql/seed-data.sql` | Datos SQL adicionales |
-| `dataToSeed/*.json` | Fixtures JSON por entidad |
+| `dataToSeed/*.json` | Fixtures maestros (personas, productores, variedades, etc.) |
 
-**Comando:** `npm run seed:test` → ejecuta `run-seed.js` → `data/seed/seed.ts`
+**Comandos:**
 
-Crea el esquema completo y carga datos de prueba: usuarios, productores, variedades, formatos, almacenes, bandejas, pallets, recepciones, anticipos y registros de auditoría.
+| Comando | Perfil |
+|---------|--------|
+| `npm run seed:test` / `seed:full` | `full` — 4 temporadas (2023–2026), ~700 recepciones con `paymentStatus`, anticipos, relations de liquidación, bandejas/pallets |
+| `npm run seed:minimal` | `minimal` — JSON estático (pocas recepciones/anticipos) |
+
+Reproducibilidad: `SEED_RNG=42` (default). Timeout del proceso: 10 min.
 
 **Login post-seed:** `admin` / `1234`

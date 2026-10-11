@@ -3,6 +3,8 @@ import * as path from "path";
 import mysql from "mysql2/promise";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { randomUUID } from "crypto";
+import { resolveSeedProfile } from "./generators/profiles";
+import { seedFullHistory } from "./seedFullHistory";
 
 const VALID_ABILITIES = [
   "USERS_VIEW",
@@ -33,7 +35,7 @@ const ENVIRONMENTS: Record<string, SeedConfig> = {
   },
 };
 
-const RUN_SEED_TIMEOUT_MS = 120000;
+const RUN_SEED_TIMEOUT_MS = 600000; // 10 min — full historical seed
 const JSON_DIR = path.join(__dirname, "dataToSeed");
 const VALID_PALLET_STATUSES = new Set(["AVAILABLE", "CLOSED", "FULL", "DISPATCHED"]);
 
@@ -1816,7 +1818,8 @@ const runSeed = async (environment: "test" | "production" = "test") => {
       "Seed Data"
     );
 
-    console.log("\n📚 Loading JSON-driven seed data...");
+    const profile = resolveSeedProfile();
+    console.log(`\n📚 Loading JSON-driven seed data... (profile=${profile})`);
     await seedPersons(connection);
     await seedUsers(connection);
     await seedPermissions(connection);
@@ -1824,15 +1827,24 @@ const runSeed = async (environment: "test" | "production" = "test") => {
     await seedVarieties(connection);
     await seedTrays(connection);
     await seedStorages(connection);
-    await seedPallets(connection);
+    if (profile === "minimal") {
+      await seedPallets(connection);
+    } else {
+      console.log("\n📦 Skipping JSON pallets (full history regenerates them)...");
+    }
     await seedSeasons(connection);
     await seedCustomers(connection);
     await seedAdminBankAccounts(connection);
     await seedAudits(connection);
     await seedProductiveUnitsAndProducers(connection);
-    await seedReceptionTransactions(connection);
-    await seedAdvanceTransactions(connection);
-    await seedSampleTransaction(connection);
+
+    if (profile === "full") {
+      await seedFullHistory(connection);
+    } else {
+      await seedReceptionTransactions(connection);
+      await seedAdvanceTransactions(connection);
+      await seedSampleTransaction(connection);
+    }
 
     // Re-enable foreign key checks
     console.log("\n🔓 Re-enabling foreign key checks...");
@@ -1841,7 +1853,7 @@ const runSeed = async (environment: "test" | "production" = "test") => {
     console.log("\n───────────────────────────────────────────────────────────");
     console.log("✅ Seed process completed successfully!");
     console.log(
-      `📊 Database [${environment.toUpperCase()}] is now ready with test data`
+      `📊 Database [${environment.toUpperCase()}] ready (profile=${profile})`
     );
 
     await connection.end();

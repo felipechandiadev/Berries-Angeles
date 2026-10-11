@@ -336,7 +336,7 @@ export const TextField: React.FC<TextFieldProps> = ({
 
   return (
     <div className={variante === "autocomplete" ? "relative w-full" : "input-container"}>
-      <div className={`relative ${className}`} data-test-id="text-field-root">
+      <div className={`relative isolate ${className}`} data-test-id="text-field-root">
       {typeof startIcon === 'string' && startIcon.length > 0 && (
         <span
           className={`input-icon material-symbols-outlined ${isDisabled ? 'text-muted-foreground opacity-50' : 'text-secondary'}`}
@@ -363,7 +363,7 @@ export const TextField: React.FC<TextFieldProps> = ({
           onBlur={() => setFocused(false)}
           onChange={handleChange}
           onKeyDown={onKeyDown}
-          className={`${placeholderClassRef.current ?? ''} input-base block min-w-[180px] pr-4 ${((typeof startIcon === 'string' && startIcon.length > 0) || startAdornment) ? " pl-9" : ""} ${variantInput} ${disabledStyles} z-0`}
+          className={`${placeholderClassRef.current ?? ''} input-base relative z-[1] block min-w-[180px] pr-4 ${((typeof startIcon === 'string' && startIcon.length > 0) || startAdornment) ? " pl-9" : ""} ${variantInput} ${disabledStyles}`}
           placeholder={
             type === "datePicker" ? `Ej: ${new Date().getFullYear()}` :
             (required ? "" : (shrink || !showPlaceholder ? "" : (placeholder ?? label)))
@@ -381,7 +381,7 @@ export const TextField: React.FC<TextFieldProps> = ({
           {...props}
         />
       ) : (
-        <div className="relative">
+        <div className="relative z-[1]">
           <input
             ref={inputRef}
             type={
@@ -395,7 +395,7 @@ export const TextField: React.FC<TextFieldProps> = ({
             onBlur={() => setFocused(false)}
             onChange={type === "dni" ? handleDNIChange : type === "currency" ? handleCurrencyChange : handleChange}
             onKeyDown={onKeyDown}
-            className={`${placeholderClassRef.current ?? ''} input-base block min-w-[180px] ${((typeof startIcon === 'string' && startIcon.length > 0) || startAdornment) ? " pl-9" : ""} ${(endIcon || (type === "password" && passwordVisibilityToggle)) ? " pr-10" : " pr-3"} ${variantInput} ${disabledStyles} z-0`}
+            className={`${placeholderClassRef.current ?? ''} input-base block min-w-[180px] ${((typeof startIcon === 'string' && startIcon.length > 0) || startAdornment) ? " pl-9" : ""} ${(endIcon || (type === "password" && passwordVisibilityToggle)) ? " pr-10" : " pr-3"} ${variantInput} ${disabledStyles}`}
             placeholder={
               type === "datePicker" ? `Ej: ${new Date().getFullYear()}` :
               (required ? "" : (shrink || !showPlaceholder ? "" : (placeholder ?? label)))
@@ -403,7 +403,7 @@ export const TextField: React.FC<TextFieldProps> = ({
             required={required}
             readOnly={readOnly}
             disabled={disabled}
-            autoComplete="off"
+            autoComplete={type === "password" ? "current-password" : name === "username" ? "username" : "off"}
             min={type === "datePicker" ? "1800" : undefined}
             max={type === "datePicker" ? new Date().getFullYear().toString() : undefined}
             maxLength={type === "dni" ? 12 : type === "datePicker" ? 4 : undefined}
@@ -440,18 +440,17 @@ export const TextField: React.FC<TextFieldProps> = ({
           )}
         </div>
       )}
-      {/* Placeholder personalizado para campos requeridos */}
+      {/* Placeholder personalizado para campos requeridos (detrás del input; sin bloquear clics/teclado) */}
       {required && !shrink && showPlaceholder && (
         <div
-          className={`absolute left-3 pointer-events-none text-sm font-light text-gray-400 transition-opacity duration-300 ${shrink ? 'opacity-0' : 'opacity-100'}`}
+          aria-hidden
+          className="absolute left-3 z-0 pointer-events-none select-none text-sm font-light text-gray-400 transition-opacity duration-300 opacity-100"
           style={{
-            backgroundColor: "var(--color-background)",
             paddingLeft: ((typeof startIcon === 'string' && startIcon.length > 0) || startAdornment) ? '36px' : '12px',
             paddingRight: (endIcon || (type === "password" && passwordVisibilityToggle)) ? '40px' : '12px',
             top: isTextArea ? '1.25rem' : '50%',
             transform: isTextArea ? 'none' : 'translateY(-50%)'
           }}
-          onClick={() => inputRef.current?.focus()}
         >
           {type === "datePicker" ? `Ej: ${new Date().getFullYear()}` : (placeholder ?? label)}
           <span className="text-red-500 ml-1">*</span>

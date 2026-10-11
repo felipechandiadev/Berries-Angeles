@@ -1,0 +1,10 @@
+export default function OperationalReportsPage() {
+  return (
+    <div className="rounded border border-dashed border-gray-300 bg-gray-50 px-6 py-16 text-center">
+      <h2 className="text-lg font-medium text-gray-800">Reportes operativos</h2>
+      <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
+        Próximamente: stock, pallets y movimientos de bandejas.
+      </p>
+    </div>
+  );
+}

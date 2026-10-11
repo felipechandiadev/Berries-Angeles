@@ -1,0 +1,672 @@
+import type mysql from 'mysql2/promise';
+import type { ResultSetHeader, RowDataPacket } from 'mysql2';
+import {
+  createRng,
+  resolveSeedRng,
+  FULL_PROFILE,
+  generateReceptions,
+  generateAdvances,
+  planSettlements,
+  planPallets,
+  planClientTrayMoves,
+  validateFullSeed,
+  type GeneratedReception,
+} from './generators';
+
+type LookupMaps = {
+  producersByRut: Map<string, { id: string; name: string }>;
+  usersByName: Map<string, { id: string; displayName: string }>;
+  varietiesByName: Map<string, { id: number; name: string; priceCLP: number }>;
+  formatsByName: Map<string, { id: number; name: string }>;
+  traysByName: Map<string, { id: string; name: string; weight: number }>;
+  storageIds: string[];
+  seasonIds: string[];
+  customerId: string | null;
+  activeSeasonId: string | null;
+};
+
+async function loadLookups(connection: mysql.Connection): Promise<LookupMaps> {
+  const [producers] = await connection.execute<
+    (RowDataPacket & { id: string; name: string; dni: string })[]
+  >("SELECT id, name, dni FROM producers WHERE deletedAt IS NULL");
+  const producersByRut = new Map(
+    producers.map((p) => [p.dni, { id: String(p.id), name: p.name }])
+  );
+
+  const [users] = await connection.execute<
+    (RowDataPacket & { id: string; userName: string; personId: string | null })[]
+  >('SELECT id, userName, personId FROM users');
+  const usersByName = new Map<string, { id: string; displayName: string }>();
+  for (const u of users) {
+    let displayName = u.userName;
+    if (u.personId) {
+      const [persons] = await connection.execute<(RowDataPacket & { name: string })[]>(
+        'SELECT name FROM persons WHERE id = ? LIMIT 1',
+        [u.personId]
+      );
+      if (persons[0]?.name) displayName = persons[0].name;
+    }
+    usersByName.set(u.userName, { id: String(u.id), displayName });
+  }
+
+  const [varieties] = await connection.execute<
+    (RowDataPacket & { id: number; name: string; priceCLP: number })[]
+  >('SELECT id, name, priceCLP FROM varieties');
+  const varietiesByName = new Map(
+    varieties.map((v) => [
+      v.name,
+      { id: Number(v.id), name: v.name, priceCLP: Number(v.priceCLP || 500) },
+    ])
+  );
+
+  const [formats] = await connection.execute<
+    (RowDataPacket & { id: number; name: string })[]
+  >('SELECT id, name FROM formats');
+  const formatsByName = new Map(
+    formats.map((f) => [f.name, { id: Number(f.id), name: f.name }])
+  );
+
+  const [trays] = await connection.execute<
+    (RowDataPacket & { id: string; name: string; weight: number })[]
+  >('SELECT id, name, weight FROM trays');
+  const traysByName = new Map(
+    trays.map((t) => [
+      t.name,
+      { id: String(t.id), name: t.name, weight: Number(t.weight || 0.3) },
+    ])
+  );
+
+  const [storages] = await connection.execute<(RowDataPacket & { id: string })[]>(
+    'SELECT id FROM storages WHERE active = TRUE OR active IS NULL'
+  );
+  const storageIds = storages.map((s) => String(s.id));
+
+  const [seasons] = await connection.execute<
+    (RowDataPacket & { id: string; active: number | boolean })[]
+  >('SELECT id, active FROM seasons');
+  const seasonIds = seasons.map((s) => String(s.id));
+  const activeSeasonId =
+    seasons.find((s) => s.active === 1 || s.active === true)?.id != null
+      ? String(seasons.find((s) => s.active === 1 || s.active === true)!.id)
+      : seasonIds[0] ?? null;
+
+  const [customers] = await connection.execute<(RowDataPacket & { id: string })[]>(
+    'SELECT id FROM customers LIMIT 1'
+  );
+  const customerId = customers[0] ? String(customers[0].id) : null;
+
+  return {
+    producersByRut,
+    usersByName,
+    varietiesByName,
+    formatsByName,
+    traysByName,
+    storageIds,
+    seasonIds,
+    customerId,
+    activeSeasonId,
+  };
+}
+
+async function clearHistoryTables(connection: mysql.Connection) {
+  await connection.execute('DELETE FROM transaction_relations');
+  await connection.execute('DELETE FROM reception_packs');
+  await connection.execute('DELETE FROM transactions');
+  await connection.execute('DELETE FROM pallets');
+}
+
+async function insertReception(
+  connection: mysql.Connection,
+  reception: GeneratedReception,
+  lookups: LookupMaps
+): Promise<{ transactionId: string; packIds: number[] } | null> {
+  const producer = lookups.producersByRut.get(reception.producerRut);
+  const user = lookups.usersByName.get(reception.userName);
+  if (!producer || !user) return null;
+
+  const createdAt = new Date(reception.createdAt);
+  const packsResolved = [];
+  for (const pack of reception.packs) {
+    const variety = lookups.varietiesByName.get(pack.variety);
+    const format = lookups.formatsByName.get(pack.format);
+    const tray = lookups.traysByName.get(pack.tray);
+    if (!variety || !format) continue;
+    packsResolved.push({ pack, variety, format, tray });
+  }
+  if (!packsResolved.length) return null;
+
+  const traysInPacks = packsResolved.reduce((s, p) => s + p.pack.traysQuantity, 0);
+  const grossWeightTotal = Number(
+    packsResolved.reduce((s, p) => s + p.pack.grossWeightKg, 0).toFixed(3)
+  );
+  const netWeightTotal = Number(
+    packsResolved.reduce((s, p) => s + p.pack.netWeightKg, 0).toFixed(3)
+  );
+  const trayWeightTotal = Number(
+    packsResolved.reduce((s, p) => s + p.pack.traysTotalWeightKg, 0).toFixed(3)
+  );
+  const payableCLP = packsResolved.reduce((s, p) => s + p.pack.totalToPay, 0);
+
+  const [txResult] = await connection.execute<ResultSetHeader>(
+    `INSERT INTO transactions (type, direction, amount, unit, seasonId, producerId, clientId, userId, metadata, createdAt, updatedAt)
+     VALUES ('RECEPTION', 'OUT', ?, 'CLP', ?, ?, NULL, ?, ?, ?, ?)`,
+    [
+      reception.totalCLPToPay,
+      reception.seasonId,
+      producer.id,
+      user.id,
+      '{}',
+      createdAt,
+      createdAt,
+    ]
+  );
+  const transactionId = String(txResult.insertId);
+  const packIds: number[] = [];
+  const metadataPacks: Record<string, unknown>[] = [];
+  const varietyIdSet = new Set<number>();
+  const formatIdSet = new Set<number>();
+  const trayIdSet = new Set<string>();
+
+  for (const resolved of packsResolved) {
+    const { pack, variety, format, tray } = resolved;
+    const [packResult] = await connection.execute<ResultSetHeader>(
+      `INSERT INTO reception_packs (
+         receptionTransactionId, varietyId, varietyName, formatId, formatName,
+         trayId, trayLabel, traysQuantity, unitTrayWeight, traysTotalWeight,
+         grossWeight, netWeightBeforeImpurities, netWeight, impurityPercent,
+         pricePerKg, currency, totalToPay, palletAssignments, createdAt, updatedAt
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        transactionId,
+        variety.id,
+        variety.name,
+        format.id,
+        format.name,
+        tray?.id ?? null,
+        pack.trayLabel,
+        pack.traysQuantity,
+        pack.unitTrayWeightKg,
+        pack.traysTotalWeightKg,
+        pack.grossWeightKg,
+        pack.netWeightBeforeImpuritiesKg,
+        pack.netWeightKg,
+        pack.impurityPercent,
+        pack.pricePerKg,
+        pack.currency,
+        pack.totalToPay,
+        '[]',
+        createdAt,
+        createdAt,
+      ]
+    );
+    const packId = Number(packResult.insertId);
+    packIds.push(packId);
+
+    await connection.execute(
+      `INSERT INTO transaction_relations
+         (parentTransactionId, childTransactionId, childReceptionPackId, relationType, context, createdAt, updatedAt)
+       VALUES (?, NULL, ?, 'RECEPTION_PACK', ?, ?, ?)`,
+      [transactionId, packId, `pack ${pack.packNumber}`, createdAt, createdAt]
+    );
+
+    varietyIdSet.add(variety.id);
+    formatIdSet.add(format.id);
+    if (tray?.id) trayIdSet.add(tray.id);
+
+    metadataPacks.push({
+      packId,
+      packNumber: pack.packNumber,
+      varietyId: variety.id,
+      varietyName: variety.name,
+      formatId: format.id,
+      formatName: format.name,
+      trayId: tray?.id ?? null,
+      trayLabel: pack.trayLabel,
+      traysQuantity: pack.traysQuantity,
+      unitTrayWeightKg: pack.unitTrayWeightKg,
+      traysTotalWeightKg: pack.traysTotalWeightKg,
+      grossWeightKg: pack.grossWeightKg,
+      netWeightBeforeImpuritiesKg: pack.netWeightBeforeImpuritiesKg,
+      netWeightKg: pack.netWeightKg,
+      impurityPercent: pack.impurityPercent,
+      pricePerKg: pack.pricePerKg,
+      currency: pack.currency,
+      totalToPay: pack.totalToPay,
+      palletAssignments: [],
+    });
+  }
+
+  const metadata = {
+    producerId: producer.id,
+    producerName: producer.name,
+    guideNumber: reception.guideNumber,
+    paymentStatus: reception.paymentStatus,
+    varietyIds: Array.from(varietyIdSet),
+    formatIds: Array.from(formatIdSet),
+    trayTypeIds: Array.from(trayIdSet),
+    packs: metadataPacks,
+    trayReturns: [],
+    totals: {
+      packsCount: metadataPacks.length,
+      traysInPacks,
+      trayReturns: 0,
+      grossWeightKg: grossWeightTotal,
+      netWeightKg: netWeightTotal,
+      trayWeightKg: trayWeightTotal,
+      payableCLP,
+      payableUSD: 0,
+      totalCLPToPay: reception.totalCLPToPay,
+    },
+    exchangeRate: reception.exchangeRate,
+    totalCLPToPay: reception.totalCLPToPay,
+    ...(reception.notes ? { notes: reception.notes } : {}),
+    changesHistory: [
+      {
+        changedAt: createdAt.toISOString(),
+        changedBy: user.id,
+        changedByName: user.displayName,
+        summary: 'Registro inicial (seed histórico)',
+        details: [],
+      },
+    ],
+  };
+
+  await connection.execute(
+    `UPDATE transactions SET metadata = ?, amount = ?, updatedAt = ? WHERE id = ?`,
+    [JSON.stringify(metadata), reception.totalCLPToPay, createdAt, transactionId]
+  );
+
+  return { transactionId, packIds };
+}
+
+async function insertTrayAndPalletOps(
+  connection: mysql.Connection,
+  reception: GeneratedReception,
+  transactionId: string,
+  packIds: number[],
+  lookups: LookupMaps,
+  palletIdByTray: Map<string, number>,
+  stockDelta: Map<string, number>
+) {
+  const producer = lookups.producersByRut.get(reception.producerRut);
+  const user = lookups.usersByName.get(reception.userName);
+  if (!producer || !user) return;
+  const createdAt = new Date(reception.createdAt);
+
+  for (let i = 0; i < reception.packs.length; i++) {
+    const pack = reception.packs[i];
+    const packId = packIds[i];
+    const tray = lookups.traysByName.get(pack.tray);
+    if (!tray || !packId) continue;
+
+    // Producer delivers trays with fruit (IN)
+    const [trayIn] = await connection.execute<ResultSetHeader>(
+      `INSERT INTO transactions (type, direction, amount, unit, seasonId, producerId, clientId, userId, metadata, createdAt, updatedAt)
+       VALUES ('TRAY_IN_FROM_PRODUCER', 'IN', ?, 'TRAY', ?, ?, NULL, ?, ?, ?, ?)`,
+      [
+        pack.traysQuantity,
+        reception.seasonId,
+        producer.id,
+        user.id,
+        JSON.stringify({
+          trayId: tray.id,
+          quantity: pack.traysQuantity,
+          receptionTransactionId: transactionId,
+          receptionPackId: packId,
+          qualityCheckPassed: true,
+        }),
+        createdAt,
+        createdAt,
+      ]
+    );
+    await connection.execute(
+      `INSERT INTO transaction_relations
+         (parentTransactionId, childTransactionId, childReceptionPackId, relationType, context, createdAt, updatedAt)
+       VALUES (?, ?, ?, 'TRAY_RECEPTION', ?, ?, ?)`,
+      [
+        transactionId,
+        String(trayIn.insertId),
+        packId,
+        `trays ${pack.traysQuantity}`,
+        createdAt,
+        createdAt,
+      ]
+    );
+    stockDelta.set(tray.id, (stockDelta.get(tray.id) ?? 0) + pack.traysQuantity);
+
+    // Assign to a pallet for this tray type
+    let palletId = palletIdByTray.get(tray.id);
+    if (!palletId && lookups.storageIds.length) {
+      const capacity = 60;
+      const [palletResult] = await connection.execute<ResultSetHeader>(
+        `INSERT INTO pallets (storageId, trayId, traysQuantity, capacity, weight, dispatchWeight, metadata, status, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, 0, ?, 'AVAILABLE', ?, ?)`,
+        [
+          lookups.storageIds[0],
+          tray.id,
+          0,
+          capacity,
+          0,
+          JSON.stringify({ batchCode: `PAL-OPS-${transactionId}-${packId}` }),
+          createdAt,
+          createdAt,
+        ]
+      );
+      palletId = Number(palletResult.insertId);
+      palletIdByTray.set(tray.id, palletId);
+    }
+
+    if (palletId) {
+      const assignQty = Math.min(pack.traysQuantity, 20);
+      const [assignTx] = await connection.execute<ResultSetHeader>(
+        `INSERT INTO transactions (type, direction, amount, unit, seasonId, producerId, clientId, userId, metadata, createdAt, updatedAt)
+         VALUES ('PALLET_TRAY_ASSIGNMENT', 'OUT', ?, 'TRAY', ?, ?, NULL, ?, ?, ?, ?)`,
+        [
+          assignQty,
+          reception.seasonId,
+          producer.id,
+          user.id,
+          JSON.stringify({
+            palletId,
+            trayId: tray.id,
+            quantity: assignQty,
+            receptionTransactionId: transactionId,
+            receptionPackId: packId,
+          }),
+          createdAt,
+          createdAt,
+        ]
+      );
+      await connection.execute(
+        `INSERT INTO transaction_relations
+           (parentTransactionId, childTransactionId, childReceptionPackId, relationType, context, createdAt, updatedAt)
+         VALUES (?, ?, ?, 'PALLET_ASSIGNMENT', ?, ?, ?)`,
+        [
+          transactionId,
+          String(assignTx.insertId),
+          packId,
+          `pallet ${palletId}`,
+          createdAt,
+          createdAt,
+        ]
+      );
+      await connection.execute(
+        `UPDATE pallets
+         SET traysQuantity = LEAST(capacity, traysQuantity + ?),
+             weight = weight + ?,
+             updatedAt = ?
+         WHERE id = ?`,
+        [assignQty, assignQty * tray.weight, createdAt, palletId]
+      );
+      await connection.execute(
+        `UPDATE pallets SET status = 'FULL' WHERE id = ? AND traysQuantity >= capacity`,
+        [palletId]
+      );
+      await connection.execute(
+        `UPDATE reception_packs SET palletAssignments = ?
+         WHERE id = ?`,
+        [
+          JSON.stringify([{ palletId, traysQuantity: assignQty, assignedAt: createdAt.toISOString() }]),
+          packId,
+        ]
+      );
+    }
+  }
+}
+
+export async function seedFullHistory(connection: mysql.Connection): Promise<void> {
+  console.log('\n🏭 Seeding FULL historical dataset (deterministic generator)...');
+  const seed = resolveSeedRng();
+  const rng = createRng(seed);
+  console.log(`   SEED_RNG=${seed}`);
+
+  const lookups = await loadLookups(connection);
+  if (!lookups.producersByRut.size) {
+    throw new Error('No producers found; cannot seed full history');
+  }
+  if (!lookups.varietiesByName.size || !lookups.formatsByName.size) {
+    throw new Error('Varieties/formats missing; cannot seed full history');
+  }
+
+  await clearHistoryTables(connection);
+
+  const producerRuts = [...lookups.producersByRut.keys()];
+  const varieties = [...lookups.varietiesByName.values()].map((v) => ({
+    name: v.name,
+    priceCLP: v.priceCLP,
+  }));
+  const formats = [...lookups.formatsByName.values()].map((f) => ({ name: f.name }));
+  const trays = [...lookups.traysByName.values()].map((t) => ({
+    name: t.name,
+    weight: t.weight,
+  }));
+
+  const asOf = new Date('2026-10-10T18:00:00');
+  const receptions = generateReceptions({
+    rng,
+    producerRuts,
+    varieties,
+    formats,
+    trays,
+    asOf,
+  });
+  const advances = generateAdvances({ rng, receptions, asOf });
+  const settlementPlan = planSettlements({ rng, receptions, advances });
+
+  console.log(
+    `   Planned: ${receptions.length} receptions, ${advances.length} advances (target ~${Object.values(FULL_PROFILE.receptionsBySeason).reduce((a, b) => a + b, 0)})`
+  );
+
+  // Prefill standalone pallets
+  const palletPlans = planPallets({
+    rng,
+    storageIds: lookups.storageIds,
+    trayNames: trays.map((t) => t.name),
+    receptionsWithOps: receptions.filter((r) => r.withOps),
+  });
+  for (const plan of palletPlans) {
+    const tray = lookups.traysByName.get(plan.trayName);
+    if (!tray) continue;
+    await connection.execute(
+      `INSERT INTO pallets (storageId, trayId, traysQuantity, capacity, weight, dispatchWeight, metadata, status, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        plan.storageId,
+        tray.id,
+        plan.traysQuantity,
+        plan.capacity,
+        plan.weightKg,
+        plan.dispatchWeightKg,
+        JSON.stringify({ batchCode: plan.batchCode, seeded: true }),
+        plan.status,
+        new Date(plan.createdAt),
+        new Date(plan.createdAt),
+      ]
+    );
+  }
+  console.log(`   ✓ Inserted ${palletPlans.length} base pallets`);
+
+  const guideToTxId = new Map<string, string>();
+  const palletIdByTray = new Map<string, number>();
+  const stockDelta = new Map<string, number>();
+  let insertedRec = 0;
+  let opsCount = 0;
+
+  for (const reception of receptions) {
+    const result = await insertReception(connection, reception, lookups);
+    if (!result) continue;
+    guideToTxId.set(reception.guideNumber, result.transactionId);
+    insertedRec++;
+    if (reception.withOps) {
+      await insertTrayAndPalletOps(
+        connection,
+        reception,
+        result.transactionId,
+        result.packIds,
+        lookups,
+        palletIdByTray,
+        stockDelta
+      );
+      opsCount++;
+    }
+  }
+  console.log(`   ✓ Inserted ${insertedRec} receptions (${opsCount} with tray/pallet ops)`);
+
+  // Advances
+  const advanceKeyToId = new Map<string, string>();
+  let insertedAdv = 0;
+  for (const advance of advances) {
+    const producer = lookups.producersByRut.get(advance.producerRut);
+    const user = lookups.usersByName.get(advance.userName);
+    if (!producer || !user) continue;
+
+    let bankAccountId: string | null = null;
+    const accountNumber = advance.paymentDetails.adminBankAccountNumber;
+    if (accountNumber) {
+      const [accounts] = await connection.execute<(RowDataPacket & { id: string })[]>(
+        'SELECT id FROM admin_bank_accounts WHERE accountNumber = ? LIMIT 1',
+        [accountNumber]
+      );
+      bankAccountId = accounts[0] ? String(accounts[0].id) : null;
+      if (
+        (advance.paymentMethod === 'TRANSFER' || advance.paymentMethod === 'CHECK') &&
+        !bankAccountId
+      ) {
+        continue;
+      }
+    }
+
+    const paymentDetails: Record<string, string> = {};
+    if (bankAccountId) paymentDetails.bankAccountId = bankAccountId;
+    if (advance.paymentDetails.producerAccountId) {
+      paymentDetails.producerAccountId = advance.paymentDetails.producerAccountId;
+    }
+    if (advance.paymentDetails.transactionId) {
+      paymentDetails.transactionId = advance.paymentDetails.transactionId;
+    }
+    if (advance.paymentDetails.checkNumber) {
+      paymentDetails.checkNumber = advance.paymentDetails.checkNumber;
+    }
+
+    const createdAt = new Date(advance.createdAt);
+    const metadata = {
+      paymentMethod: advance.paymentMethod,
+      paymentDetails,
+      ...(advance.notes ? { notes: advance.notes } : {}),
+    };
+
+    const [advResult] = await connection.execute<ResultSetHeader>(
+      `INSERT INTO transactions (type, direction, amount, unit, seasonId, producerId, clientId, userId, metadata, createdAt, updatedAt)
+       VALUES ('ADVANCE', 'OUT', ?, 'CLP', ?, ?, NULL, ?, ?, ?, ?)`,
+      [
+        advance.amount,
+        advance.seasonId,
+        producer.id,
+        user.id,
+        JSON.stringify(metadata),
+        createdAt,
+        createdAt,
+      ]
+    );
+    const key = `${advance.producerRut}|${advance.createdAt}`;
+    advanceKeyToId.set(key, String(advResult.insertId));
+    insertedAdv++;
+  }
+  console.log(`   ✓ Inserted ${insertedAdv} advances`);
+
+  // Settlements via relations only
+  let settledRec = 0;
+  for (const guide of settlementPlan.settledReceptionGuideNumbers) {
+    const txId = guideToTxId.get(guide);
+    if (!txId) continue;
+    await connection.execute(
+      `INSERT INTO transaction_relations
+         (parentTransactionId, childTransactionId, childReceptionPackId, relationType, context, createdAt, updatedAt)
+       VALUES (?, NULL, NULL, 'RECEPTION_TO_SETTLEMENT', ?, NOW(), NOW())`,
+      [txId, JSON.stringify({ source: 'seed', guideNumber: guide })]
+    );
+    settledRec++;
+  }
+
+  let settledAdv = 0;
+  for (const app of settlementPlan.advanceApplications) {
+    const key = `${app.producerRut}|${app.createdAt}`;
+    const advId = advanceKeyToId.get(key);
+    if (!advId) continue;
+    await connection.execute(
+      `INSERT INTO transaction_relations
+         (parentTransactionId, childTransactionId, childReceptionPackId, relationType, context, createdAt, updatedAt)
+       VALUES (?, NULL, NULL, 'ADVANCE_TO_SETTLEMENT', ?, NOW(), NOW())`,
+      [advId, JSON.stringify({ amount: app.amount, source: 'seed' })]
+    );
+    settledAdv++;
+  }
+  console.log(
+    `   ✓ Settlement relations: ${settledRec} receptions, ${settledAdv} advances`
+  );
+
+  // Client tray moves
+  const clientMoves = planClientTrayMoves({
+    rng,
+    trayNames: trays.map((t) => t.name),
+    asOf,
+  });
+  const defaultUser = lookups.usersByName.get('admin') || [...lookups.usersByName.values()][0];
+  if (lookups.customerId && defaultUser && lookups.activeSeasonId) {
+    for (const move of clientMoves) {
+      const tray = lookups.traysByName.get(move.trayName);
+      if (!tray) continue;
+      const type =
+        move.direction === 'OUT' ? 'TRAY_OUT_TO_CLIENT' : 'TRAY_IN_FROM_CLIENT';
+      const direction = move.direction;
+      const createdAt = new Date(move.createdAt);
+      await connection.execute(
+        `INSERT INTO transactions (type, direction, amount, unit, seasonId, producerId, clientId, userId, metadata, createdAt, updatedAt)
+         VALUES (?, ?, ?, 'TRAY', ?, NULL, ?, ?, ?, ?, ?)`,
+        [
+          type,
+          direction,
+          move.quantity,
+          lookups.activeSeasonId,
+          lookups.customerId,
+          defaultUser.id,
+          JSON.stringify({ trayId: tray.id, quantity: move.quantity, seeded: true }),
+          createdAt,
+          createdAt,
+        ]
+      );
+      const delta = move.direction === 'OUT' ? -move.quantity : move.quantity;
+      stockDelta.set(tray.id, (stockDelta.get(tray.id) ?? 0) + delta);
+    }
+    console.log(`   ✓ Inserted ${clientMoves.length} client tray moves`);
+  }
+
+  // Recalculate tray stocks: base 400 + deltas, floor at 50
+  for (const [trayId, delta] of stockDelta.entries()) {
+    const stock = Math.max(50, 400 + delta);
+    await connection.execute('UPDATE trays SET stock = ?, updatedAt = NOW() WHERE id = ?', [
+      stock,
+      trayId,
+    ]);
+  }
+  // Ensure trays without moves still have sensible stock
+  await connection.execute(
+    'UPDATE trays SET stock = 400 WHERE stock IS NULL OR stock < 50'
+  );
+  console.log(`   ✓ Recalculated tray stocks (${stockDelta.size} trays touched)`);
+
+  const report = await validateFullSeed(connection);
+  console.log('\n📋 Full seed validation:');
+  console.log(`   receptions=${report.receptionCount} paid=${report.paidCount} pending=${report.pendingCount}`);
+  console.log(`   advances=${report.advanceCount} palletCount=${report.palletCount} trayMoves=${report.trayMoveCount}`);
+  console.log(
+    `   settledRecRel=${report.settledReceptionRelations} settledAdvRel=${report.settledAdvanceRelations}`
+  );
+  console.log(`   bySeason=${JSON.stringify(report.bySeason)}`);
+  if (!report.ok) {
+    console.warn('   ⚠️  Validation warnings:');
+    report.errors.forEach((e) => console.warn(`      - ${e}`));
+  } else {
+    console.log('   ✓ Validation OK');
+  }
+}

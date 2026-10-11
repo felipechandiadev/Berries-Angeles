@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic';
 
 import React, { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import TopBar from '@/app/baseComponents/TopBar/TopBar';
 
 function LoadingContent() {
@@ -30,6 +29,10 @@ const routeTitles = [
   { route: '/home/economicManagement/bankAccounts', title: 'Cuentas Bancarias' },
   { route: '/home/receptions/newRecepcion', title: 'Nueva Recepción' },
   { route: '/home/receptions/receptions', title: 'Recepciones' },
+  { route: '/home/reports', title: 'Reportes' },
+  { route: '/home/reports/receptions', title: 'Reportes' },
+  { route: '/home/reports/economic', title: 'Reportes' },
+  { route: '/home/reports/operational', title: 'Reportes' },
   { route: '/home/productiveManagement/producers', title: 'Productores' },
   { route: '/home/productiveManagement/units', title: 'Unidades Productivas' },
 
@@ -37,7 +40,6 @@ const routeTitles = [
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { data: session } = useSession();
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', url: '/home' },
@@ -84,6 +86,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         { id: 'formatos', label: 'Formatos', url: '/home/products/formats' },
       ]
     },
+    { id: 'reportes', label: 'Reportes', url: '/home/reports' },
     { id: 'usuarios', label: 'Usuarios', url: '/home/users' },
     { id: 'auditoria', label: 'Auditoría', url: '/home/audit' },
   ];
@@ -93,14 +96,12 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   // Determinar el título basado en la ruta actual
   const currentTitle = routeTitles.find(item => pathname === item.route)?.title || 'Home';
 
-  // Obtener nombre del usuario de la sesión
-  const user = session?.user as any;
-  const userName = user?.name || '';
-
   return (
     <div className="min-h-screen flex flex-col">
-      <TopBar title={currentTitle} menuItems={menuItems} logoSrc={logoSrc} showUserButton={true} userName={userName} />
-      <main className="flex-1 w-full  mt-20 px-8">
+      <div className="print:hidden">
+        <TopBar title={currentTitle} menuItems={menuItems} logoSrc={logoSrc} showUserButton={true} />
+      </div>
+      <main className="flex-1 w-full mt-20 px-8 print:mt-0 print:px-0">
         <Suspense fallback={<LoadingContent />}>
           {children}
         </Suspense>

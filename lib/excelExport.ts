@@ -127,6 +127,48 @@ export function downloadExcelFile(workbook: XLSX.WorkBook, fileName: string) {
 }
 
 /**
+ * Exporta un ReportRunResult genérico a Excel (columnas + filas).
+ */
+export function exportReportToExcel(
+  result: {
+    title: string;
+    columns: Array<{ key: string; label: string }>;
+    rows: Record<string, unknown>[];
+    reportId?: string;
+  },
+  options: ExcelExportOptions = {}
+) {
+  try {
+    const sheetName = options.sheetName || 'Reporte';
+    const fileName =
+      options.fileName ||
+      generateExcelFileName(
+        (result.reportId || result.title || 'reporte')
+          .toLowerCase()
+          .replace(/[^a-z0-9áéíóúñ]+/gi, '_')
+          .slice(0, 40)
+      );
+
+    const headers = result.columns.map((c) => c.label);
+    const aoa: unknown[][] = [headers];
+    result.rows.forEach((row) => {
+      aoa.push(result.columns.map((c) => row[c.key] ?? ''));
+    });
+
+    const workbook = XLSX.utils.book_new();
+    const sheet = XLSX.utils.aoa_to_sheet(aoa);
+    sheet['!cols'] = result.columns.map((c) => ({
+      wch: Math.max(12, Math.min(40, c.label.length + 4)),
+    }));
+    XLSX.utils.book_append_sheet(workbook, sheet, sheetName.slice(0, 31));
+    return downloadExcelFile(workbook, fileName);
+  } catch (error) {
+    console.error('Error exportando reporte a Excel:', error);
+    return false;
+  }
+}
+
+/**
  * Genera el nombre del archivo con timestamp
  */
 export function generateExcelFileName(prefix = 'auditorias'): string {

@@ -14,7 +14,6 @@ interface TopBarProps {
   menuItems?: SideBarMenuItem[]; // if provided, TopBar will render SideBar internally
   // New props for user profile
   showUserButton?: boolean;
-  userName?: string;
 }
 
 interface SideBarControl {
@@ -40,7 +39,6 @@ const TopBar: React.FC<TopBarProps> = ({
   SideBarComponent,
   menuItems = [],
   showUserButton = false,
-  userName
 }) => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
@@ -108,14 +106,6 @@ const TopBar: React.FC<TopBarProps> = ({
           <div className="flex items-center gap-2">
             <PrinterSetupButton />
 
-            {/* User name */}
-            {userName && (
-              <span className="text-sm font-weight-300 text-foreground" data-test-id="top-bar-user-name">
-                {userName}
-              </span>
-            )}
-
-            {/* User Profile Dropdown */}
             {showUserButton && (
               <UserProfileDropdown />
             )}

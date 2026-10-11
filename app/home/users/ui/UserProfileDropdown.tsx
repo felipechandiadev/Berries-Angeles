@@ -119,8 +119,8 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
         title={`${userName} (${userEmail})`}
         data-test-id="user-profile-button"
       >
-        <span className="material-symbols-outlined text-foreground text-xl transition-colors duration-200 group-hover:text-secondary">
-          person
+        <span className="material-symbols-outlined text-foreground text-2xl transition-colors duration-200 group-hover:text-secondary">
+          account_circle
         </span>
       </button>
 

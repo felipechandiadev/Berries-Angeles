@@ -24,4 +24,7 @@ Ver `.env.example`. En Vercel configurar `DB_*`, `NEXTAUTH_URL`, `NEXTAUTH_SECRE
 | `npm run dev` | Desarrollo |
 | `npm run build` | Producción |
 | `npm run start` | Servidor producción |
-| `npm run seed:test` | Crear BD + datos de prueba |
+| `npm run seed:test` / `seed:full` | BD + seed histórico amplio (~700 recepciones, 4 temporadas) |
+| `npm run seed:minimal` | BD + fixtures JSON cortos (smoke rápido) |
+
+Variables opcionales del seed: `SEED_PROFILE=full|minimal`, `SEED_RNG=42` (reproducible).
