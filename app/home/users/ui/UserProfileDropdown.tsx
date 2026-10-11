@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
+import { CircleUser } from 'lucide-react';
 import UpdateUserPasswordDialog from '@/app/home/users/ui/UpdateUserPasswordDialog';
 import ViewUserPermissionsDialog from '@/app/home/users/ui/ViewUserPermissionsDialog';
 
@@ -119,9 +120,11 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
         title={`${userName} (${userEmail})`}
         data-test-id="user-profile-button"
       >
-        <span className="material-symbols-outlined text-foreground text-2xl transition-colors duration-200 group-hover:text-secondary">
-          account_circle
-        </span>
+        <CircleUser
+          size={28}
+          className="text-foreground transition-colors duration-200 group-hover:text-secondary"
+          aria-hidden
+        />
       </button>
 
       {/* Dropdown Menu */}

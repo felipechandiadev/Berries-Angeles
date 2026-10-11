@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import UpdateBaseForm, { BaseUpdateFormFieldGroup } from '@/app/baseComponents/BaseForm/UpdateBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { createTrayAdjustment } from '@/app/actions/transactions';
 import { getActiveSeason } from '@/app/actions/seasons';
 
@@ -41,7 +42,7 @@ const TrayAdjustmentDialog: React.FC<TrayAdjustmentDialogProps> = ({
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const getTitle = () => {
@@ -121,64 +122,68 @@ const TrayAdjustmentDialog: React.FC<TrayAdjustmentDialogProps> = ({
       return;
     }
 
-    setIsSubmitting(true);
-    setErrors([]);
+    const result = await run(async () => {
+      setErrors([]);
 
-    try {
-      // Obtener temporada activa
-      const seasonResult = await getActiveSeason();
-      if (!seasonResult.success || !seasonResult.data) {
-        error(seasonResult.error || 'No se pudo obtener la temporada activa');
-        return;
-      }
-
-      const amountValue = Number(data.amount);
-      if (isNaN(amountValue) || amountValue < (mode === 'adjustment' ? 0 : 1)) {
-        error(`El valor debe ser un número válido ${mode === 'adjustment' ? 'mayor o igual a 0' : 'mayor a 0'}`);
-        return;
-      }
-
-      let adjustmentValue: number;
-      let newStock: number;
-
-      if (mode === 'adjustment') {
-        newStock = amountValue;
-        adjustmentValue = newStock - tray.stock;
-      } else if (mode === 'receive') {
-        adjustmentValue = amountValue; // positivo
-        newStock = tray.stock + amountValue;
-      } else { // return
-        adjustmentValue = -amountValue; // negativo
-        newStock = tray.stock - amountValue;
-        if (newStock < 0) {
-          error(`La devolución resultaría en stock negativo (${newStock}). Stock actual: ${tray.stock}`);
-          return;
+      try {
+        const seasonResult = await getActiveSeason();
+        if (!seasonResult.success || !seasonResult.data) {
+          error(seasonResult.error || 'No se pudo obtener la temporada activa');
+          return { ok: false };
         }
-      }
 
-      const result = await createTrayAdjustment({
-        trayId: tray.id,
-        seasonId: (seasonResult.data as any).id,
-        userId: currentUserId,
-        amount: adjustmentValue,
-        metadata: {
-          reason: data.reason as string,
-          notes: data.notes as string || undefined,
-          operation: mode,
-        },
-      });
+        const amountValue = Number(data.amount);
+        if (isNaN(amountValue) || amountValue < (mode === 'adjustment' ? 0 : 1)) {
+          error(`El valor debe ser un número válido ${mode === 'adjustment' ? 'mayor o igual a 0' : 'mayor a 0'}`);
+          return { ok: false };
+        }
 
-      if (result.success) {
-        success(`${mode === 'receive' ? 'Recepción' : mode === 'return' ? 'Devolución' : 'Ajuste'} realizado exitosamente`);
-        onSuccess?.();
-      } else {
-        error(result.error || `Error al realizar la ${mode === 'receive' ? 'recepción' : mode === 'return' ? 'devolución' : 'ajuste'}`);
+        let adjustmentValue: number;
+        let newStock: number;
+
+        if (mode === 'adjustment') {
+          newStock = amountValue;
+          adjustmentValue = newStock - tray.stock;
+        } else if (mode === 'receive') {
+          adjustmentValue = amountValue;
+          newStock = tray.stock + amountValue;
+        } else {
+          adjustmentValue = -amountValue;
+          newStock = tray.stock - amountValue;
+          if (newStock < 0) {
+            error(`La devolución resultaría en stock negativo (${newStock}). Stock actual: ${tray.stock}`);
+            return { ok: false };
+          }
+        }
+
+        const adjustmentResult = await createTrayAdjustment({
+          trayId: tray.id,
+          seasonId: (seasonResult.data as any).id,
+          userId: currentUserId,
+          amount: adjustmentValue,
+          metadata: {
+            reason: data.reason as string,
+            notes: data.notes as string || undefined,
+            operation: mode,
+          },
+        });
+
+        if (adjustmentResult.success) {
+          success(`${mode === 'receive' ? 'Recepción' : mode === 'return' ? 'Devolución' : 'Ajuste'} realizado exitosamente`);
+          return { ok: true };
+        }
+
+        error(adjustmentResult.error || `Error al realizar la ${mode === 'receive' ? 'recepción' : mode === 'return' ? 'devolución' : 'ajuste'}`);
+        return { ok: false };
+      } catch (err: any) {
+        console.error(`Error ${mode}ing tray stock:`, err);
+        error(err?.message || `Error inesperado al ${mode === 'receive' ? 'recibir' : mode === 'return' ? 'devolver' : 'ajustar'} stock`);
+        return { ok: false };
       }
-    } catch (err: any) {
-      console.error(`Error ${mode}ing tray stock:`, err);
-      error(err?.message || `Error inesperado al ${mode === 'receive' ? 'recibir' : mode === 'return' ? 'devolver' : 'ajustar'} stock`);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onSuccess?.();
     }
   };
 

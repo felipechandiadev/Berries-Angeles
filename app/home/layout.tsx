@@ -101,7 +101,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       <div className="print:hidden">
         <TopBar title={currentTitle} menuItems={menuItems} logoSrc={logoSrc} showUserButton={true} />
       </div>
-      <main className="flex-1 w-full mt-20 px-8 print:mt-0 print:px-0">
+      <main className="flex-1 w-full mt-[var(--app-topbar-height)] px-page pb-6 print:mt-0 print:px-0 print:pb-0">
         <Suspense fallback={<LoadingContent />}>
           {children}
         </Suspense>

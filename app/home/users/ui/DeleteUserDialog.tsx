@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { deleteUser } from '@/app/actions/users';
 
 interface User {
@@ -31,7 +32,7 @@ const DeleteUserDialog: React.FC<DeleteUserDialogProps> = ({ open, onClose, user
   const router = useRouter();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
   const { success, error } = useAlert();
 
@@ -41,30 +42,33 @@ const DeleteUserDialog: React.FC<DeleteUserDialogProps> = ({ open, onClose, user
       return;
     }
 
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await deleteUser(String(user.id), currentUserId);
-      
-      if (result?.success) {
+    const result = await run(async () => {
+      try {
+        const res = await deleteUser(String(user.id), currentUserId);
+
+        if (!res?.success) {
+          const errorMessage = res?.error || 'Error al eliminar el usuario';
+          error(errorMessage);
+          setErrors([errorMessage]);
+          return { ok: false };
+        }
+
         success(`Usuario "${user.userName}" eliminado correctamente`);
-        setTimeout(() => {
-          onClose();
-          onSuccess?.();
-          router.refresh();
-        }, 500);
-      } else {
-        const errorMessage = result?.error || 'Error al eliminar el usuario';
+        return { ok: true };
+      } catch (err: any) {
+        const errorMessage = err?.message || 'Error desconocido al eliminar el usuario';
         error(errorMessage);
         setErrors([errorMessage]);
-        setIsSubmitting(false);
+        return { ok: false };
       }
-    } catch (err: any) {
-      const errorMessage = err?.message || 'Error desconocido al eliminar el usuario';
-      error(errorMessage);
-      setErrors([errorMessage]);
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      onSuccess?.();
+      router.refresh();
     }
   };
 

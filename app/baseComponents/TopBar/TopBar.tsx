@@ -1,6 +1,7 @@
 'use client'
-import React, { useState, useContext, useTransition } from 'react';
+import React, { useState, useContext } from 'react';
 import Image from 'next/image';
+import { Menu, ImageOff, Image as ImageIcon } from 'lucide-react';
 import SideBar, { SideBarMenuItem } from './SideBar';
 import UserProfileDropdown from '@/app/home/users/ui/UserProfileDropdown';
 import PrinterSetupButton from './PrinterSetupButton';
@@ -50,7 +51,7 @@ const TopBar: React.FC<TopBarProps> = ({
   return (
     <SideBarContext.Provider value={{ open, close, isOpen: showSidebar }}>
         <div data-test-id="top-bar-root">
-      <header className={`fixed top-0 z-30 w-full flex items-center justify-between px-10 py-2 pb-3 bg-background border-b-[2px] border-primary ${className}`}>
+      <header className={`fixed top-0 z-30 w-full flex items-center justify-between px-page py-2 pb-3 bg-background border-b-[2px] border-primary ${className}`}>
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -59,23 +60,25 @@ const TopBar: React.FC<TopBarProps> = ({
               data-test-id="top-bar-menu-button"
               aria-label="Abrir menú"
             >
-              <span
-                className="material-symbols-outlined cursor-pointer"
-                style={{ fontSize: 36, width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                aria-hidden
-              >
-                menu
-              </span>
+              <Menu size={36} className="cursor-pointer" aria-hidden />
             </button>
+            <span className="text-lg font-bold text-foreground" data-test-id="top-bar-title">{title}</span>
+          </div>
+
+          {/* Right side: printer, user, logo */}
+          <div className="flex items-center gap-2">
+            <PrinterSetupButton />
+
+            {showUserButton && (
+              <UserProfileDropdown />
+            )}
 
             {logoSrc ? (
               <>
                 {(!logoLoaded || logoError) && (
                   <div className="h-10 w-10 bg-neutral-300 rounded-lg flex items-center justify-center" data-test-id="top-bar-logo-skeleton">
                     {logoError && (
-                      <span className="material-symbols-outlined text-neutral-400" style={{ fontSize: 20 }}>
-                        image_not_supported
-                      </span>
+                      <ImageOff size={20} className="text-neutral-400" aria-hidden />
                     )}
                   </div>
                 )}
@@ -94,20 +97,8 @@ const TopBar: React.FC<TopBarProps> = ({
               </>
             ) : (
               <div className="h-10 w-10 bg-neutral-300 rounded-lg flex items-center justify-center" data-test-id="top-bar-logo-placeholder">
-                <span className="material-symbols-outlined text-neutral-400" style={{ fontSize: 20 }}>
-                  image
-                </span>
+                <ImageIcon size={20} className="text-neutral-400" aria-hidden />
               </div>
-            )}
-            <span className="text-lg font-bold text-foreground" data-test-id="top-bar-title">{title}</span>
-          </div>
-
-          {/* Right side elements */}
-          <div className="flex items-center gap-2">
-            <PrinterSetupButton />
-
-            {showUserButton && (
-              <UserProfileDropdown />
             )}
           </div>
         </header>

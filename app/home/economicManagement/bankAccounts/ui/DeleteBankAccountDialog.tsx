@@ -7,6 +7,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { deleteAdminBankAccount } from '@/app/actions/adminBankAccounts';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface BankAccount {
   id: string;
@@ -31,7 +32,7 @@ const DeleteBankAccountDialog: React.FC<DeleteBankAccountDialogProps> = ({ open,
   const router = useRouter();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
   const { success, error } = useAlert();
 
@@ -41,27 +42,32 @@ const DeleteBankAccountDialog: React.FC<DeleteBankAccountDialogProps> = ({ open,
       return;
     }
 
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await deleteAdminBankAccount(bankAccount.id);
+    const result = await run(async () => {
+      try {
+        const deleteResult = await deleteAdminBankAccount(bankAccount.id);
 
-      if (result?.success) {
-        success(result.message || 'Cuenta bancaria eliminada exitosamente');
-        onClose();
-      } else {
-        error(result.error || 'Error al eliminar la cuenta bancaria');
-        if (result.error) {
-          setErrors([result.error]);
+        if (deleteResult?.success) {
+          success(deleteResult.message || 'Cuenta bancaria eliminada exitosamente');
+          return { ok: true };
         }
+
+        error(deleteResult.error || 'Error al eliminar la cuenta bancaria');
+        if (deleteResult.error) {
+          setErrors([deleteResult.error]);
+        }
+        return { ok: false };
+      } catch (err: any) {
+        console.error('Error deleting bank account:', err);
+        error('Error inesperado al eliminar la cuenta bancaria');
+        setErrors(['Error inesperado al eliminar la cuenta bancaria']);
+        return { ok: false };
       }
-    } catch (err: any) {
-      console.error('Error deleting bank account:', err);
-      error('Error inesperado al eliminar la cuenta bancaria');
-      setErrors(['Error inesperado al eliminar la cuenta bancaria']);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
     }
   };
 

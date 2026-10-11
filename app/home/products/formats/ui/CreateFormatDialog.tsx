@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import CreateBaseForm, { BaseFormField } from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { createFormat } from '@/app/actions/formats';
 
 interface CreateFormatDialogProps {
@@ -18,7 +19,7 @@ const CreateFormatDialog: React.FC<CreateFormatDialogProps> = ({ open, onClose }
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -58,34 +59,38 @@ const CreateFormatDialog: React.FC<CreateFormatDialogProps> = ({ open, onClose }
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await createFormat({
-        name: formData.name,
-        description: formData.description || undefined,
-        active: formData.active,
-      }, currentUserId);
+    const result = await run(async () => {
+      try {
+        const res = await createFormat({
+          name: formData.name,
+          description: formData.description || undefined,
+          active: formData.active,
+        }, currentUserId);
 
-      if (result.success) {
-        success(result.message || 'Formato creado exitosamente');
-        onClose();
-        setFormData({
-          name: '',
-          description: '',
-          active: true,
-        });
-        // Refresh the page to show the new format
-        router.refresh();
-      } else {
-        error(result.error || 'Error al crear el formato');
+        if (!res.success) {
+          error(res.error || 'Error al crear el formato');
+          return { ok: false };
+        }
+
+        success(res.message || 'Formato creado exitosamente');
+        return { ok: true };
+      } catch (err: any) {
+        error('Error inesperado al crear el formato');
+        console.error('Create format error:', err);
+        return { ok: false };
       }
-    } catch (err: any) {
-      error('Error inesperado al crear el formato');
-      console.error('Create format error:', err);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      setFormData({
+        name: '',
+        description: '',
+        active: true,
+      });
+      router.refresh();
     }
   };
 

@@ -8,6 +8,7 @@ import { getStorages } from '@/app/actions/storages';
 import { getTraysSimpleList } from '@/app/actions/trays';
 import { PalletStatus } from '@/data/entities/Pallet';
 import { getPalletStatusLabel } from './PalletStatusBadge';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface CreatePalletButtonProps {
   onSuccess: () => void;
@@ -23,7 +24,7 @@ export default function CreatePalletButton({ onSuccess, onClose }: CreatePalletB
   const { showAlert } = useAlert();
   const [storageOptions, setStorageOptions] = useState<SelectOption[]>([]);
   const [trayOptions, setTrayOptions] = useState<SelectOption[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [values, setValues] = useState({
@@ -102,7 +103,6 @@ export default function CreatePalletButton({ onSuccess, onClose }: CreatePalletB
       return;
     }
 
-    setIsSubmitting(true);
     setErrors([]);
 
     const payload: CreatePalletInput = {
@@ -115,31 +115,37 @@ export default function CreatePalletButton({ onSuccess, onClose }: CreatePalletB
       traysQuantity: 0,
     };
 
-    try {
-      const result = await createPallet(payload);
+    const result = await run(async () => {
+      try {
+        const createResult = await createPallet(payload);
 
-      if (result.success) {
-        showAlert({ message: `Pallet creado exitosamente (${getPalletStatusLabel(PalletStatus.AVAILABLE)})`, type: 'success', duration: 4000 });
-        setValues({
-          storageId: '',
-          trayId: '',
-          capacity: '240',
-          weight: '0',
-        });
-        onClose?.();
-        onSuccess();
-      } else {
-        const errorMessage = result.error || 'Error al crear el pallet';
+        if (createResult.success) {
+          showAlert({ message: `Pallet creado exitosamente (${getPalletStatusLabel(PalletStatus.AVAILABLE)})`, type: 'success', duration: 4000 });
+          return { ok: true };
+        }
+
+        const errorMessage = createResult.error || 'Error al crear el pallet';
         showAlert({ message: errorMessage, type: 'error', duration: 5000 });
         setErrors([errorMessage]);
+        return { ok: false };
+      } catch (error) {
+        console.error('[CreatePalletButton] Error creando pallet:', error);
+        const errorMessage = 'Error inesperado al crear el pallet';
+        showAlert({ message: errorMessage, type: 'error', duration: 5000 });
+        setErrors([errorMessage]);
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('[CreatePalletButton] Error creando pallet:', error);
-      const errorMessage = 'Error inesperado al crear el pallet';
-      showAlert({ message: errorMessage, type: 'error', duration: 5000 });
-      setErrors([errorMessage]);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      setValues({
+        storageId: '',
+        trayId: '',
+        capacity: '240',
+        weight: '0',
+      });
+      onClose?.();
+      onSuccess();
     }
   };
 

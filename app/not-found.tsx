@@ -6,7 +6,7 @@ export default function NotFound() {
   const router = useRouter();
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8" style={{ backgroundColor: 'var(--color-background)' }}>
+    <main className="min-h-screen flex flex-col items-center justify-center px-page py-6" style={{ backgroundColor: 'var(--color-background)' }}>
       <div className="text-center space-y-8 max-w-2xl">
         {/* Logo */}
         <div className="flex justify-center">

@@ -8,6 +8,7 @@ const withSerwist = require("@serwist/next").default({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  transpilePackages: ["@felipechandiadev/ui"],
   // Evita que webpack empaquete TypeORM (usa el build Node, no /browser).
   serverExternalPackages: ["typeorm", "mysql2", "bcryptjs", "reflect-metadata"],
   eslint: {

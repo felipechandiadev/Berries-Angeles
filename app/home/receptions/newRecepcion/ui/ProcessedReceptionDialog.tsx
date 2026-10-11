@@ -7,6 +7,7 @@ import type { ReceptionDataSnapshot, ReceptionTotals, ReceptionPackSummary } fro
 import type { TrayDevolutionItem } from './TrayDevolutionContainer';
 import { Currency } from '@/data/entities/Variety';
 import { processReception, type ProcessReceptionInput } from '@/app/actions/receptions';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface ProcessedReceptionDialogProps {
   open: boolean;
@@ -77,7 +78,7 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
   const totals = snapshot?.totals ?? EMPTY_TOTALS;
   const packs: ReceptionPackSummary[] = snapshot?.packs ?? [];
   const trayDevolutions: TrayDevolutionItem[] = snapshot?.trayDevolutions ?? [];
-  const [isSaving, setIsSaving] = useState(false);
+  const { isSubmitting: isSaving, run } = useSubmitLock();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pagoContraRecepcion, setPagoContraRecepcion] = useState(false);
 
@@ -256,85 +257,92 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
       return;
     }
 
-    setIsSaving(true);
     setErrorMessage(null);
 
-    try {
-      const packInputs = packs.map((pack) => {
-        if (!pack.varietyId) {
-          throw new Error(`El pack #${pack.packNumber} debe tener una variedad seleccionada.`);
-        }
+    let saveResult: ProcessedReceptionResult | undefined;
 
-        if (!pack.formatId) {
-          throw new Error(`El pack #${pack.packNumber} debe tener un formato seleccionado.`);
-        }
+    const result = await run(async () => {
+      try {
+        const packInputs = packs.map((pack) => {
+          if (!pack.varietyId) {
+            throw new Error(`El pack #${pack.packNumber} debe tener una variedad seleccionada.`);
+          }
 
-        return {
-          packNumber: pack.packNumber,
-          varietyId: Number(pack.varietyId ?? 0),
-          varietyName: pack.varietyName ?? null,
-          formatId: Number(pack.formatId ?? 0),
-          formatName: pack.formatName ?? null,
-          trayId: pack.trayId ?? null,
-          trayLabel: pack.trayLabel ?? null,
-          traysQuantity: pack.traysQuantity ?? 0,
-          unitTrayWeight: pack.unitTrayWeight ?? 0,
-          traysTotalWeight: pack.traysTotalWeight ?? 0,
-          grossWeight: pack.grossWeight ?? 0,
-          netWeightBeforeImpurities: pack.netWeightBeforeImpurities ?? 0,
-          netWeight: pack.netWeight ?? 0,
-          impurityPercent: pack.impurityPercent ?? 0,
-          price: pack.price ?? 0,
-          currency: pack.currency ?? Currency.CLP,
-          totalToPay: pack.totalToPay ?? 0,
-          palletAssignments: (pack.palletAssignments ?? []).map((assignment) => ({
-            palletId: assignment.palletId,
-            traysAssigned: assignment.traysAssigned,
+          if (!pack.formatId) {
+            throw new Error(`El pack #${pack.packNumber} debe tener un formato seleccionado.`);
+          }
+
+          return {
+            packNumber: pack.packNumber,
+            varietyId: Number(pack.varietyId ?? 0),
+            varietyName: pack.varietyName ?? null,
+            formatId: Number(pack.formatId ?? 0),
+            formatName: pack.formatName ?? null,
+            trayId: pack.trayId ?? null,
+            trayLabel: pack.trayLabel ?? null,
+            traysQuantity: pack.traysQuantity ?? 0,
+            unitTrayWeight: pack.unitTrayWeight ?? 0,
+            traysTotalWeight: pack.traysTotalWeight ?? 0,
+            grossWeight: pack.grossWeight ?? 0,
+            netWeightBeforeImpurities: pack.netWeightBeforeImpurities ?? 0,
+            netWeight: pack.netWeight ?? 0,
+            impurityPercent: pack.impurityPercent ?? 0,
+            price: pack.price ?? 0,
+            currency: pack.currency ?? Currency.CLP,
+            totalToPay: pack.totalToPay ?? 0,
+            palletAssignments: (pack.palletAssignments ?? []).map((assignment) => ({
+              palletId: assignment.palletId,
+              traysAssigned: assignment.traysAssigned,
+            })),
+          };
+        });
+
+        const payload: ProcessReceptionInput = {
+          producer: snapshot.producer ? { id: snapshot.producer.id, label: snapshot.producer.label } : null,
+          guide: snapshot.guide ?? '',
+          packs: packInputs,
+          trayDevolutions: (snapshot.trayDevolutions ?? []).map((item) => ({
+            trayId: item.trayId,
+            trayLabel: item.trayLabel ?? null,
+            quantity: item.quantity ?? 0,
           })),
+          totals: {
+            totalPacks: totals.totalPacks,
+            totalTraysInPacks: totals.totalTraysInPacks,
+            totalTraysDevolved: totals.totalTraysDevolved,
+            totalGrossWeight: totals.totalGrossWeight,
+            totalNetWeight: totals.totalNetWeight,
+            totalToPayUSD: totals.totalToPayUSD,
+            totalToPayCLP: totals.totalToPayCLP,
+            totalCLPToPay: totals.totalCLPToPay,
+          },
+          exchangeRate: snapshot.exchangeRate ?? 0,
+          paymentStatus: pagoContraRecepcion ? 'PAID_ON_RECEPTION' : 'PENDING',
         };
-      });
 
-      const payload: ProcessReceptionInput = {
-        producer: snapshot.producer ? { id: snapshot.producer.id, label: snapshot.producer.label } : null,
-        guide: snapshot.guide ?? '',
-        packs: packInputs,
-        trayDevolutions: (snapshot.trayDevolutions ?? []).map((item) => ({
-          trayId: item.trayId,
-          trayLabel: item.trayLabel ?? null,
-          quantity: item.quantity ?? 0,
-        })),
-        totals: {
-          totalPacks: totals.totalPacks,
-          totalTraysInPacks: totals.totalTraysInPacks,
-          totalTraysDevolved: totals.totalTraysDevolved,
-          totalGrossWeight: totals.totalGrossWeight,
-          totalNetWeight: totals.totalNetWeight,
-          totalToPayUSD: totals.totalToPayUSD,
-          totalToPayCLP: totals.totalToPayCLP,
-          totalCLPToPay: totals.totalCLPToPay,
-        },
-        exchangeRate: snapshot.exchangeRate ?? 0,
-        paymentStatus: pagoContraRecepcion ? 'PAID_ON_RECEPTION' : 'PENDING',
-      };
+        const response = await processReception(payload);
 
-      const response = await processReception(payload);
+        if (!response.success) {
+          throw new Error(response.error ?? 'No fue posible procesar la recepción');
+        }
 
-      if (!response.success) {
-        throw new Error(response.error ?? 'No fue posible procesar la recepción');
+        const receptionId = response.data?.receptionTransactionId ?? null;
+        const snapshotWithPayment: ReceptionDataSnapshot = {
+          ...snapshot,
+          paymentStatus: pagoContraRecepcion ? 'PAID_ON_RECEPTION' : 'PENDING',
+        };
+        saveResult = { snapshot: snapshotWithPayment, receptionTransactionId: receptionId };
+        return { ok: true };
+      } catch (error: any) {
+        console.error('[ProcessedReceptionDialog] Error guardando recepción:', error);
+        setErrorMessage(error?.message ?? 'No fue posible guardar la recepción');
+        return { ok: false };
       }
+    });
 
-      const receptionId = response.data?.receptionTransactionId ?? null;
-      const snapshotWithPayment: ReceptionDataSnapshot = {
-        ...snapshot,
-        paymentStatus: pagoContraRecepcion ? 'PAID_ON_RECEPTION' : 'PENDING',
-      };
-      onSave?.({ snapshot: snapshotWithPayment, receptionTransactionId: receptionId });
+    if (result?.ok && saveResult) {
+      onSave?.(saveResult);
       onClose();
-    } catch (error: any) {
-      console.error('[ProcessedReceptionDialog] Error guardando recepción:', error);
-      setErrorMessage(error?.message ?? 'No fue posible guardar la recepción');
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -343,8 +351,13 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
       <Button variant="outlined" onClick={onClose}>
         Cerrar
       </Button>
-      <Button variant="primary" onClick={handleSave} disabled={!packs.length || isSaving}>
-        {isSaving ? 'Guardando…' : 'Guardar'}
+      <Button
+        variant="primary"
+        onClick={handleSave}
+        loading={isSaving}
+        disabled={!packs.length}
+      >
+        Guardar
       </Button>
     </div>
   );

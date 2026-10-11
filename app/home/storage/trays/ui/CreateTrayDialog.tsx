@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import CreateBaseForm, { BaseFormFieldGroup } from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { createTray } from '@/app/actions/trays';
 
 interface CreateTrayDialogProps {
@@ -20,7 +21,7 @@ const CreateTrayDialog: React.FC<CreateTrayDialogProps> = ({ open, onClose, onSu
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -59,37 +60,41 @@ const CreateTrayDialog: React.FC<CreateTrayDialogProps> = ({ open, onClose, onSu
   ];
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const submitData = {
-        name: formData.name,
-        weight: parseFloat(formData.weight),
-        stock: 0, // Siempre inicia en 0
-      };
+    const result = await run(async () => {
+      try {
+        const submitData = {
+          name: formData.name,
+          weight: parseFloat(formData.weight),
+          stock: 0,
+        };
 
-      const result = await createTray(submitData, currentUserId);
+        const res = await createTray(submitData, currentUserId);
 
-      if (result.success) {
+        if (!res.success) {
+          error(res.error || 'Error al crear la bandeja');
+          setErrors([res.error || 'Error desconocido']);
+          return { ok: false };
+        }
+
         success('Bandeja creada exitosamente');
-        onClose();
-        onSuccess?.();
-        // Reset form
-        setFormData({
-          name: '',
-          weight: '0',
-        });
-      } else {
-        error(result.error || 'Error al crear la bandeja');
-        setErrors([result.error || 'Error desconocido']);
+        return { ok: true };
+      } catch (err: any) {
+        console.error('Error creating tray:', err);
+        error('Error inesperado al crear la bandeja');
+        setErrors(['Error inesperado al crear la bandeja']);
+        return { ok: false };
       }
-    } catch (err: any) {
-      console.error('Error creating tray:', err);
-      error('Error inesperado al crear la bandeja');
-      setErrors(['Error inesperado al crear la bandeja']);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      onSuccess?.();
+      setFormData({
+        name: '',
+        weight: '0',
+      });
     }
   };
 

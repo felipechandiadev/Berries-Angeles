@@ -8,6 +8,7 @@ import UpdateBaseForm, { BaseUpdateFormField } from '@/app/baseComponents/BaseFo
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { Season } from '@/data/entities/Season';
 import { updateSeason } from '@/app/actions/seasons';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface UpdateSeasonDialogProps {
   open: boolean;
@@ -21,7 +22,7 @@ const UpdateSeasonDialog: React.FC<UpdateSeasonDialogProps> = ({ open, onClose, 
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
 
   const formFields: BaseUpdateFormField[] = [
     {
@@ -66,31 +67,34 @@ const UpdateSeasonDialog: React.FC<UpdateSeasonDialogProps> = ({ open, onClose, 
   };
 
   const handleSubmit = async (values: any) => {
-    setIsSubmitting(true);
+    const result = await run(async () => {
+      try {
+        const updateResult = await updateSeason({
+          id: season.id,
+          name: values.name,
+          startDate: values.startDate ? new Date(values.startDate + 'T00:00:00') : undefined,
+          endDate: values.endDate ? new Date(values.endDate + 'T23:59:59') : undefined,
+          description: values.description || undefined,
+          active: values.active,
+        }, currentUserId);
 
-    try {
-      const result = await updateSeason({
-        id: season.id,
-        name: values.name,
-        startDate: values.startDate ? new Date(values.startDate + 'T00:00:00') : undefined,
-        endDate: values.endDate ? new Date(values.endDate + 'T23:59:59') : undefined,
-        description: values.description || undefined,
-        active: values.active,
-      }, currentUserId);
+        if (updateResult.success) {
+          success(updateResult.message || 'Temporada actualizada exitosamente');
+          return { ok: true };
+        }
 
-      if (result.success) {
-        success(result.message || 'Temporada actualizada exitosamente');
-        onClose();
-        // Refresh the page to show the updated season
-        router.refresh();
-      } else {
-        error(result.error || 'Error al actualizar la temporada');
+        error(updateResult.error || 'Error al actualizar la temporada');
+        return { ok: false };
+      } catch (err: any) {
+        error('Error inesperado al actualizar la temporada');
+        console.error('Update season error:', err);
+        return { ok: false };
       }
-    } catch (err: any) {
-      error('Error inesperado al actualizar la temporada');
-      console.error('Update season error:', err);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      router.refresh();
     }
   };
 

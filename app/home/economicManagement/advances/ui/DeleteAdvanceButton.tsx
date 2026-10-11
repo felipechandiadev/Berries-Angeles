@@ -7,6 +7,7 @@ import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { deleteAdvance } from '@/app/actions/advances';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface DeleteAdvanceButtonProps {
   advanceId: string;
@@ -26,7 +27,7 @@ export default function DeleteAdvanceButton({
   const currentUserId = (session?.user as any)?.id as string | undefined;
 
   const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const handleClose = () => {
@@ -56,34 +57,37 @@ export default function DeleteAdvanceButton({
       return;
     }
 
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      await deleteAdvance({
-        advanceId,
-        userId: currentUserId,
-      });
+    const result = await run(async () => {
+      try {
+        await deleteAdvance({
+          advanceId,
+          userId: currentUserId,
+        });
 
-      showAlert({
-        message: 'Anticipo eliminado correctamente.',
-        type: 'success',
-        duration: 4000,
-      });
+        showAlert({
+          message: 'Anticipo eliminado correctamente.',
+          type: 'success',
+          duration: 4000,
+        });
+        return { ok: true };
+      } catch (error: any) {
+        console.error('[DeleteAdvanceButton] Error deleting advance:', error);
+        const errorMessage = error?.message ?? 'No se pudo eliminar el anticipo. Intente nuevamente.';
+        showAlert({
+          message: errorMessage,
+          type: 'error',
+          duration: 4000,
+        });
+        setErrors([errorMessage]);
+        return { ok: false };
+      }
+    });
 
+    if (result?.ok) {
       setOpen(false);
       onSuccess?.();
-    } catch (error: any) {
-      console.error('[DeleteAdvanceButton] Error deleting advance:', error);
-      const errorMessage = error?.message ?? 'No se pudo eliminar el anticipo. Intente nuevamente.';
-      showAlert({
-        message: errorMessage,
-        type: 'error',
-        duration: 4000,
-      });
-      setErrors([errorMessage]);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

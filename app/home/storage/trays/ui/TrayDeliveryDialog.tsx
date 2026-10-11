@@ -8,6 +8,7 @@ import { getActiveSeason } from '@/app/actions/seasons';
 import { getProducersSimpleListWithLabel } from '@/app/actions/producers';
 import { getCustomersSimpleListWithLabel } from '@/app/actions/customers';
 import { createTrayDelivery, type TrayMovementCounterparty } from '@/app/actions/transactions';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface Tray {
   id: string;
@@ -65,7 +66,7 @@ const TrayDeliveryDialog: React.FC<TrayDeliveryDialogProps> = ({
   const currentUserId = (session?.user as any)?.id as string | undefined;
 
   const [values, setValues] = useState<DeliveryFormValues>({ ...initialFormValues });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [hasLoadedOptions, setHasLoadedOptions] = useState(false);
@@ -239,52 +240,56 @@ const TrayDeliveryDialog: React.FC<TrayDeliveryDialogProps> = ({
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const seasonResult = await getActiveSeason();
-      if (!seasonResult.success || !seasonResult.data) {
-        const message = seasonResult.error || 'No se pudo obtener la temporada activa';
+    const result = await run(async () => {
+      try {
+        const seasonResult = await getActiveSeason();
+        if (!seasonResult.success || !seasonResult.data) {
+          const message = seasonResult.error || 'No se pudo obtener la temporada activa';
+          setFormErrors([message]);
+          return { ok: false };
+        }
+
+        const seasonId = (Array.isArray(seasonResult.data)
+          ? seasonResult.data[0]?.id
+          : (seasonResult.data as any)?.id) as string | undefined;
+
+        if (!seasonId) {
+          const message = 'La temporada activa es inválida';
+          setFormErrors([message]);
+          return { ok: false };
+        }
+
+        const deliveryResult = await createTrayDelivery({
+          trayId: tray.id,
+          seasonId,
+          userId: currentUserId,
+          amount,
+          counterpartyType: values.counterpartyType,
+          counterpartyId,
+          metadata: {
+            reason: values.reason,
+          },
+        });
+
+        if (deliveryResult.success) {
+          return { ok: true };
+        }
+
+        const message = deliveryResult.error || 'Error al registrar la entrega de bandejas';
         setFormErrors([message]);
-        return;
-      }
-
-      const seasonId = (Array.isArray(seasonResult.data)
-        ? seasonResult.data[0]?.id
-        : (seasonResult.data as any)?.id) as string | undefined;
-
-      if (!seasonId) {
-        const message = 'La temporada activa es inválida';
+        return { ok: false };
+      } catch (err: any) {
+        console.error('[TrayDeliveryDialog] Error submitting form:', err);
+        const message = err?.message || 'Error inesperado al registrar la entrega';
         setFormErrors([message]);
-        return;
+        return { ok: false };
       }
+    });
 
-      const result = await createTrayDelivery({
-        trayId: tray.id,
-        seasonId,
-        userId: currentUserId,
-        amount,
-        counterpartyType: values.counterpartyType,
-        counterpartyId,
-        metadata: {
-          reason: values.reason,
-        },
-      });
-
-      if (result.success) {
-        onSuccess?.();
-        resetForm();
-        onClose();
-        return;
-      }
-
-      const message = result.error || 'Error al registrar la entrega de bandejas';
-      setFormErrors([message]);
-    } catch (err: any) {
-      console.error('[TrayDeliveryDialog] Error submitting form:', err);
-      const message = err?.message || 'Error inesperado al registrar la entrega';
-      setFormErrors([message]);
-    } finally {
-      setIsSubmitting(false);
+    if (result?.ok) {
+      onSuccess?.();
+      resetForm();
+      onClose();
     }
   };
 

@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { deleteVariety } from '@/app/actions/varieties';
 import { Currency } from '../../../../../data/entities/Variety';
 
@@ -27,7 +28,7 @@ const DeleteVarietyDialog: React.FC<DeleteVarietyDialogProps> = ({ open, onClose
   const router = useRouter();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
   const { success, error } = useAlert();
 
@@ -37,27 +38,32 @@ const DeleteVarietyDialog: React.FC<DeleteVarietyDialogProps> = ({ open, onClose
       return;
     }
 
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await deleteVariety(variety.id, currentUserId);
+    const result = await run(async () => {
+      try {
+        const res = await deleteVariety(variety.id, currentUserId);
 
-      if (result?.success) {
-        success(result.message || 'Variedad eliminada exitosamente');
-        onClose();
-      } else {
-        error(result.error || 'Error al eliminar la variedad');
-        if (result.error) {
-          setErrors([result.error]);
+        if (!res?.success) {
+          error(res.error || 'Error al eliminar la variedad');
+          if (res.error) {
+            setErrors([res.error]);
+          }
+          return { ok: false };
         }
+
+        success(res.message || 'Variedad eliminada exitosamente');
+        return { ok: true };
+      } catch (err: any) {
+        console.error('Error deleting variety:', err);
+        error('Error inesperado al eliminar la variedad');
+        setErrors(['Error inesperado al eliminar la variedad']);
+        return { ok: false };
       }
-    } catch (err: any) {
-      console.error('Error deleting variety:', err);
-      error('Error inesperado al eliminar la variedad');
-      setErrors(['Error inesperado al eliminar la variedad']);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
     }
   };
 

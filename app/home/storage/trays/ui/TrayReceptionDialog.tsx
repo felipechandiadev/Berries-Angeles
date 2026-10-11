@@ -9,6 +9,7 @@ import { getActiveSeason } from '@/app/actions/seasons';
 import { getProducersSimpleListWithLabel } from '@/app/actions/producers';
 import { getCustomersSimpleListWithLabel } from '@/app/actions/customers';
 import { createTrayReception, type TrayMovementCounterparty } from '@/app/actions/transactions';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface Tray {
   id: string;
@@ -69,7 +70,7 @@ const TrayReceptionDialog: React.FC<TrayReceptionDialogProps> = ({
   const currentUserId = (session?.user as any)?.id as string | undefined;
 
   const [values, setValues] = useState<ReceptionFormValues>({ ...initialFormValues });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [hasLoadedOptions, setHasLoadedOptions] = useState(false);
@@ -235,58 +236,62 @@ const TrayReceptionDialog: React.FC<TrayReceptionDialogProps> = ({
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const seasonResult = await getActiveSeason();
-      if (!seasonResult.success || !seasonResult.data) {
-        const message = seasonResult.error || 'No se pudo obtener la temporada activa';
+    const result = await run(async () => {
+      try {
+        const seasonResult = await getActiveSeason();
+        if (!seasonResult.success || !seasonResult.data) {
+          const message = seasonResult.error || 'No se pudo obtener la temporada activa';
+          error(message);
+          setFormErrors([message]);
+          return { ok: false };
+        }
+
+        const seasonId = (Array.isArray(seasonResult.data)
+          ? seasonResult.data[0]?.id
+          : (seasonResult.data as any)?.id) as string | undefined;
+
+        if (!seasonId) {
+          const message = 'La temporada activa es inválida';
+          error(message);
+          setFormErrors([message]);
+          return { ok: false };
+        }
+
+        const receptionResult = await createTrayReception({
+          trayId: tray.id,
+          seasonId,
+          userId: currentUserId,
+          amount,
+          counterpartyType: values.counterpartyType,
+          counterpartyId,
+          metadata: {
+            reason: values.reason,
+            notes: values.notes,
+          },
+        });
+
+        if (receptionResult.success) {
+          success('Recepción de bandejas registrada correctamente');
+          return { ok: true };
+        }
+
+        const message = receptionResult.error || 'Error al registrar la recepción de bandejas';
         error(message);
         setFormErrors([message]);
-        return;
-      }
-
-      const seasonId = (Array.isArray(seasonResult.data)
-        ? seasonResult.data[0]?.id
-        : (seasonResult.data as any)?.id) as string | undefined;
-
-      if (!seasonId) {
-        const message = 'La temporada activa es inválida';
+        return { ok: false };
+      } catch (err: any) {
+        console.error('[TrayReceptionDialog] Error submitting form:', err);
+        const message = err?.message || 'Error inesperado al registrar la recepción';
         error(message);
         setFormErrors([message]);
-        return;
+        return { ok: false };
       }
+    });
 
-      const result = await createTrayReception({
-        trayId: tray.id,
-        seasonId,
-        userId: currentUserId,
-        amount,
-        counterpartyType: values.counterpartyType,
-        counterpartyId,
-        metadata: {
-          reason: values.reason,
-          notes: values.notes,
-        },
-      });
-
-      if (result.success) {
-        success('Recepción de bandejas registrada correctamente');
-        onSuccess?.();
-        resetForm();
-        onClose();
-        return;
-      }
-
-      const message = result.error || 'Error al registrar la recepción de bandejas';
-      error(message);
-      setFormErrors([message]);
-    } catch (err: any) {
-      console.error('[TrayReceptionDialog] Error submitting form:', err);
-      const message = err?.message || 'Error inesperado al registrar la recepción';
-      error(message);
-      setFormErrors([message]);
-    } finally {
-      setIsSubmitting(false);
+    if (result?.ok) {
+      onSuccess?.();
+      resetForm();
+      onClose();
     }
   };
 

@@ -4,6 +4,7 @@ import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import { getReceptionsGridData } from '@/app/actions/receptions';
 import ReceptionsGrid from './ui/ReceptionsGrid';
 import { MainWidthManager } from './ui/MainWidthManager';
+import { WithNavSearch } from '@/app/ui/WithNavSearch';
 
 interface PageSearchParams {
   fields?: string;
@@ -69,20 +70,31 @@ export default async function Page({ searchParams }: PageProps) {
   const initialData = result.data;
   const totalRows = result.total;
 
+  const navSearch = new URLSearchParams();
+  navSearch.set('page', String(page));
+  navSearch.set('limit', String(limit));
+  if (sort) navSearch.set('sort', sort);
+  if (sortField) navSearch.set('sortField', sortField);
+  if (search) navSearch.set('search', search);
+  if (filtration) navSearch.set('filtration', 'true');
+  if (filters) navSearch.set('filters', filters);
+  if (fields) navSearch.set('fields', fields);
+
   return (
     <>
- 
       <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
         <div className="space-y-6 w-full">
-          <ReceptionsGrid
-            initialData={initialData}
-            totalRows={totalRows}
-            currentLimit={limit}
-            currentSort={sort}
-            currentSortField={sortField}
-            currentSearch={search}
-            currentFilters={filters}
-          />
+          <WithNavSearch search={navSearch.toString()}>
+            <ReceptionsGrid
+              initialData={initialData}
+              totalRows={totalRows}
+              currentLimit={limit}
+              currentSort={sort}
+              currentSortField={sortField}
+              currentSearch={search}
+              currentFilters={filters}
+            />
+          </WithNavSearch>
         </div>
       </Suspense>
     </>

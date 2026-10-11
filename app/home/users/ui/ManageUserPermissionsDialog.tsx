@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useMemo, useState, useTransition } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { Button } from '@/app/baseComponents/Button/Button';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
@@ -34,7 +35,7 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
 }) => {
   const [assignedAbilities, setAssignedAbilities] = useState<AbilityValue[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, startSaving] = useTransition();
+  const { isSubmitting: isSaving, run } = useSubmitLock();
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState<DragState>(null);
   const { data: session, update: updateSession } = useSession();
@@ -120,10 +121,10 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
     event.preventDefault();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setError(null);
 
-    startSaving(async () => {
+    const result = await run(async () => {
       const response = await updateUserPermissions({
         userId,
         abilities: assignedAbilities,
@@ -131,7 +132,7 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
 
       if (!response?.success) {
         setError(response?.message || 'Error al guardar los permisos.');
-        return;
+        return { ok: false };
       }
 
       if (updateSession) {
@@ -147,8 +148,12 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
         onUpdated(assignedAbilities);
       }
 
-      onClose();
+      return { ok: true };
     });
+
+    if (result?.ok) {
+      onClose();
+    }
   };
 
   const handleReset = () => {
@@ -195,9 +200,9 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
           variant="primary"
           className="text-sm"
           onClick={handleSave}
-          disabled={isSaving}
+          loading={isSaving}
         >
-          {isSaving ? 'Guardando...' : 'Guardar cambios'}
+          Guardar cambios
         </Button>
       </div>
     </div>

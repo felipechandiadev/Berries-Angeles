@@ -8,6 +8,7 @@ import CreateBaseForm, { BaseFormField } from '@/app/baseComponents/BaseForm/Cre
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { StorageType } from '@/data/entities/Storage';
 import { createStorage } from '@/app/actions/storages';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface CreateStorageDialogProps {
   open: boolean;
@@ -20,7 +21,7 @@ const CreateStorageDialog: React.FC<CreateStorageDialogProps> = ({ open, onClose
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -81,38 +82,42 @@ const CreateStorageDialog: React.FC<CreateStorageDialogProps> = ({ open, onClose
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await createStorage({
-        name: formData.name,
-        type: formData.type,
-        capacityPallets: formData.capacityPallets || undefined,
-        location: formData.location || undefined,
-        active: formData.active,
-      }, currentUserId);
+    const result = await run(async () => {
+      try {
+        const res = await createStorage({
+          name: formData.name,
+          type: formData.type,
+          capacityPallets: formData.capacityPallets || undefined,
+          location: formData.location || undefined,
+          active: formData.active,
+        }, currentUserId);
 
-      if (result.success) {
-        success(result.message || 'Almacenamiento creado exitosamente');
-        onClose();
-        setFormData({
-          name: '',
-          type: StorageType.COLD_ROOM,
-          capacityPallets: 0,
-          location: '',
-          active: true,
-        });
-        // Refresh the page to show the new storage
-        router.refresh();
-      } else {
-        error(result.error || 'Error al crear el almacenamiento');
+        if (!res.success) {
+          error(res.error || 'Error al crear el almacenamiento');
+          return { ok: false };
+        }
+
+        success(res.message || 'Almacenamiento creado exitosamente');
+        return { ok: true };
+      } catch (err: any) {
+        error('Error inesperado al crear el almacenamiento');
+        console.error('Create storage error:', err);
+        return { ok: false };
       }
-    } catch (err: any) {
-      error('Error inesperado al crear el almacenamiento');
-      console.error('Create storage error:', err);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      setFormData({
+        name: '',
+        type: StorageType.COLD_ROOM,
+        capacityPallets: 0,
+        location: '',
+        active: true,
+      });
+      router.refresh();
     }
   };
 

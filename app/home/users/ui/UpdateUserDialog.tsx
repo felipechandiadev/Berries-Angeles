@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import UpdateBaseForm, { BaseUpdateFormFieldGroup } from '@/app/baseComponents/BaseForm/UpdateBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { updateUserWithPerson } from '@/app/actions/users';
 
 interface User {
@@ -32,7 +33,7 @@ const UpdateUserDialog: React.FC<UpdateUserDialogProps> = ({ open, onClose, user
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
 
   // Definir estructura del formulario
   const formFields: BaseUpdateFormFieldGroup[] = [
@@ -112,38 +113,37 @@ const UpdateUserDialog: React.FC<UpdateUserDialogProps> = ({ open, onClose, user
       return;
     }
 
-    setIsSubmitting(true);
+    const result = await run(async () => {
+      try {
+        const res = await updateUserWithPerson({
+          id: String(user.id),
+          userName: formValues.userName,
+          mail: formValues.mail,
+          phone: formValues.phone,
+          rol: formValues.rol as 'ADMIN' | 'OPERATOR',
+          personName: formValues.personName,
+          personDni: formValues.personDni,
+        }, currentUserId);
 
-    try {
-      const result = await updateUserWithPerson({
-        id: String(user.id),
-        userName: formValues.userName,
-        mail: formValues.mail,
-        phone: formValues.phone,
-        rol: formValues.rol as 'ADMIN' | 'OPERATOR',
-        personName: formValues.personName,
-        personDni: formValues.personDni,
-      }, currentUserId);
+        if (!res.success) {
+          const errorMessage = res.error || 'Error al actualizar el usuario';
+          error(errorMessage);
+          return { ok: false };
+        }
 
-      if (result.success) {
         success('Usuario actualizado exitosamente');
-        
-        // Cerrar el dialog después de 500ms y hacer refresh
-        setTimeout(() => {
-          onClose();
-          onSuccess?.();
-          router.refresh();
-          setIsSubmitting(false);
-        }, 500);
-      } else {
-        const errorMessage = result.error || 'Error al actualizar el usuario';
+        return { ok: true };
+      } catch (err: any) {
+        const errorMessage = err?.message || 'Error desconocido';
         error(errorMessage);
-        setIsSubmitting(false);
+        return { ok: false };
       }
-    } catch (err: any) {
-      const errorMessage = err?.message || 'Error desconocido';
-      error(errorMessage);
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      onSuccess?.();
+      router.refresh();
     }
   };
 

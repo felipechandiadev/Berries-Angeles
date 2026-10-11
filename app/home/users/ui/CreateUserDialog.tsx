@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import CreateBaseForm, { BaseFormFieldGroup } from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { createUserWithPerson } from '@/app/actions/users';
 
 interface CreateUserDialogProps {
@@ -18,7 +19,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ open, onClose }) =>
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -99,45 +100,45 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ open, onClose }) =>
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await createUserWithPerson({
-        userName: formData.userName,
-        mail: formData.mail,
-        phone: formData.phone,
-        rol: formData.rol as 'ADMIN' | 'OPERATOR',
-        password: formData.password,
-        personName: formData.personName,
-        personDni: formData.personDni,
-      }, currentUserId);
+    const result = await run(async () => {
+      try {
+        const res = await createUserWithPerson({
+          userName: formData.userName,
+          mail: formData.mail,
+          phone: formData.phone,
+          rol: formData.rol as 'ADMIN' | 'OPERATOR',
+          password: formData.password,
+          personName: formData.personName,
+          personDni: formData.personDni,
+        }, currentUserId);
 
-      if (result.success) {
+        if (!res.success) {
+          setErrors([res.error || 'Error al crear el usuario']);
+          return { ok: false };
+        }
+
         success('Usuario creado correctamente');
-        setFormData({
-          userName: '',
-          mail: '',
-          password: '',
-          phone: '',
-          rol: 'OPERATOR',
-          personName: '',
-          personDni: ''
-        });
-
-        // Cerrar el dialog después de que se complete la acción
-        setTimeout(() => {
-          onClose();
-          router.refresh();
-          setIsSubmitting(false);
-        }, 300);
-      } else {
-        setErrors([result.error || 'Error al crear el usuario']);
-        setIsSubmitting(false);
+        return { ok: true };
+      } catch (err: any) {
+        setErrors([err?.message || 'Error al crear el usuario']);
+        return { ok: false };
       }
-    } catch (err: any) {
-      setErrors([err?.message || 'Error al crear el usuario']);
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      setFormData({
+        userName: '',
+        mail: '',
+        password: '',
+        phone: '',
+        rol: 'OPERATOR',
+        personName: '',
+        personDni: ''
+      });
+      onClose();
+      router.refresh();
     }
   };
 

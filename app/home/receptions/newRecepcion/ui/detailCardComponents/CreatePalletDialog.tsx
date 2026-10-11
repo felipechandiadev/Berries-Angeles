@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import CreateBaseForm, { type BaseFormField } from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { useAlert } from '@/app/state/contexts/AlertContext';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { createPallet, type CreatePalletInput } from '@/app/actions/pallets';
 import { getStorages } from '@/app/actions/storages';
 import { PalletStatus } from '@/data/entities/Pallet';
@@ -24,7 +25,7 @@ interface SelectOption {
 export default function CreatePalletDialog({ open, onClose, trayId, onSuccess }: CreatePalletDialogProps) {
   const { showAlert } = useAlert();
   const [storageOptions, setStorageOptions] = useState<SelectOption[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [values, setValues] = useState({
@@ -83,7 +84,6 @@ export default function CreatePalletDialog({ open, onClose, trayId, onSuccess }:
       return;
     }
 
-    setIsSubmitting(true);
     setErrors([]);
 
     const payload: CreatePalletInput = {
@@ -96,30 +96,36 @@ export default function CreatePalletDialog({ open, onClose, trayId, onSuccess }:
       traysQuantity: 0,
     };
 
-    try {
-      const result = await createPallet(payload);
+    const result = await run(async () => {
+      try {
+        const createResult = await createPallet(payload);
 
-      if (result.success) {
-        showAlert({ message: `Pallet creado exitosamente (${getPalletStatusLabel(PalletStatus.AVAILABLE)})`, type: 'success', duration: 4000 });
-        setValues({
-          storageId: '',
-          capacity: '240',
-          weight: '0',
-        });
-        onClose();
-        onSuccess();
-      } else {
-        const errorMessage = result.error || 'Error al crear el pallet';
+        if (createResult.success) {
+          showAlert({ message: `Pallet creado exitosamente (${getPalletStatusLabel(PalletStatus.AVAILABLE)})`, type: 'success', duration: 4000 });
+          setValues({
+            storageId: '',
+            capacity: '240',
+            weight: '0',
+          });
+          return { ok: true };
+        }
+
+        const errorMessage = createResult.error || 'Error al crear el pallet';
         showAlert({ message: errorMessage, type: 'error', duration: 5000 });
         setErrors([errorMessage]);
+        return { ok: false };
+      } catch (error) {
+        console.error('[CreatePalletDialog] Error creando pallet:', error);
+        const errorMessage = 'Error inesperado al crear el pallet';
+        showAlert({ message: errorMessage, type: 'error', duration: 5000 });
+        setErrors([errorMessage]);
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('[CreatePalletDialog] Error creando pallet:', error);
-      const errorMessage = 'Error inesperado al crear el pallet';
-      showAlert({ message: errorMessage, type: 'error', duration: 5000 });
-      setErrors([errorMessage]);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      onSuccess();
     }
   };
 

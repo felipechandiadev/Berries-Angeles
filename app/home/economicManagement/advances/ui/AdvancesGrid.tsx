@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import DataGrid, { type DataGridColumn } from '@/app/baseComponents/DataGrid/DataGrid';
+import { DataGridTable as DataGrid, type DataGridColumn } from '@felipechandiadev/ui';
 import type { AdvanceSummary, AdvancePaymentMethod } from '@/app/actions/advances';
 import { formatAuditDate } from '@/lib/dateTimeUtils';
 import DetailButton from './DetailButton';

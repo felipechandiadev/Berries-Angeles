@@ -6,6 +6,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import UpdateBaseForm from '@/app/baseComponents/BaseForm/UpdateBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { updateProducer } from '@/app/actions/producers';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { getProductiveUnitsSimpleList } from '@/app/actions/productiveUnits';
 
 interface Producer {
@@ -28,7 +29,7 @@ interface UpdateProducerButtonProps {
 export default function UpdateProducerButton({ producer, onSuccess }: UpdateProducerButtonProps) {
   const { showAlert } = useAlert();
   const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [productiveUnitOptions, setProductiveUnitOptions] = useState<{ id: string; label: string }[]>([]);
 
   useEffect(() => {
@@ -76,41 +77,46 @@ export default function UpdateProducerButton({ producer, onSuccess }: UpdateProd
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const result = await updateProducer({
-        id: producer.id,
-        name: values.name,
-        dni: values.dni,
-        mail: values.mail,
-        phone: values.phone,
-        productiveUnitId: values.productiveUnitId,
-      });
-
-      if (result.success) {
-        showAlert({
-          message: 'Producer updated successfully',
-          type: 'success',
-          duration: 4000,
+    const result = await run(async () => {
+      try {
+        const updateResult = await updateProducer({
+          id: producer.id,
+          name: values.name,
+          dni: values.dni,
+          mail: values.mail,
+          phone: values.phone,
+          productiveUnitId: values.productiveUnitId,
         });
-        setOpen(false);
-        onSuccess();
-      } else {
+
+        if (updateResult.success) {
+          showAlert({
+            message: 'Producer updated successfully',
+            type: 'success',
+            duration: 4000,
+          });
+          return { ok: true };
+        }
+
         showAlert({
-          message: result.error || 'Error updating producer',
+          message: updateResult.error || 'Error updating producer',
           type: 'error',
           duration: 4000,
         });
+        return { ok: false };
+      } catch (error) {
+        console.error('Error updating producer:', error);
+        showAlert({
+          message: 'Error updating producer',
+          type: 'error',
+          duration: 4000,
+        });
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('Error updating producer:', error);
-      showAlert({
-        message: 'Error updating producer',
-        type: 'error',
-        duration: 4000,
-      });
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      setOpen(false);
+      onSuccess();
     }
   };
 

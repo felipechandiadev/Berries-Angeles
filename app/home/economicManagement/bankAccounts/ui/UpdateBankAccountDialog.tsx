@@ -8,6 +8,7 @@ import UpdateBaseForm, { BaseUpdateFormFieldGroup } from '@/app/baseComponents/B
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { updateAdminBankAccount } from '@/app/actions/adminBankAccounts';
 import { AccountTypeName, BankName } from '@/data/entities/AdminBankAccount';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface BankAccount {
   id: string;
@@ -33,7 +34,7 @@ const UpdateBankAccountDialog: React.FC<UpdateBankAccountDialogProps> = ({ open,
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -116,34 +117,39 @@ const UpdateBankAccountDialog: React.FC<UpdateBankAccountDialogProps> = ({ open,
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await updateAdminBankAccount({
-        id: bankAccount.id,
-        accountType: formData.accountType,
-        bank: formData.bank,
-        accountNumber: formData.accountNumber,
-        alias: formData.alias || undefined,
-        isActive: formData.isActive,
-      });
+    const result = await run(async () => {
+      try {
+        const updateResult = await updateAdminBankAccount({
+          id: bankAccount.id,
+          accountType: formData.accountType,
+          bank: formData.bank,
+          accountNumber: formData.accountNumber,
+          alias: formData.alias || undefined,
+          isActive: formData.isActive,
+        });
 
-      if (result.success) {
-        success(result.message || 'Cuenta bancaria actualizada exitosamente');
-        onClose();
-      } else {
-        error(result.error || 'Error al actualizar la cuenta bancaria');
-        if (result.error) {
-          setErrors([result.error]);
+        if (updateResult.success) {
+          success(updateResult.message || 'Cuenta bancaria actualizada exitosamente');
+          return { ok: true };
         }
+
+        error(updateResult.error || 'Error al actualizar la cuenta bancaria');
+        if (updateResult.error) {
+          setErrors([updateResult.error]);
+        }
+        return { ok: false };
+      } catch (err: any) {
+        console.error('Error updating bank account:', err);
+        error('Error inesperado al actualizar la cuenta bancaria');
+        setErrors(['Error inesperado al actualizar la cuenta bancaria']);
+        return { ok: false };
       }
-    } catch (err: any) {
-      console.error('Error updating bank account:', err);
-      error('Error inesperado al actualizar la cuenta bancaria');
-      setErrors(['Error inesperado al actualizar la cuenta bancaria']);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
     }
   };
 

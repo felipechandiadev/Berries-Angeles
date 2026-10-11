@@ -5,9 +5,9 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { Button } from '@/app/baseComponents/Button/Button';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
-import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { updatePackImpurity } from '@/app/actions/receptions';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import type { ReceptionDetailPack } from '../types';
 
 interface UpdatePackImpurityDialogProps {
@@ -46,7 +46,7 @@ export function UpdatePackImpurityDialog({
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [impurityPercent, setImpurityPercent] = useState(pack.impurityPercent.toString());
   const [reason, setReason] = useState('');
 
@@ -79,35 +79,40 @@ export function UpdatePackImpurityDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
-    try {
-      const impurityValue = parseFloat(impurityPercent);
-      if (isNaN(impurityValue) || impurityValue < 0 || impurityValue > 100) {
-        error('El porcentaje de impureza debe ser un número entre 0 y 100');
-        return;
+    const result = await run(async () => {
+      try {
+        const impurityValue = parseFloat(impurityPercent);
+        if (isNaN(impurityValue) || impurityValue < 0 || impurityValue > 100) {
+          error('El porcentaje de impureza debe ser un número entre 0 y 100');
+          return { ok: false };
+        }
+
+        const updateResult = await updatePackImpurity({
+          receptionId,
+          packId: pack.packId,
+          newImpurityPercent: impurityValue,
+          reason: reason.trim(),
+          userId: currentUserId,
+        });
+
+        if (updateResult.success) {
+          success('Impureza del pack actualizada exitosamente');
+          return { ok: true };
+        }
+
+        error(updateResult.error || 'Error al actualizar la impureza del pack');
+        return { ok: false };
+      } catch (err: any) {
+        error('Error inesperado al actualizar la impureza del pack');
+        console.error('Update pack impurity error:', err);
+        return { ok: false };
       }
+    });
 
-      const result = await updatePackImpurity({
-        receptionId,
-        packId: pack.packId,
-        newImpurityPercent: impurityValue,
-        reason: reason.trim(),
-        userId: currentUserId,
-      });
-
-      if (result.success) {
-        success('Impureza del pack actualizada exitosamente');
-        onClose();
-        onSuccess?.();
-      } else {
-        error(result.error || 'Error al actualizar la impureza del pack');
-      }
-    } catch (err: any) {
-      error('Error inesperado al actualizar la impureza del pack');
-      console.error('Update pack impurity error:', err);
-    } finally {
-      setIsSubmitting(false);
+    if (result?.ok) {
+      onClose();
+      onSuccess?.();
     }
   };
 
@@ -193,23 +198,14 @@ export function UpdatePackImpurityDialog({
           >
             Cancelar
           </Button>
-          {isSubmitting ? (
-            <Button variant="primary" type="submit" disabled>
-              <div className="flex items-center justify-center min-h-[20px]">
-                <DotProgress size={12} />
-              </div>
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isSubmitting || !isFormValid}
-            >
-              <div className="flex items-center justify-center min-h-[20px]">
-                Actualizar Impureza
-              </div>
-            </Button>
-          )}
+          <Button
+            type="submit"
+            variant="primary"
+            loading={isSubmitting}
+            disabled={!isFormValid}
+          >
+            Actualizar Impureza
+          </Button>
         </div>
       </form>
     </Dialog>

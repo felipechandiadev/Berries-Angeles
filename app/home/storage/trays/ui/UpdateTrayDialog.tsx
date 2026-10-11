@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import UpdateBaseForm, { BaseUpdateFormFieldGroup } from '@/app/baseComponents/BaseForm/UpdateBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { updateTray } from '@/app/actions/trays';
 
 interface Tray {
@@ -32,7 +33,7 @@ const UpdateTrayDialog: React.FC<UpdateTrayDialogProps> = ({ open, onClose, tray
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -71,34 +72,38 @@ const UpdateTrayDialog: React.FC<UpdateTrayDialogProps> = ({ open, onClose, tray
   ];
 
   const handleSubmit = async (data: any) => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const submitData = {
-        id: tray.id,
-        name: data.name,
-        weight: parseFloat(data.weight),
-        active: data.active,
-        // NOTA: stock no se incluye porque no debe ser editable
-      };
+    const result = await run(async () => {
+      try {
+        const submitData = {
+          id: tray.id,
+          name: data.name,
+          weight: parseFloat(data.weight),
+          active: data.active,
+        };
 
-      const result = await updateTray(submitData, currentUserId);
+        const res = await updateTray(submitData, currentUserId);
 
-      if (result.success) {
+        if (!res.success) {
+          error(res.error || 'Error al actualizar la bandeja');
+          setErrors([res.error || 'Error desconocido']);
+          return { ok: false };
+        }
+
         success('Bandeja actualizada exitosamente');
-        onClose();
-        onSuccess?.();
-      } else {
-        error(result.error || 'Error al actualizar la bandeja');
-        setErrors([result.error || 'Error desconocido']);
+        return { ok: true };
+      } catch (err: any) {
+        console.error('Error updating tray:', err);
+        error('Error inesperado al actualizar la bandeja');
+        setErrors(['Error inesperado al actualizar la bandeja']);
+        return { ok: false };
       }
-    } catch (err: any) {
-      console.error('Error updating tray:', err);
-      error('Error inesperado al actualizar la bandeja');
-      setErrors(['Error inesperado al actualizar la bandeja']);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      onSuccess?.();
     }
   };
 

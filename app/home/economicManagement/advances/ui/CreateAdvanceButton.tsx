@@ -8,6 +8,7 @@ import { createAdvance, getProducerBankAccounts, type AdvancePaymentMethod } fro
 import { getProducersSimpleListWithLabel } from '@/app/actions/producers';
 import { getActiveSeason } from '@/app/actions/seasons';
 import { getActiveAdminBankAccounts } from '@/app/actions/adminBankAccounts';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface CreateAdvanceButtonProps {
   onSuccess: () => void;
@@ -44,7 +45,7 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
   const { data: session, status } = useSession();
   const currentUserId = (session?.user as any)?.id;
   const [values, setValues] = useState(initialValues);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [producers, setProducers] = useState<ProducerOption[]>([]);
   const [activeSeason, setActiveSeason] = useState<{ id: string; name: string } | null>(null);
   const [adminAccounts, setAdminAccounts] = useState<SelectOption[]>([]);
@@ -241,51 +242,54 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
       }
     }
 
-    setIsSubmitting(true);
-    try {
-      const paymentDetails: Record<string, string> = {};
+    const result = await run(async () => {
+      try {
+        const paymentDetails: Record<string, string> = {};
 
-      if (values.paymentMethod === 'TRANSFER') {
-        paymentDetails.bankAccountId = values.bankAccountId;
-        paymentDetails.producerAccountId = values.producerAccountId;
-        if (values.transferReference?.trim()) {
-          paymentDetails.transactionId = values.transferReference.trim();
+        if (values.paymentMethod === 'TRANSFER') {
+          paymentDetails.bankAccountId = values.bankAccountId;
+          paymentDetails.producerAccountId = values.producerAccountId;
+          if (values.transferReference?.trim()) {
+            paymentDetails.transactionId = values.transferReference.trim();
+          }
         }
+
+        if (values.paymentMethod === 'CHECK') {
+          paymentDetails.bankAccountId = values.bankAccountId;
+          paymentDetails.checkNumber = values.checkNumber.trim();
+        }
+
+        await createAdvance({
+          producerId: values.producerId,
+          seasonId: activeSeason.id,
+          amount: parsedAmount,
+          paymentMethod: values.paymentMethod,
+          paymentDetails: Object.keys(paymentDetails).length > 0 ? paymentDetails : undefined,
+          notes: values.notes?.trim() ? values.notes.trim() : undefined,
+          userId: currentUserId || 'current-user',
+        });
+
+        showAlert({
+          message: 'Anticipo creado exitosamente',
+          type: 'success',
+          duration: 4000,
+        });
+        return { ok: true };
+      } catch (error) {
+        console.error('Error creating advance:', error);
+        showAlert({
+          message: error instanceof Error ? error.message : 'Error al crear el anticipo',
+          type: 'error',
+          duration: 4000,
+        });
+        return { ok: false };
       }
+    });
 
-      if (values.paymentMethod === 'CHECK') {
-        paymentDetails.bankAccountId = values.bankAccountId;
-        paymentDetails.checkNumber = values.checkNumber.trim();
-      }
-
-      await createAdvance({
-        producerId: values.producerId,
-        seasonId: activeSeason.id,
-        amount: parsedAmount,
-        paymentMethod: values.paymentMethod,
-        paymentDetails: Object.keys(paymentDetails).length > 0 ? paymentDetails : undefined,
-        notes: values.notes?.trim() ? values.notes.trim() : undefined,
-        userId: currentUserId || 'current-user', // Fallback to 'current-user' if session not available
-      });
-
-      showAlert({
-        message: 'Anticipo creado exitosamente',
-        type: 'success',
-        duration: 4000,
-      });
-
+    if (result?.ok) {
       resetForm();
       onClose?.();
       onSuccess();
-    } catch (error) {
-      console.error('Error creating advance:', error);
-      showAlert({
-        message: error instanceof Error ? error.message : 'Error al crear el anticipo',
-        type: 'error',
-        duration: 4000,
-      });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

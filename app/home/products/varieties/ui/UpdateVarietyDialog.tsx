@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import UpdateBaseForm, { BaseUpdateFormFieldGroup } from '@/app/baseComponents/BaseForm/UpdateBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { updateVariety } from '@/app/actions/varieties';
 import { Currency } from '../../../../../data/entities/Variety';
 
@@ -28,7 +29,7 @@ const UpdateVarietyDialog: React.FC<UpdateVarietyDialogProps> = ({ open, onClose
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -86,33 +87,38 @@ const UpdateVarietyDialog: React.FC<UpdateVarietyDialogProps> = ({ open, onClose
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await updateVariety({
-        id: variety.id,
-        name: formData.name,
-        priceCLP: Number(formData.priceCLP),
-        priceUSD: Number(formData.priceUSD),
-        currency: formData.currency,
-      }, currentUserId);
+    const result = await run(async () => {
+      try {
+        const res = await updateVariety({
+          id: variety.id,
+          name: formData.name,
+          priceCLP: Number(formData.priceCLP),
+          priceUSD: Number(formData.priceUSD),
+          currency: formData.currency,
+        }, currentUserId);
 
-      if (result.success) {
-        success(result.message || 'Variedad actualizada exitosamente');
-        onClose();
-      } else {
-        error(result.error || 'Error al actualizar la variedad');
-        if (result.error) {
-          setErrors([result.error]);
+        if (!res.success) {
+          error(res.error || 'Error al actualizar la variedad');
+          if (res.error) {
+            setErrors([res.error]);
+          }
+          return { ok: false };
         }
+
+        success(res.message || 'Variedad actualizada exitosamente');
+        return { ok: true };
+      } catch (err: any) {
+        console.error('Error updating variety:', err);
+        error('Error inesperado al actualizar la variedad');
+        setErrors(['Error inesperado al actualizar la variedad']);
+        return { ok: false };
       }
-    } catch (err: any) {
-      console.error('Error updating variety:', err);
-      error('Error inesperado al actualizar la variedad');
-      setErrors(['Error inesperado al actualizar la variedad']);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
     }
   };
 

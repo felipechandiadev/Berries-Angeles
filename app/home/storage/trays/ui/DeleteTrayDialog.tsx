@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { deleteTray } from '@/app/actions/trays';
 
 interface Tray {
@@ -31,7 +32,7 @@ const DeleteTrayDialog: React.FC<DeleteTrayDialogProps> = ({ open, onClose, tray
   const router = useRouter();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
   const { success, error } = useAlert();
 
@@ -41,26 +42,31 @@ const DeleteTrayDialog: React.FC<DeleteTrayDialogProps> = ({ open, onClose, tray
       return;
     }
 
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await deleteTray(tray.id, currentUserId);
+    const result = await run(async () => {
+      try {
+        const res = await deleteTray(tray.id, currentUserId);
 
-      if (result?.success) {
-        success(result.message || 'Bandeja eliminada exitosamente');
-        onClose();
-        onSuccess?.();
-      } else {
-        error(result.error || 'Error al eliminar la bandeja');
-        setErrors([result.error || 'Error desconocido']);
+        if (!res?.success) {
+          error(res.error || 'Error al eliminar la bandeja');
+          setErrors([res.error || 'Error desconocido']);
+          return { ok: false };
+        }
+
+        success(res.message || 'Bandeja eliminada exitosamente');
+        return { ok: true };
+      } catch (err: any) {
+        console.error('Error deleting tray:', err);
+        error('Error inesperado al eliminar la bandeja');
+        setErrors(['Error inesperado al eliminar la bandeja']);
+        return { ok: false };
       }
-    } catch (err: any) {
-      console.error('Error deleting tray:', err);
-      error('Error inesperado al eliminar la bandeja');
-      setErrors(['Error inesperado al eliminar la bandeja']);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      onSuccess?.();
     }
   };
 

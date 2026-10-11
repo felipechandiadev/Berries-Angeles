@@ -1,14 +1,18 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Printer } from 'lucide-react';
+import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import {
   hasPairedPrinter,
   isWebUsbSupported,
   pairPrinter,
 } from '@/lib/printing';
 
+type PrinterUiState = 'unsupported' | 'unpaired' | 'paired' | 'error' | 'busy';
+
 /**
- * Emparejado de impresora térmica USB desde la top bar (fuera del diálogo de impresión).
+ * Emparejado de impresora térmica USB en la top bar: icono + indicador de estado.
  */
 const PrinterSetupButton: React.FC = () => {
   const [supported, setSupported] = useState(false);
@@ -16,6 +20,7 @@ const PrinterSetupButton: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
     if (!isWebUsbSupported()) {
@@ -47,6 +52,43 @@ const PrinterSetupButton: React.FC = () => {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    if (!showHint) return;
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (rootRef.current && target && !rootRef.current.contains(target)) {
+        setShowHint(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, [showHint]);
+
+  const uiState: PrinterUiState = busy
+    ? 'busy'
+    : !supported
+      ? 'unsupported'
+      : error
+        ? 'error'
+        : paired
+          ? 'paired'
+          : 'unpaired';
+
+  const ariaLabel =
+    uiState === 'busy'
+      ? 'Emparejando impresora'
+      : uiState === 'unsupported'
+        ? 'Impresora USB no disponible en este navegador'
+        : uiState === 'error'
+          ? 'Error de impresora; toca para ver detalle'
+          : uiState === 'paired'
+            ? 'Impresora USB emparejada; toca para volver a emparejar'
+            : 'Emparejar impresora térmica USB';
+
   const handleClick = async () => {
     setError(null);
     if (!supported) {
@@ -54,12 +96,17 @@ const PrinterSetupButton: React.FC = () => {
       return;
     }
     setBusy(true);
+    setShowHint(false);
     try {
       await pairPrinter();
       setPaired(true);
-      setShowHint(false);
-    } catch (err: any) {
-      setError(err?.message ?? 'No fue posible emparejar la impresora.');
+      setError(null);
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string'
+          ? (err as { message: string }).message
+          : 'No fue posible emparejar la impresora.';
+      setError(message);
       setPaired(false);
       setShowHint(true);
     } finally {
@@ -67,41 +114,70 @@ const PrinterSetupButton: React.FC = () => {
     }
   };
 
+  const iconClass =
+    uiState === 'unsupported'
+      ? 'text-muted-foreground opacity-50'
+      : uiState === 'error'
+        ? 'text-red-600'
+        : uiState === 'paired'
+          ? 'text-primary'
+          : 'text-foreground group-hover:text-secondary';
+
+  const statusDotClass =
+    uiState === 'paired'
+      ? 'bg-emerald-500'
+      : uiState === 'error'
+        ? 'bg-red-500'
+        : uiState === 'unsupported'
+          ? 'bg-neutral-400'
+          : 'bg-amber-400';
+
+  const showStatusDot = uiState !== 'busy';
+
   return (
-    <div className="relative" data-test-id="topbar-printer-setup">
+    <div className="relative" ref={rootRef} data-test-id="topbar-printer-setup">
       <button
         type="button"
         onClick={handleClick}
         disabled={busy}
-        title={
-          paired
-            ? 'Impresora USB emparejada (clic para volver a emparejar)'
-            : 'Emparejar impresora térmica USB'
-        }
-        className={`inline-flex h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors focus:outline-none ${
-          paired
-            ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15'
-            : 'border-border bg-background text-foreground hover:border-primary hover:text-primary'
-        } ${busy ? 'opacity-60 cursor-wait' : ''}`}
+        title={ariaLabel}
+        aria-label={ariaLabel}
+        aria-busy={busy || undefined}
+        className="group relative flex h-10 w-10 items-center justify-center rounded-full bg-secondary/10 transition-colors duration-200 hover:bg-secondary/20 focus:outline-none disabled:cursor-wait disabled:opacity-70"
         data-test-id="topbar-printer-button"
-        aria-label={paired ? 'Impresora emparejada' : 'Emparejar impresora'}
       >
-        <span className="material-symbols-outlined text-[18px]" aria-hidden>
-          print
-        </span>
-        <span className="hidden sm:inline">
-          {busy ? 'Emparejando…' : paired ? 'Impresora OK' : 'Impresora'}
-        </span>
+        {busy ? (
+          <DotProgress
+            variant="wave"
+            count={3}
+            size={5}
+            gap={2}
+            colorPrimary="currentColor"
+            colorNeutral="currentColor"
+            className="fs-button__loading-dots text-foreground"
+          />
+        ) : (
+          <Printer size={28} className={`transition-colors duration-200 ${iconClass}`} aria-hidden />
+        )}
+        {showStatusDot ? (
+          <span
+            className={`absolute bottom-1 right-1 h-2 w-2 rounded-full ring-2 ring-background ${statusDotClass}`}
+            aria-hidden
+            data-test-id="topbar-printer-status-dot"
+            data-state={uiState}
+          />
+        ) : null}
       </button>
 
       {showHint && (error || !supported) ? (
         <div
-          className="absolute right-0 top-full z-50 mt-2 w-64 rounded-md border border-border bg-white p-3 text-xs shadow-lg"
+          className="absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-white p-3 text-xs shadow-lg"
           role="status"
+          data-test-id="topbar-printer-hint"
         >
           {!supported ? (
             <p className="text-muted-foreground">
-              Ticket USB requiere Chrome o Edge en HTTPS o localhost.
+              Ticket USB requiere Chrome o Edge en HTTPS o localhost. En mobile suele no estar disponible.
             </p>
           ) : (
             <p className="text-red-600">{error}</p>

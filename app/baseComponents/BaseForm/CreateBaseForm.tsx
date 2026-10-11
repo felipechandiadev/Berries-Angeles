@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { TextField } from "../TextField/TextField";
 import AutoComplete, { Option } from "../AutoComplete/AutoComplete";
 import { Button } from "../Button/Button";
-import DotProgress from "../DotProgress/DotProgress";
 import Alert from "../Alert/Alert";
 import Switch from "../Switch/Switch";
 import Select from "../Select/Select";
@@ -199,7 +198,7 @@ const CreateBaseForm: React.FC<CreateBaseFormProps> = ({
 				title: group.title,
 				subtitle: group.subtitle,
 				columns: Math.max(1, group.columns ?? columns ?? 1),
-				gap: group.gap ?? 4,
+				gap: group.gap ?? 8,
 				fields: group.fields,
 			}));
 		}
@@ -209,7 +208,7 @@ const CreateBaseForm: React.FC<CreateBaseFormProps> = ({
 			title: undefined,
 			subtitle: undefined,
 			columns: Math.max(1, columns ?? 1),
-			gap: 4,
+			gap: 8,
 			fields: fields as BaseFormField[],
 		}];
 	}, [fields, columns]);
@@ -218,6 +217,7 @@ const CreateBaseForm: React.FC<CreateBaseFormProps> = ({
 		<form
 			onSubmit={(e) => {
 				e.preventDefault();
+				if (isSubmitting) return;
 				if (validate) {
 					const validationErrors = validate(values);
 					if (validationErrors.length > 0) {
@@ -240,7 +240,7 @@ const CreateBaseForm: React.FC<CreateBaseFormProps> = ({
 				const columnCount = Math.max(1, group.columns);
 				const gapValue = typeof group.gap === "number" ? `${group.gap}px` : group.gap;
 				const containerClass = columnCount > 1 ? "grid" : "flex flex-col";
-				const containerStyle = columnCount > 1 ? { gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`, gap: gapValue ?? "4px" } : { gap: gapValue ?? "4px" };
+				const containerStyle = columnCount > 1 ? { gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`, gap: gapValue ?? "8px" } : { gap: gapValue ?? "8px" };
 
 				return (
 					<div key={group.id} className="form-group w-full">
@@ -271,19 +271,9 @@ const CreateBaseForm: React.FC<CreateBaseFormProps> = ({
 							</div>
 						</Button>
 					)}
-					{isSubmitting ? (
-						<Button variant="primary" type="submit" disabled>
-							<div className="flex items-center justify-center min-h-[20px]">
-								<DotProgress size={12} />
-							</div>
-						</Button>
-					) : (
-						<Button variant="primary" type="submit">
-							<div className="flex items-center justify-center min-h-[20px]">
-								{submitLabel ?? "Guardar"}
-							</div>
-						</Button>
-					)}
+					<Button variant="primary" type="submit" loading={isSubmitting}>
+						{submitLabel ?? "Guardar"}
+					</Button>
 				</div>
 			</div>
 			{errors.length > 0 && (

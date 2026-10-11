@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getPalletsGridData } from '@/app/actions/pallets';
 import PalletsGrid from './ui/PalletsGrid';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
+import { WithNavSearch } from '@/app/ui/WithNavSearch';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,19 +70,31 @@ export default async function Page({ searchParams }: PageProps) {
   const totalRows = result.total;
   const currentPage = result.currentPage ?? page;
 
+  const navSearch = new URLSearchParams();
+  navSearch.set('page', String(page));
+  navSearch.set('limit', String(limit));
+  if (sort) navSearch.set('sort', sort);
+  if (sortField) navSearch.set('sortField', sortField);
+  if (search) navSearch.set('search', search);
+  if (filtration) navSearch.set('filtration', 'true');
+  if (filters) navSearch.set('filters', filters);
+  if (fields) navSearch.set('fields', fields);
+
   return (
     <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
       <div className="space-y-6">
-        <PalletsGrid
-          initialData={initialData}
-          totalRows={totalRows}
-          currentPage={currentPage}
-          currentLimit={limit}
-          currentSort={sort}
-          currentSortField={sortField}
-          currentSearch={search}
-          currentFilters={filters}
-        />
+        <WithNavSearch search={navSearch.toString()}>
+          <PalletsGrid
+            initialData={initialData}
+            totalRows={totalRows}
+            currentPage={currentPage}
+            currentLimit={limit}
+            currentSort={sort}
+            currentSortField={sortField}
+            currentSearch={search}
+            currentFilters={filters}
+          />
+        </WithNavSearch>
       </div>
     </Suspense>
   );

@@ -7,6 +7,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import CreateBaseForm, { BaseFormField } from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { createSeason } from '@/app/actions/seasons';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface CreateSeasonDialogProps {
   open: boolean;
@@ -19,7 +20,7 @@ const CreateSeasonDialog: React.FC<CreateSeasonDialogProps> = ({ open, onClose, 
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -71,38 +72,42 @@ const CreateSeasonDialog: React.FC<CreateSeasonDialogProps> = ({ open, onClose, 
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await createSeason({
-        name: formData.name,
-        startDate: new Date(formData.startDate + 'T00:00:00'),
-        endDate: new Date(formData.endDate + 'T23:59:59'),
-        description: formData.description || undefined,
-        active: formData.active,
-      }, currentUserId);
+    const result = await run(async () => {
+      try {
+        const createResult = await createSeason({
+          name: formData.name,
+          startDate: new Date(formData.startDate + 'T00:00:00'),
+          endDate: new Date(formData.endDate + 'T23:59:59'),
+          description: formData.description || undefined,
+          active: formData.active,
+        }, currentUserId);
 
-      if (result.success) {
-        success(result.message || 'Temporada creada exitosamente');
-        onClose();
-        setFormData({
-          name: '',
-          startDate: '',
-          endDate: '',
-          description: '',
-          active: true,
-        });
-        // Refresh the page to show the new season
-        router.refresh();
-      } else {
-        error(result.error || 'Error al crear la temporada');
+        if (createResult.success) {
+          success(createResult.message || 'Temporada creada exitosamente');
+          return { ok: true };
+        }
+
+        error(createResult.error || 'Error al crear la temporada');
+        return { ok: false };
+      } catch (err: any) {
+        error('Error inesperado al crear la temporada');
+        console.error('Create season error:', err);
+        return { ok: false };
       }
-    } catch (err: any) {
-      error('Error inesperado al crear la temporada');
-      console.error('Create season error:', err);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      setFormData({
+        name: '',
+        startDate: '',
+        endDate: '',
+        description: '',
+        active: true,
+      });
+      router.refresh();
     }
   };
 

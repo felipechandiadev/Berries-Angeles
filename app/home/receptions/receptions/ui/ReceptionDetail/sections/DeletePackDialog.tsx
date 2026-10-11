@@ -6,6 +6,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { Button } from '@/app/baseComponents/Button/Button';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { removeReceptionPack, type RemoveReceptionPackHandlingMode } from '@/app/actions/receptions';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface DeletePackDialogProps {
   open: boolean;
@@ -56,7 +57,7 @@ export function DeletePackDialog({
   const [handlingMode, setHandlingMode] = useState<RemoveReceptionPackHandlingMode>('adjust');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
@@ -64,7 +65,6 @@ export function DeletePackDialog({
       setHandlingMode('adjust');
       setReason('');
       setNotes('');
-      setIsSubmitting(false);
       setErrors([]);
     }
   }, [open]);
@@ -87,35 +87,40 @@ export function DeletePackDialog({
       return;
     }
 
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await removeReceptionPack({
-        receptionTransactionId: receptionId,
-        packId,
-        handlingMode,
-        reason: reason.trim(),
-        notes: notes.trim() || undefined,
-        userId: currentUserId,
-      });
+    const result = await run(async () => {
+      try {
+        const removeResult = await removeReceptionPack({
+          receptionTransactionId: receptionId,
+          packId,
+          handlingMode,
+          reason: reason.trim(),
+          notes: notes.trim() || undefined,
+          userId: currentUserId,
+        });
 
-      if (result.success) {
-        success('Pack eliminado correctamente.');
-        onClose();
-        onSuccess?.();
-      } else {
-        const message = result.error ?? 'Error al eliminar el pack.';
+        if (removeResult.success) {
+          success('Pack eliminado correctamente.');
+          return { ok: true };
+        }
+
+        const message = removeResult.error ?? 'Error al eliminar el pack.';
         error(message);
         setErrors([message]);
+        return { ok: false };
+      } catch (submitError: any) {
+        console.error('[DeletePackDialog] Error al eliminar el pack:', submitError);
+        const message = submitError?.message ?? 'Error inesperado al eliminar el pack.';
+        error(message);
+        setErrors([message]);
+        return { ok: false };
       }
-    } catch (submitError: any) {
-      console.error('[DeletePackDialog] Error al eliminar el pack:', submitError);
-      const message = submitError?.message ?? 'Error inesperado al eliminar el pack.';
-      error(message);
-      setErrors([message]);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      onSuccess?.();
     }
   };
 
@@ -248,9 +253,9 @@ export function DeletePackDialog({
           <Button
             variant="primary"
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            loading={isSubmitting}
           >
-            {isSubmitting ? 'Eliminando…' : 'Eliminar pack'}
+            Eliminar pack
           </Button>
         </div>
       </div>

@@ -37,12 +37,14 @@
     "vitest": "^3.2.7"
   },
   "dependencies": {
+    "@felipechandiadev/ui": "file:../kai-ui",
     "@fontsource/material-symbols-outlined": "^5.2.30",
     "@fontsource/material-symbols-rounded": "^5.2.30",
     "@fontsource/material-symbols-sharp": "^5.2.30",
     "@types/leaflet": "^1.9.21",
     "bcryptjs": "^3.0.3",
     "leaflet": "^1.9.4",
+    "lucide-react": "^1.52.0",
     "moment": "^2.30.1",
     "moment-timezone": "^0.6.0",
     "mysql2": "^3.15.3",

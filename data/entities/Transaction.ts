@@ -27,6 +27,7 @@ export enum TransactionType {
   PALLET_TRAY_ASSIGNMENT = 'PALLET_TRAY_ASSIGNMENT',
   PALLET_TRAY_RELEASE = 'PALLET_TRAY_RELEASE',
   ADVANCE = 'ADVANCE',
+  SETTLEMENT = 'SETTLEMENT',
 }
 
 export enum TransactionDirection {
@@ -116,13 +117,26 @@ export interface AdvanceMetadata {
   notes?: string;
 }
 
+export type SettlementStatus = 'BORRADOR' | 'COMPLETA';
+
+export interface SettlementMetadata {
+  status: SettlementStatus;
+  receptionTransactionIds: string[];
+  advanceApplications: Array<{ transactionId: string; amount: number }>;
+  receptionsTotalCLP: number;
+  advancesAppliedCLP: number;
+  netAmountCLP: number;
+  notes?: string;
+}
+
 // Union type para metadata según tipo de transacción
 export type TransactionMetadata =
   | TrayAdjustmentMetadata
   | TrayMovementMetadata
   | TrayDeliveryMetadata
   | TrayReceptionMetadata
-  | AdvanceMetadata;
+  | AdvanceMetadata
+  | SettlementMetadata;
 
 @Entity('transactions')
 export class Transaction {

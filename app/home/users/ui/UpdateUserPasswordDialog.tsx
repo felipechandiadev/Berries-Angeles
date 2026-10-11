@@ -6,6 +6,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import CreateBaseForm, { BaseFormFieldGroup } from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { updateUserPassword } from '@/app/actions/users';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface UpdateUserPasswordDialogProps {
   open: boolean;
@@ -24,7 +25,7 @@ const UpdateUserPasswordDialog: React.FC<UpdateUserPasswordDialogProps> = ({
 }) => {
   const { showAlert } = useAlert();
   const { data: session } = useSession();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -80,43 +81,47 @@ const UpdateUserPasswordDialog: React.FC<UpdateUserPasswordDialogProps> = ({
       return;
     }
 
-    setIsSubmitting(true);
+    const result = await run(async () => {
+      try {
+        const res = await updateUserPassword(
+          {
+            userId,
+            currentPassword: formData.currentPassword,
+            newPassword: formData.newPassword,
+            confirmPassword: formData.confirmPassword,
+          },
+          currentUserId
+        );
 
-    try {
-      const result = await updateUserPassword(
-        {
-          userId,
-          currentPassword: formData.currentPassword,
-          newPassword: formData.newPassword,
-          confirmPassword: formData.confirmPassword,
-        },
-        currentUserId // Pass current user ID for audit
-      );
+        if (!res.success) {
+          showAlert({
+            message: res.error || 'Error al actualizar la contraseña',
+            type: 'error',
+            duration: 5000,
+          });
+          return { ok: false };
+        }
 
-      if (result.success) {
         showAlert({
           message: 'Contraseña actualizada exitosamente',
           type: 'success',
           duration: 3000,
         });
-        handleClose();
-        onSuccess?.();
-      } else {
+        return { ok: true };
+      } catch (err) {
+        console.error('[UpdateUserPasswordDialog] Error:', err);
         showAlert({
-          message: result.error || 'Error al actualizar la contraseña',
+          message: 'Error al actualizar la contraseña',
           type: 'error',
           duration: 5000,
         });
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('[UpdateUserPasswordDialog] Error:', error);
-      showAlert({
-        message: 'Error al actualizar la contraseña',
-        type: 'error',
-        duration: 5000,
-      });
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      handleClose();
+      onSuccess?.();
     }
   };
 

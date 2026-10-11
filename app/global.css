@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Material Symbols Imports */
+/* Material Symbols Imports (legacy; se retiran al completar migración Lucide) */
 @import '@fontsource/material-symbols-outlined';
 @import '@fontsource/material-symbols-rounded';
 @import '@fontsource/material-symbols-sharp';
@@ -10,19 +10,45 @@
 /* Leaflet CSS */
 @import 'leaflet/dist/leaflet.css';
 
+/* Design system @felipechandiadev/ui */
+@import '@felipechandiadev/ui/theme/tokens.css';
+@import '@felipechandiadev/ui/theme/components.css';
+
+/* Brand Berries Angeles — override tokens del DS */
 :root {
   --color-primary: #242629;
   --color-background: #ffffff;
+  --color-surface: #ffffff;
   --color-foreground: #131615;
   --color-border: #c1c1c2;
+  --color-active: #17321D;
   --color-accent: #17321D;
   --color-secondary: #A2B945;
   --color-muted: #6b7280;
+  --color-muted-foreground: #6b7280;
   --color-success: #4CAF50;
   --color-info: #2196F3;
   --color-warning: #FFC107;
   --color-error: #F44336;
   --color-neutral: #F3F4F6;
+  --color-link: var(--color-accent);
+  --color-text-on-primary: #ffffff;
+
+  /* Shell inset: solo TopBar + <main> (layouts de página sin px exterior). */
+  --app-topbar-height: 3.75rem;
+  --page-gutter: 1rem; /* < sm */
+}
+
+@media (min-width: 640px) {
+  :root {
+    --page-gutter: 1.5rem; /* sm+ */
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --page-gutter: 2rem; /* md+ */
+  }
 }
 
 body {

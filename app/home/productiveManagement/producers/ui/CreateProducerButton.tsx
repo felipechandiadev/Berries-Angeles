@@ -6,6 +6,7 @@ import { useAlert } from '@/app/state/contexts/AlertContext';
 import { createProducer } from '@/app/actions/producers';
 import { getProductiveUnitsSimpleList } from '@/app/actions/productiveUnits';
 import type { AccountTypeName, BankName, PersonBankAccount } from '@/data/entities/Person';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface CreateProducerButtonProps {
   onSuccess: () => void;
@@ -54,7 +55,7 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
     bankAccountAlias: '',
     bankAccountIsPrimary: false,
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [productiveUnitOptions, setProductiveUnitOptions] = useState<{ id: string; label: string }[]>([]);
 
 
@@ -108,77 +109,82 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      const hasBankAccount = Boolean(
-        values.bankAccountType && values.bankName && values.bankAccountNumber?.trim()
-      );
+    const result = await run(async () => {
+      try {
+        const hasBankAccount = Boolean(
+          values.bankAccountType && values.bankName && values.bankAccountNumber?.trim()
+        );
 
-      let bankAccounts: PersonBankAccount[] | undefined;
-      if (hasBankAccount) {
-        const account: PersonBankAccount = {
-          accountType: values.bankAccountType as AccountTypeName,
-          bank: values.bankName as BankName,
-          accountNumber: values.bankAccountNumber.trim(),
-        };
+        let bankAccounts: PersonBankAccount[] | undefined;
+        if (hasBankAccount) {
+          const account: PersonBankAccount = {
+            accountType: values.bankAccountType as AccountTypeName,
+            bank: values.bankName as BankName,
+            accountNumber: values.bankAccountNumber.trim(),
+          };
 
-        const alias = values.bankAccountAlias?.trim();
-        if (alias) {
-          account.alias = alias;
+          const alias = values.bankAccountAlias?.trim();
+          if (alias) {
+            account.alias = alias;
+          }
+
+          account.isPrimary = Boolean(values.bankAccountIsPrimary);
+
+          bankAccounts = [account];
         }
 
-        account.isPrimary = Boolean(values.bankAccountIsPrimary);
+        const payload: Parameters<typeof createProducer>[0] = {
+          name: values.name,
+          dni: values.dni,
+          mail: values.mail || undefined,
+          phone: values.phone || undefined,
+          productiveUnitId: values.productiveUnitId,
+          bankAccounts,
+        };
 
-        bankAccounts = [account];
-      }
+        const createResult = await createProducer(payload);
 
-      const payload: Parameters<typeof createProducer>[0] = {
-        name: values.name,
-        dni: values.dni,
-        mail: values.mail || undefined,
-        phone: values.phone || undefined,
-        productiveUnitId: values.productiveUnitId,
-        bankAccounts,
-      };
+        if (createResult.success) {
+          showAlert({
+            message: 'Producer created successfully',
+            type: 'success',
+            duration: 4000,
+          });
+          return { ok: true };
+        }
 
-      const result = await createProducer(payload);
-
-      if (result.success) {
         showAlert({
-          message: 'Producer created successfully',
-          type: 'success',
-          duration: 4000,
-        });
-        setValues({
-          name: '',
-          dni: '',
-          mail: '',
-          phone: '',
-          productiveUnitId: '',
-          bankAccountType: '',
-          bankName: '',
-          bankAccountNumber: '',
-          bankAccountAlias: '',
-          bankAccountIsPrimary: false,
-        });
-        onClose?.();
-        onSuccess();
-      } else {
-        showAlert({
-          message: result.error || 'Error creating producer',
+          message: createResult.error || 'Error creating producer',
           type: 'error',
           duration: 4000,
         });
+        return { ok: false };
+      } catch (error) {
+        console.error('Error creating producer:', error);
+        showAlert({
+          message: 'Error creating producer',
+          type: 'error',
+          duration: 4000,
+        });
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('Error creating producer:', error);
-      showAlert({
-        message: 'Error creating producer',
-        type: 'error',
-        duration: 4000,
+    });
+
+    if (result?.ok) {
+      setValues({
+        name: '',
+        dni: '',
+        mail: '',
+        phone: '',
+        productiveUnitId: '',
+        bankAccountType: '',
+        bankName: '',
+        bankAccountNumber: '',
+        bankAccountAlias: '',
+        bankAccountIsPrimary: false,
       });
-    } finally {
-      setIsSubmitting(false);
+      onClose?.();
+      onSuccess();
     }
   };
 

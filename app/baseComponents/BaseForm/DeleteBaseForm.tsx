@@ -1,7 +1,6 @@
 "use client";
 import React from "react";
 import { Button } from "../Button/Button";
-import DotProgress from "../DotProgress/DotProgress";
 import Alert from "../Alert/Alert";
 
 export interface DeleteBaseFormProps {
@@ -37,6 +36,7 @@ const DeleteBaseForm: React.FC<DeleteBaseFormProps> = ({
         <form
             onSubmit={(e) => {
                 e.preventDefault();
+                if (isSubmitting) return;
                 onSubmit();
             }}
             className="form-container"
@@ -70,19 +70,9 @@ const DeleteBaseForm: React.FC<DeleteBaseFormProps> = ({
                             </div>
                         </Button>
                     )}
-                    {isSubmitting ? (
-                        <Button variant="primary" type="submit" disabled>
-                            <div className="flex items-center justify-center min-h-[20px]">
-                                <DotProgress size={12} />
-                            </div>
-                        </Button>
-                    ) : (
-                        <Button variant="primary" type="submit">
-                            <div className="flex items-center justify-center min-h-[20px]">
-                                {submitLabel ?? "Eliminar"}
-                            </div>
-                        </Button>
-                    )}
+                    <Button variant="primary" type="submit" loading={isSubmitting}>
+                        {submitLabel ?? "Eliminar"}
+                    </Button>
                 </div>
             </div>
 

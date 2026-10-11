@@ -2,6 +2,7 @@ import { getAuditGridData } from '../../actions/audits';
 import { AuditDataGrid } from './ui/AuditDataGrid';
 import { Suspense } from 'react';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
+import { WithNavSearch } from '@/app/ui/WithNavSearch';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,8 +38,18 @@ async function AuditContent({ params }: { params: Record<string, string | string
   };
 
   const auditData = await getAuditGridData(filters);
+  const search = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      search.set(key, String(value));
+    }
+  });
 
-  return <AuditDataGrid {...auditData} filters={filters} />;
+  return (
+    <WithNavSearch search={search.toString()}>
+      <AuditDataGrid {...auditData} filters={filters} />
+    </WithNavSearch>
+  );
 }
 
 export default async function AuditPage({ searchParams }: AuditPageProps) {

@@ -8,13 +8,14 @@ import { UpdateDataBaseDialog } from "./ui/UpdateDataBaseDialog";
 import './global.css';
 import type { BaseFormField } from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import CreateBaseForm from '@/app/baseComponents/BaseForm/CreateBaseForm';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [values, setValues] = useState<Record<string, any>>({ username: "", password: "" });
   const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
 
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
 
@@ -31,35 +32,40 @@ export default function HomePage() {
       return;
     }
 
-    setIsSubmitting(true);
     setError("");
-    
+
     try {
-      console.log('[Login] Iniciando login');
-      
-      // Usar signIn con redirect: false para manejar errores inline
-      const result = await signIn("credentials", {
-        username: values.username,
-        password: values.password,
-        redirect: false,
-        callbackUrl: `${window.location.origin}/home`,
+      const result = await run(async () => {
+        console.log('[Login] Iniciando login');
+
+        const signInResult = await signIn("credentials", {
+          username: values.username,
+          password: values.password,
+          redirect: false,
+          callbackUrl: `${window.location.origin}/home`,
+        });
+
+        console.log('[Login] Resultado del signIn:', signInResult);
+
+        if (signInResult?.error) {
+          setError("Usuario o contraseña incorrectos");
+          return { ok: false };
+        }
+
+        if (signInResult?.ok) {
+          return { ok: true };
+        }
+
+        setError("Error al procesar la autenticación");
+        return { ok: false };
       });
 
-      console.log('[Login] Resultado del signIn:', result);
-
-      if (result?.error) {
-        // Mostrar error inline en el formulario
-        setError("Usuario o contraseña incorrectos");
-      } else if (result?.ok) {
-        // Login exitoso, redirigir manualmente
+      if (result?.ok) {
         router.push('/home');
       }
-
-      setIsSubmitting(false);
     } catch (error) {
       console.error('[Login] Error:', error);
       setError("Error al procesar la autenticación");
-      setIsSubmitting(false);
     }
   };
 
@@ -80,8 +86,8 @@ export default function HomePage() {
   ];
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <div className="w-full max-w-md p-8 rounded-xl border shadow-2xl" style={{ 
+    <main className="flex min-h-screen flex-col items-center justify-center px-page py-6">
+      <div className="w-full max-w-md rounded-xl border p-4 shadow-2xl sm:p-6" style={{ 
   
       }}>
         {/* Logo */}

@@ -7,6 +7,7 @@ import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { deletePallet } from '@/app/actions/pallets';
 import type { PalletRow } from './types';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface DeletePalletButtonProps {
   pallet: PalletRow;
@@ -16,38 +17,41 @@ interface DeletePalletButtonProps {
 export default function DeletePalletButton({ pallet, onSuccess }: DeletePalletButtonProps) {
   const { showAlert } = useAlert();
   const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const handleSubmit = async () => {
     setErrors([]);
-    setIsSubmitting(true);
 
-    try {
-      const result = await deletePallet(pallet.id);
+    const result = await run(async () => {
+      try {
+        const deleteResult = await deletePallet(pallet.id);
 
-      if (result.success) {
-        showAlert({
-          message: 'Pallet eliminado exitosamente',
-          type: 'success',
-          duration: 4000,
-        });
-        setTimeout(() => {
-          setOpen(false);
-          onSuccess();
-        }, 500);
-      } else {
-        const errorMessage = result.error || 'Error al eliminar el pallet';
+        if (deleteResult.success) {
+          showAlert({
+            message: 'Pallet eliminado exitosamente',
+            type: 'success',
+            duration: 4000,
+          });
+          return { ok: true };
+        }
+
+        const errorMessage = deleteResult.error || 'Error al eliminar el pallet';
         showAlert({ message: errorMessage, type: 'error', duration: 5000 });
         setErrors([errorMessage]);
-        setIsSubmitting(false);
+        return { ok: false };
+      } catch (error) {
+        console.error('[DeletePalletButton] Error eliminando pallet:', error);
+        const errorMessage = 'Error inesperado al eliminar el pallet';
+        showAlert({ message: errorMessage, type: 'error', duration: 5000 });
+        setErrors([errorMessage]);
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('[DeletePalletButton] Error eliminando pallet:', error);
-      const errorMessage = 'Error inesperado al eliminar el pallet';
-      showAlert({ message: errorMessage, type: 'error', duration: 5000 });
-      setErrors([errorMessage]);
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      setOpen(false);
+      onSuccess();
     }
   };
 

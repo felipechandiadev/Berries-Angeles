@@ -6,9 +6,9 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { Button } from '@/app/baseComponents/Button/Button';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Select from '@/app/baseComponents/Select/Select';
-import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { updatePackPrice } from '@/app/actions/receptions';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import type { ReceptionDetailPack } from '../types';
 import { Currency } from '@/data/entities/Variety';
 
@@ -84,7 +84,7 @@ export function UpdatePackPriceDialog({
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const resolvedPackCurrency = normalizeCurrency(pack.currency);
   const [currency, setCurrency] = useState<Currency>(() => resolvedPackCurrency);
   const [priceInput, setPriceInput] = useState<string>(() =>
@@ -139,36 +139,41 @@ export function UpdatePackPriceDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
-    try {
-      const parsedPrice = parsePriceInput(priceInput);
-      if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
-        error('El precio por kg debe ser un número mayor o igual a 0');
-        return;
+    const result = await run(async () => {
+      try {
+        const parsedPrice = parsePriceInput(priceInput);
+        if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+          error('El precio por kg debe ser un número mayor o igual a 0');
+          return { ok: false };
+        }
+
+        const updateResult = await updatePackPrice({
+          receptionId,
+          packId: pack.packId,
+          newPricePerKg: parsedPrice,
+          newCurrency: currency,
+          reason: reason.trim(),
+          userId: currentUserId,
+        });
+
+        if (updateResult.success) {
+          success('Precio del pack actualizado exitosamente');
+          return { ok: true };
+        }
+
+        error(updateResult.error || 'Error al actualizar el precio del pack');
+        return { ok: false };
+      } catch (err: any) {
+        error('Error inesperado al actualizar el precio del pack');
+        console.error('Update pack price error:', err);
+        return { ok: false };
       }
+    });
 
-      const result = await updatePackPrice({
-        receptionId,
-        packId: pack.packId,
-        newPricePerKg: parsedPrice,
-        newCurrency: currency,
-        reason: reason.trim(),
-        userId: currentUserId,
-      });
-
-      if (result.success) {
-        success('Precio del pack actualizado exitosamente');
-        onClose();
-        onSuccess?.();
-      } else {
-        error(result.error || 'Error al actualizar el precio del pack');
-      }
-    } catch (err: any) {
-      error('Error inesperado al actualizar el precio del pack');
-      console.error('Update pack price error:', err);
-    } finally {
-      setIsSubmitting(false);
+    if (result?.ok) {
+      onClose();
+      onSuccess?.();
     }
   };
 
@@ -284,23 +289,14 @@ export function UpdatePackPriceDialog({
           >
             Cancelar
           </Button>
-          {isSubmitting ? (
-            <Button variant="primary" type="submit" disabled>
-              <div className="flex items-center justify-center min-h-[20px]">
-                <DotProgress size={12} />
-              </div>
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isSubmitting || !isFormValid}
-            >
-              <div className="flex items-center justify-center min-h-[20px]">
-                Actualizar Precio
-              </div>
-            </Button>
-          )}
+          <Button
+            type="submit"
+            variant="primary"
+            loading={isSubmitting}
+            disabled={!isFormValid}
+          >
+            Actualizar Precio
+          </Button>
         </div>
       </form>
     </Dialog>

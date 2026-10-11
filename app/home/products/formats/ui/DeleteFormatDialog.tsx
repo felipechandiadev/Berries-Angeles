@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { deleteFormat } from '@/app/actions/formats';
 
 interface Format {
@@ -25,7 +26,7 @@ const DeleteFormatDialog: React.FC<DeleteFormatDialogProps> = ({ open, onClose, 
   const router = useRouter();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
   const { success, error } = useAlert();
 
@@ -35,25 +36,29 @@ const DeleteFormatDialog: React.FC<DeleteFormatDialogProps> = ({ open, onClose, 
       return;
     }
 
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await deleteFormat(format.id, currentUserId);
+    const result = await run(async () => {
+      try {
+        const res = await deleteFormat(format.id, currentUserId);
 
-      if (result?.success) {
-        success(result.message || 'Formato eliminado exitosamente');
-        onClose();
-        // Refresh the page to update the list
-        router.refresh();
-      } else {
-        error(result.error || 'Error al eliminar el formato');
+        if (!res?.success) {
+          error(res.error || 'Error al eliminar el formato');
+          return { ok: false };
+        }
+
+        success(res.message || 'Formato eliminado exitosamente');
+        return { ok: true };
+      } catch (err: any) {
+        error('Error inesperado al eliminar el formato');
+        console.error('Delete format error:', err);
+        return { ok: false };
       }
-    } catch (err: any) {
-      error('Error inesperado al eliminar el formato');
-      console.error('Delete format error:', err);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      router.refresh();
     }
   };
 

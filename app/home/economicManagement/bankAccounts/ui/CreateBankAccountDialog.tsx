@@ -8,6 +8,7 @@ import CreateBaseForm, { BaseFormFieldGroup } from '@/app/baseComponents/BaseFor
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { createAdminBankAccount } from '@/app/actions/adminBankAccounts';
 import { AccountTypeName, BankName } from '@/data/entities/AdminBankAccount';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface CreateBankAccountDialogProps {
   open: boolean;
@@ -20,7 +21,7 @@ const CreateBankAccountDialog: React.FC<CreateBankAccountDialogProps> = ({ open,
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -91,40 +92,45 @@ const CreateBankAccountDialog: React.FC<CreateBankAccountDialogProps> = ({ open,
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await createAdminBankAccount({
-        accountType: formData.accountType,
-        bank: formData.bank,
-        accountNumber: formData.accountNumber,
-        alias: formData.alias || undefined,
-        isActive: formData.isActive,
-      });
-
-      if (result.success) {
-        success(result.message || 'Cuenta bancaria creada exitosamente');
-        onClose();
-        setFormData({
-          accountType: AccountTypeName.CUENTA_CORRIENTE,
-          bank: BankName.BANCO_CHILE,
-          accountNumber: '',
-          alias: '',
-          isActive: true,
+    const result = await run(async () => {
+      try {
+        const createResult = await createAdminBankAccount({
+          accountType: formData.accountType,
+          bank: formData.bank,
+          accountNumber: formData.accountNumber,
+          alias: formData.alias || undefined,
+          isActive: formData.isActive,
         });
-      } else {
-        error(result.error || 'Error al crear la cuenta bancaria');
-        if (result.error) {
-          setErrors([result.error]);
+
+        if (createResult.success) {
+          success(createResult.message || 'Cuenta bancaria creada exitosamente');
+          return { ok: true };
         }
+
+        error(createResult.error || 'Error al crear la cuenta bancaria');
+        if (createResult.error) {
+          setErrors([createResult.error]);
+        }
+        return { ok: false };
+      } catch (err: any) {
+        console.error('Error creating bank account:', err);
+        error('Error inesperado al crear la cuenta bancaria');
+        setErrors(['Error inesperado al crear la cuenta bancaria']);
+        return { ok: false };
       }
-    } catch (err: any) {
-      console.error('Error creating bank account:', err);
-      error('Error inesperado al crear la cuenta bancaria');
-      setErrors(['Error inesperado al crear la cuenta bancaria']);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      setFormData({
+        accountType: AccountTypeName.CUENTA_CORRIENTE,
+        bank: BankName.BANCO_CHILE,
+        accountNumber: '',
+        alias: '',
+        isActive: true,
+      });
     }
   };
 

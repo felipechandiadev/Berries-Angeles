@@ -6,6 +6,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { deleteProducer } from '@/app/actions/producers';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface Producer {
   id: string;
@@ -27,46 +28,49 @@ interface DeleteProducerButtonProps {
 export default function DeleteProducerButton({ producer, onSuccess }: DeleteProducerButtonProps) {
   const { showAlert } = useAlert();
   const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await deleteProducer(producer.id);
+    const result = await run(async () => {
+      try {
+        const deleteResult = await deleteProducer(producer.id);
 
-      if (result.success) {
-        showAlert({
-          message: 'Producer deleted successfully',
-          type: 'success',
-          duration: 4000,
-        });
-        setTimeout(() => {
-          setOpen(false);
-          onSuccess();
-        }, 500);
-      } else {
-        const errorMessage = result.error || 'Error deleting producer';
+        if (deleteResult.success) {
+          showAlert({
+            message: 'Producer deleted successfully',
+            type: 'success',
+            duration: 4000,
+          });
+          return { ok: true };
+        }
+
+        const errorMessage = deleteResult.error || 'Error deleting producer';
         showAlert({
           message: errorMessage,
           type: 'error',
           duration: 4000,
         });
         setErrors([errorMessage]);
-        setIsSubmitting(false);
+        return { ok: false };
+      } catch (error) {
+        console.error('Error deleting producer:', error);
+        const errorMessage = 'Error deleting producer';
+        showAlert({
+          message: errorMessage,
+          type: 'error',
+          duration: 4000,
+        });
+        setErrors([errorMessage]);
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('Error deleting producer:', error);
-      const errorMessage = 'Error deleting producer';
-      showAlert({
-        message: errorMessage,
-        type: 'error',
-        duration: 4000,
-      });
-      setErrors([errorMessage]);
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      setOpen(false);
+      onSuccess();
     }
   };
 

@@ -6,6 +6,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { deleteProductiveUnit } from '@/app/actions/productiveUnits';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface ProductiveUnit {
   id: string;
@@ -24,46 +25,49 @@ interface DeleteUnitButtonProps {
 export default function DeleteUnitButton({ unit, onSuccess }: DeleteUnitButtonProps) {
   const { showAlert } = useAlert();
   const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await deleteProductiveUnit(unit.id);
+    const result = await run(async () => {
+      try {
+        const deleteResult = await deleteProductiveUnit(unit.id);
 
-      if (result.success) {
-        showAlert({
-          message: 'Unidad productiva eliminada exitosamente',
-          type: 'success',
-          duration: 4000,
-        });
-        setTimeout(() => {
-          setOpen(false);
-          onSuccess();
-        }, 500);
-      } else {
-        const errorMessage = result.error || 'Error al eliminar la unidad productiva';
+        if (deleteResult.success) {
+          showAlert({
+            message: 'Unidad productiva eliminada exitosamente',
+            type: 'success',
+            duration: 4000,
+          });
+          return { ok: true };
+        }
+
+        const errorMessage = deleteResult.error || 'Error al eliminar la unidad productiva';
         showAlert({
           message: errorMessage,
           type: 'error',
           duration: 4000,
         });
         setErrors([errorMessage]);
-        setIsSubmitting(false);
+        return { ok: false };
+      } catch (error) {
+        console.error('Error deleting productive unit:', error);
+        const errorMessage = 'Error al eliminar la unidad productiva';
+        showAlert({
+          message: errorMessage,
+          type: 'error',
+          duration: 4000,
+        });
+        setErrors([errorMessage]);
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('Error deleting productive unit:', error);
-      const errorMessage = 'Error al eliminar la unidad productiva';
-      showAlert({
-        message: errorMessage,
-        type: 'error',
-        duration: 4000,
-      });
-      setErrors([errorMessage]);
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      setOpen(false);
+      onSuccess();
     }
   };
 

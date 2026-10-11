@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { CollectionPageLayout } from '@felipechandiadev/ui';
 import { Storage } from '@/data/entities/Storage';
 import StorageCard from './StorageCard';
-import { TextField } from '@/app/baseComponents/TextField/TextField';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import CreateStorageDialog from './CreateStorageDialog';
 import UpdateStorageDialog from './UpdateStorageDialog';
@@ -14,83 +14,63 @@ interface ListStoragesProps {
   storages: Storage[];
 }
 
-const defaultEmptyMessage = 'No hay almacenamientos para mostrar.';
-
 export function ListStorages({ storages }: ListStoragesProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const search = (searchParams.get('search') || '').toLowerCase();
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [editingStorage, setEditingStorage] = useState<Storage | null>(null);
   const [deletingStorage, setDeletingStorage] = useState<Storage | null>(null);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setSearch(value);
-    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
-    if (value) {
-      params.set("search", value);
-    } else {
-      params.delete("search");
-    }
-    const pathname = typeof window !== 'undefined' ? window.location.pathname : '/home/storage/storages';
-    router.replace(`${pathname}?${params.toString()}`);
-    router.refresh();
-  };
-
-  const filteredStorages = storages.filter(storage =>
-    storage.name.toLowerCase().includes(search.toLowerCase()) ||
-    storage.type.toLowerCase().includes(search.toLowerCase()) ||
-    (storage.location && storage.location.toLowerCase().includes(search.toLowerCase()))
+  const filteredStorages = useMemo(
+    () =>
+      storages.filter(
+        (storage) =>
+          !search ||
+          storage.name.toLowerCase().includes(search) ||
+          storage.type.toLowerCase().includes(search) ||
+          (storage.location && storage.location.toLowerCase().includes(search)),
+      ),
+    [storages, search],
   );
 
   return (
-    <div className="w-full" data-test-id="storages-list-container">
-      {/* Primera fila: búsqueda y botón */}
-      <div className="flex items-center justify-between mb-4 gap-4" data-test-id="storages-list-header">
-        <IconButton
-          icon="add"
-          variant='outlined'
-          aria-label="Agregar almacenamiento"
-          onClick={() => setOpenCreateDialog(true)}
-          data-test-id="storages-add-button"
-        />
-        <div className="w-full max-w-sm" data-test-id="storages-search-container">
-          <TextField
-            label="Buscar"
-            value={search}
-            onChange={handleSearchChange}
-            startIcon="search"
-            placeholder="Buscar almacenamiento..."
-            data-test-id="storages-search-input"
+    <>
+      <CollectionPageLayout
+        title="Almacenes"
+        showSearch
+        searchParamName="search"
+        searchLabel="Buscar"
+        searchPlaceholder="Buscar almacenamiento..."
+        addAction={
+          <IconButton
+            icon="add"
+            variant="outlined"
+            aria-label="Agregar almacenamiento"
+            onClick={() => setOpenCreateDialog(true)}
+            data-test-id="storages-add-button"
           />
-        </div>
-      </div>
-      {/* Segunda fila: grid de tarjetas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full" data-test-id="storages-grid">
-        {filteredStorages && filteredStorages.length > 0 ? (
-          filteredStorages.map(storage => (
-            <StorageCard
-              key={storage.id}
-              storage={storage}
-              onEdit={() => setEditingStorage(storage)}
-              onDelete={() => setDeletingStorage(storage)}
-              data-test-id={`storage-card-${storage.id}`}
-            />
-          ))
-        ) : (
-          <div className="col-span-full text-center text-neutral-500 py-8" data-test-id="storages-empty-message">{defaultEmptyMessage}</div>
-        )}
-      </div>
+        }
+        contentItems={filteredStorages.map((storage) => (
+          <StorageCard
+            key={storage.id}
+            storage={storage}
+            onEdit={() => setEditingStorage(storage)}
+            onDelete={() => setDeletingStorage(storage)}
+            data-test-id={`storage-card-${storage.id}`}
+          />
+        ))}
+        contentGridColumns={{ default: 1, sm: 2, lg: 3 }}
+        contentGridGapClassName="gap-6"
+        contentEmptyMessage="No hay almacenamientos para mostrar."
+        data-test-id="storages-list-container"
+      />
 
-      {/* CreateStorageDialog */}
       <CreateStorageDialog
         open={openCreateDialog}
         onClose={() => setOpenCreateDialog(false)}
         data-test-id="storages-create-dialog"
       />
 
-      {/* Diálogo de edición */}
       {editingStorage && (
         <UpdateStorageDialog
           open={!!editingStorage}
@@ -100,7 +80,6 @@ export function ListStorages({ storages }: ListStoragesProps) {
         />
       )}
 
-      {/* Diálogo de eliminación */}
       {deletingStorage && (
         <DeleteStorageDialog
           open={!!deletingStorage}
@@ -109,7 +88,7 @@ export function ListStorages({ storages }: ListStoragesProps) {
           data-test-id="storages-delete-dialog"
         />
       )}
-    </div>
+    </>
   );
 }
 

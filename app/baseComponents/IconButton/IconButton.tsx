@@ -1,58 +1,72 @@
+"use client";
+
 import React from "react";
+import IconButtonKai from "@felipechandiadev/ui/components/IconButton/IconButton.js";
+import type { ComponentProps } from "react";
 
-type IconButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
+type KaiProps = ComponentProps<typeof IconButtonKai>;
+type LucideIconName = KaiProps["icon"];
 
-interface IconButtonProps {
-	icon: string; // nombre del icono material-symbols
-	variant?: "containedPrimary" | "containedSecondary" | "text" | "basic" | "basicSecondary" | "outlined";
-	size?: IconButtonSize;
-	disabled?: boolean;
-	className?: string;
-	onClick?: React.MouseEventHandler<HTMLButtonElement>;
-	ariaLabel?: string;
-	[key: string]: any;
+/** Material Symbols → Lucide (compat call-sites Berries). */
+const MATERIAL_TO_LUCIDE: Record<string, LucideIconName> = {
+  add: "Plus",
+  close: "X",
+  delete: "Trash2",
+  edit: "Pencil",
+  search: "Search",
+  settings: "Settings",
+  menu: "Menu",
+  print: "Printer",
+  receipt_long: "Receipt",
+  more_horiz: "Ellipsis",
+  first_page: "ChevronsLeft",
+  last_page: "ChevronsRight",
+  chevron_left: "ChevronLeft",
+  chevron_right: "ChevronRight",
+  sort: "ArrowUpDown",
+  file_download: "Download",
+  refresh: "RefreshCw",
+  arrow_upward: "ArrowUp",
+  arrow_downward: "ArrowDown",
+  checkbook: "NotebookPen",
+  visibility: "Eye",
+  visibility_off: "EyeOff",
+  account_circle: "CircleUser",
+  person: "User",
+  inventory_2: "Package",
+  agriculture: "Sprout",
+  package_2: "Package",
+  payments: "Wallet",
+  group: "Users",
+};
+
+export type IconButtonProps = Omit<KaiProps, "icon"> & {
+  icon: string | LucideIconName;
+  /** Alias legacy Berries (`aria-label`). */
+  "aria-label"?: string;
+};
+
+function resolveIcon(icon: string | LucideIconName): LucideIconName {
+  if (typeof icon !== "string") return icon;
+  if (MATERIAL_TO_LUCIDE[icon]) return MATERIAL_TO_LUCIDE[icon];
+  // Already a Lucide name (PascalCase)
+  if (/^[A-Z]/.test(icon)) return icon as LucideIconName;
+  return "CircleHelp";
 }
 
-const variantClasses: Record<string, string> = {
-	containedPrimary: "icon-button-contained-primary",
-	containedSecondary: "icon-button-contained-secondary",
-	text: "icon-button-text",
-	basic: "icon-button-basic",
-	basicSecondary: "icon-button-basic-secondary",
-	outlined: "icon-button-outlined",
-};
-
-const sizeMap: Record<Exclude<IconButtonSize, number>, string> = {
-  xs: 'icon-size-xs w-5 h-5',
-  sm: 'icon-size-sm w-7 h-7',
-  md: 'icon-size-md w-10 h-10',
-  lg: 'icon-size-lg w-12 h-12',
-  xl: 'icon-size-xl w-14 h-14',
-};
-
-const IconButton: React.FC<IconButtonProps> = ({ icon, variant = "containedPrimary", size = 'md', disabled = false, className = "", onClick, ariaLabel, ...props }) => {
-	const sizeClass = typeof size === 'number' ? `w-[${size + 16}px] h-[${size + 16}px]` : sizeMap[size] || sizeMap['md'];
-	const iconSizeClass = typeof size === 'number' ? '' : `icon-size-${size}`;
-	const disabledClass = disabled ? 'icon-button-disabled' : '';
-	
-	return (
-		<button
-			type="button"
-			className={`${variantClasses[variant] || variantClasses["containedPrimary"]} ${disabledClass} ${className} ${sizeClass}`}
-			data-test-id="icon-button-root"
-			onClick={onClick}
-			aria-label={ariaLabel}
-			disabled={disabled}
-			{...props}
-		>
-			<span
-				className={`material-symbols-outlined select-none ${iconSizeClass}`}
-				aria-hidden
-			>
-				{icon}
-			</span>
-		</button>
-	);
+const IconButton: React.FC<IconButtonProps> = ({
+  icon,
+  ariaLabel,
+  "aria-label": ariaLabelAttr,
+  ...props
+}) => {
+  return (
+    <IconButtonKai
+      {...props}
+      icon={resolveIcon(icon)}
+      ariaLabel={ariaLabel ?? ariaLabelAttr}
+    />
+  );
 };
 
 export default IconButton;

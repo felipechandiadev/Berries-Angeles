@@ -8,6 +8,7 @@ import DeleteBaseForm from '@/app/baseComponents/BaseForm/DeleteBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { Season } from '@/data/entities/Season';
 import { deleteSeason } from '@/app/actions/seasons';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface DeleteSeasonDialogProps {
   open: boolean;
@@ -20,7 +21,7 @@ const DeleteSeasonDialog: React.FC<DeleteSeasonDialogProps> = ({ open, onClose, 
   const router = useRouter();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
   const { success, error } = useAlert();
 
@@ -30,25 +31,29 @@ const DeleteSeasonDialog: React.FC<DeleteSeasonDialogProps> = ({ open, onClose, 
       return;
     }
 
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await deleteSeason(season.id, currentUserId);
+    const result = await run(async () => {
+      try {
+        const deleteResult = await deleteSeason(season.id, currentUserId);
 
-      if (result?.success) {
-        success(result.message || 'Temporada eliminada exitosamente');
-        onClose();
-        // Refresh the page to update the list
-        router.refresh();
-      } else {
-        error(result.error || 'Error al eliminar la temporada');
+        if (deleteResult?.success) {
+          success(deleteResult.message || 'Temporada eliminada exitosamente');
+          return { ok: true };
+        }
+
+        error(deleteResult?.error || 'Error al eliminar la temporada');
+        return { ok: false };
+      } catch (err: any) {
+        error('Error inesperado al eliminar la temporada');
+        console.error('Delete season error:', err);
+        return { ok: false };
       }
-    } catch (err: any) {
-      error('Error inesperado al eliminar la temporada');
-      console.error('Delete season error:', err);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      router.refresh();
     }
   };
 

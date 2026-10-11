@@ -2,17 +2,21 @@
 
 import { SessionProvider } from "next-auth/react";
 import { ReactNode } from "react";
+import { NextNavProvider } from "@felipechandiadev/ui";
 import { AlertProvider } from "./state/contexts/AlertContext";
 import { PermissionsProvider } from "./state/contexts/PermissionsContext";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
-      <PermissionsProvider>
-        <AlertProvider>
-          {children}
-        </AlertProvider>
-      </PermissionsProvider>
+      {/* search="" evita useSearchParams (no suspende en SSG); grillas pasan search real vía WithNavSearch */}
+      <NextNavProvider search="">
+        <PermissionsProvider>
+          <AlertProvider>
+            {children}
+          </AlertProvider>
+        </PermissionsProvider>
+      </NextNavProvider>
     </SessionProvider>
   );
 }
@@ -28,4 +32,3 @@ export function MinimalProviders({ children }: { children: ReactNode }) {
     </AlertProvider>
   );
 }
-

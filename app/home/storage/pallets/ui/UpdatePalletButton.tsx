@@ -11,6 +11,7 @@ import { updatePallet, type UpdatePalletInput } from '@/app/actions/pallets';
 import { PalletStatus } from '@/data/entities/Pallet';
 import { getPalletStatusLabel, getPalletStatusOptions } from './PalletStatusBadge';
 import type { PalletRow } from './types';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface SelectOption {
   id: string;
@@ -25,7 +26,7 @@ interface UpdatePalletButtonProps {
 export default function UpdatePalletButton({ pallet, onSuccess }: UpdatePalletButtonProps) {
   const { showAlert } = useAlert();
   const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [storageOptions, setStorageOptions] = useState<SelectOption[]>([]);
   const [trayOptions, setTrayOptions] = useState<SelectOption[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
@@ -220,31 +221,35 @@ export default function UpdatePalletButton({ pallet, onSuccess }: UpdatePalletBu
       return;
     }
 
-    setIsSubmitting(true);
+    const result = await run(async () => {
+      try {
+        const updateResult = await updatePallet(payload);
 
-    try {
-      const result = await updatePallet(payload);
+        if (updateResult.success) {
+          showAlert({
+            message: `Pallet actualizado exitosamente (${getPalletStatusLabel(status)})`,
+            type: 'success',
+            duration: 4000,
+          });
+          return { ok: true };
+        }
 
-      if (result.success) {
-        showAlert({
-          message: `Pallet actualizado exitosamente (${getPalletStatusLabel(status)})`,
-          type: 'success',
-          duration: 4000,
-        });
-        setOpen(false);
-        onSuccess();
-      } else {
-        const errorMessage = result.error || 'Error al actualizar el pallet';
+        const errorMessage = updateResult.error || 'Error al actualizar el pallet';
         showAlert({ message: errorMessage, type: 'error', duration: 5000 });
         setErrors([errorMessage]);
+        return { ok: false };
+      } catch (error) {
+        console.error('[UpdatePalletButton] Error actualizando pallet:', error);
+        const errorMessage = 'Error inesperado al actualizar el pallet';
+        showAlert({ message: errorMessage, type: 'error', duration: 5000 });
+        setErrors([errorMessage]);
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('[UpdatePalletButton] Error actualizando pallet:', error);
-      const errorMessage = 'Error inesperado al actualizar el pallet';
-      showAlert({ message: errorMessage, type: 'error', duration: 5000 });
-      setErrors([errorMessage]);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      setOpen(false);
+      onSuccess();
     }
   };
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import DataGrid, { type DataGridColumn } from '@/app/baseComponents/DataGrid/DataGrid';
+import { DataGridTable, type DataGridColumn } from '@felipechandiadev/ui';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { getPalletsExportData, type PalletGridFilters } from '@/app/actions/pallets';
 import { exportPalletsToExcel } from '@/lib/excelExport';
@@ -217,7 +217,7 @@ export default function PalletsGrid({
 
   return (
   
-      <DataGrid
+      <DataGridTable
         columns={columns}
         rows={initialData}
         limit={currentLimit}

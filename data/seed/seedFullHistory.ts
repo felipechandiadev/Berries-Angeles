@@ -574,35 +574,128 @@ export async function seedFullHistory(connection: mysql.Connection): Promise<voi
   }
   console.log(`   ✓ Inserted ${insertedAdv} advances`);
 
-  // Settlements via relations only
-  let settledRec = 0;
+  // Settlements: one SETTLEMENT header per producer, relations point child → settlement
+  type SeedSettlementBucket = {
+    producerId: string;
+    seasonId: string;
+    userId: string;
+    receptionTxIds: string[];
+    receptionsTotalCLP: number;
+    advances: Array<{ advanceId: string; amount: number }>;
+  };
+  const settlementBuckets = new Map<string, SeedSettlementBucket>();
+
   for (const guide of settlementPlan.settledReceptionGuideNumbers) {
     const txId = guideToTxId.get(guide);
-    if (!txId) continue;
-    await connection.execute(
-      `INSERT INTO transaction_relations
-         (parentTransactionId, childTransactionId, childReceptionPackId, relationType, context, createdAt, updatedAt)
-       VALUES (?, NULL, NULL, 'RECEPTION_TO_SETTLEMENT', ?, NOW(), NOW())`,
-      [txId, JSON.stringify({ source: 'seed', guideNumber: guide })]
-    );
-    settledRec++;
+    const reception = receptions.find((r) => r.guideNumber === guide);
+    const producer = reception ? lookups.producersByRut.get(reception.producerRut) : undefined;
+    const user = reception ? lookups.usersByName.get(reception.userName) : undefined;
+    if (!txId || !reception || !producer || !user) continue;
+
+    const receptionTotal = reception.totalCLPToPay || 0;
+    const bucketKey = producer.id;
+    const existing = settlementBuckets.get(bucketKey);
+    if (existing) {
+      existing.receptionTxIds.push(txId);
+      existing.receptionsTotalCLP += receptionTotal;
+    } else {
+      settlementBuckets.set(bucketKey, {
+        producerId: producer.id,
+        seasonId: reception.seasonId,
+        userId: user.id,
+        receptionTxIds: [txId],
+        receptionsTotalCLP: receptionTotal,
+        advances: [],
+      });
+    }
   }
 
-  let settledAdv = 0;
   for (const app of settlementPlan.advanceApplications) {
     const key = `${app.producerRut}|${app.createdAt}`;
     const advId = advanceKeyToId.get(key);
-    if (!advId) continue;
-    await connection.execute(
-      `INSERT INTO transaction_relations
-         (parentTransactionId, childTransactionId, childReceptionPackId, relationType, context, createdAt, updatedAt)
-       VALUES (?, NULL, NULL, 'ADVANCE_TO_SETTLEMENT', ?, NOW(), NOW())`,
-      [advId, JSON.stringify({ amount: app.amount, source: 'seed' })]
+    const producer = lookups.producersByRut.get(app.producerRut);
+    const advance = advances.find(
+      (a) => a.producerRut === app.producerRut && a.createdAt === app.createdAt,
     );
-    settledAdv++;
+    const user = advance ? lookups.usersByName.get(advance.userName) : undefined;
+    if (!advId || !producer || !advance || !user) continue;
+
+    const bucketKey = producer.id;
+    const existing = settlementBuckets.get(bucketKey);
+    if (existing) {
+      existing.advances.push({ advanceId: advId, amount: app.amount });
+    } else {
+      settlementBuckets.set(bucketKey, {
+        producerId: producer.id,
+        seasonId: advance.seasonId,
+        userId: user.id,
+        receptionTxIds: [],
+        receptionsTotalCLP: 0,
+        advances: [{ advanceId: advId, amount: app.amount }],
+      });
+    }
+  }
+
+  let settledRec = 0;
+  let settledAdv = 0;
+  let settlementHeaders = 0;
+  for (const bucket of settlementBuckets.values()) {
+    const advancesAppliedCLP = bucket.advances.reduce((sum, a) => sum + a.amount, 0);
+    const netAmountCLP = Math.max(0, bucket.receptionsTotalCLP - advancesAppliedCLP);
+    const metadata = {
+      status: 'COMPLETA',
+      receptionTransactionIds: bucket.receptionTxIds,
+      advanceApplications: bucket.advances.map((a) => ({
+        transactionId: a.advanceId,
+        amount: a.amount,
+      })),
+      receptionsTotalCLP: bucket.receptionsTotalCLP,
+      advancesAppliedCLP,
+      netAmountCLP,
+    };
+    const createdAt = new Date();
+    const [settlementResult] = await connection.execute<ResultSetHeader>(
+      `INSERT INTO transactions (type, direction, amount, unit, seasonId, producerId, clientId, userId, metadata, createdAt, updatedAt)
+       VALUES ('SETTLEMENT', 'OUT', ?, 'CLP', ?, ?, NULL, ?, ?, ?, ?)`,
+      [
+        netAmountCLP,
+        bucket.seasonId,
+        bucket.producerId,
+        bucket.userId,
+        JSON.stringify(metadata),
+        createdAt,
+        createdAt,
+      ],
+    );
+    const settlementId = String(settlementResult.insertId);
+    settlementHeaders++;
+
+    for (const receptionTxId of bucket.receptionTxIds) {
+      await connection.execute(
+        `INSERT INTO transaction_relations
+           (parentTransactionId, childTransactionId, childReceptionPackId, relationType, context, createdAt, updatedAt)
+         VALUES (?, ?, NULL, 'RECEPTION_TO_SETTLEMENT', ?, NOW(), NOW())`,
+        [receptionTxId, settlementId, JSON.stringify({ source: 'seed' })],
+      );
+      settledRec++;
+    }
+
+    for (const advance of bucket.advances) {
+      await connection.execute(
+        `INSERT INTO transaction_relations
+           (parentTransactionId, childTransactionId, childReceptionPackId, relationType, context, createdAt, updatedAt)
+         VALUES (?, ?, NULL, 'ADVANCE_TO_SETTLEMENT', ?, NOW(), NOW())`,
+        [
+          advance.advanceId,
+          settlementId,
+          JSON.stringify({ amount: advance.amount, source: 'seed' }),
+        ],
+      );
+      settledAdv++;
+    }
   }
   console.log(
-    `   ✓ Settlement relations: ${settledRec} receptions, ${settledAdv} advances`
+    `   ✓ Settlements: ${settlementHeaders} headers, ${settledRec} receptions, ${settledAdv} advances`,
   );
 
   // Client tray moves

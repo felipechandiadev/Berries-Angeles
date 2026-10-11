@@ -9,6 +9,7 @@ import { TextField } from '@/app/baseComponents/TextField/TextField';
 import UpdateBaseForm, { BaseUpdateFormField } from '@/app/baseComponents/BaseForm/UpdateBaseForm';
 import { updateReceptionDate, updateReceptionExchangeRate } from '@/app/actions/receptions';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { useSession } from 'next-auth/react';
 import type { ReceptionDetailSummary, ReceptionDetailTotals, ReceptionDetailDocumentInfo } from '../types';
 import { paymentStatusLabel } from '@/lib/receptionPayment';
@@ -40,7 +41,8 @@ export function SummarySection({ summary, totals, documents, onRefresh }: Summar
   const [isEditDateDialogOpen, setIsEditDateDialogOpen] = useState(false);
   const [newDate, setNewDate] = useState('');
   const [reason, setReason] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const { isSubmitting: isSaving, run: runSaveDate } = useSubmitLock();
+  const { isSubmitting: isSavingExchangeRate, run: runSaveExchangeRate } = useSubmitLock();
 
   const [isEditExchangeRateDialogOpen, setIsEditExchangeRateDialogOpen] = useState(false);
   const [exchangeRateFormErrors, setExchangeRateFormErrors] = useState<string[]>([]);
@@ -88,35 +90,52 @@ export function SummarySection({ summary, totals, documents, onRefresh }: Summar
   };
 
   const handleSaveExchangeRate = async (data: Record<string, unknown>) => {
-    const rawValue = String(data.newExchangeRate ?? '').trim();
-    const normalizedValue = rawValue.replace(/\./g, '').replace(',', '.');
-    const rate = Number(normalizedValue);
-    if (!rawValue || Number.isNaN(rate) || rate < 0) {
-      throw new Error('Debe ingresar un tipo de cambio válido (número positivo)');
-    }
+    setExchangeRateFormErrors([]);
 
-    if (!(data.reason as string)?.trim()) {
-      throw new Error('Debe proporcionar un motivo para el cambio de tipo de cambio');
-    }
+    const result = await runSaveExchangeRate(async () => {
+      try {
+        const rawValue = String(data.newExchangeRate ?? '').trim();
+        const normalizedValue = rawValue.replace(/\./g, '').replace(',', '.');
+        const rate = Number(normalizedValue);
+        if (!rawValue || Number.isNaN(rate) || rate < 0) {
+          setExchangeRateFormErrors(['Debe ingresar un tipo de cambio válido (número positivo)']);
+          return { ok: false };
+        }
 
-    if (!currentUserId) {
-      throw new Error('Usuario no autenticado');
-    }
+        if (!(data.reason as string)?.trim()) {
+          setExchangeRateFormErrors(['Debe proporcionar un motivo para el cambio de tipo de cambio']);
+          return { ok: false };
+        }
 
-    const result = await updateReceptionExchangeRate({
-      receptionId: summary.id,
-      newExchangeRate: rate,
-      reason: (data.reason as string).trim(),
-      userId: currentUserId,
+        if (!currentUserId) {
+          setExchangeRateFormErrors(['Usuario no autenticado']);
+          return { ok: false };
+        }
+
+        const updateResult = await updateReceptionExchangeRate({
+          receptionId: summary.id,
+          newExchangeRate: rate,
+          reason: (data.reason as string).trim(),
+          userId: currentUserId,
+        });
+
+        if (!updateResult.success) {
+          setExchangeRateFormErrors([updateResult.error || 'Error al actualizar el tipo de cambio']);
+          return { ok: false };
+        }
+
+        success('Tipo de cambio de recepción actualizado correctamente');
+        return { ok: true };
+      } catch (err: any) {
+        setExchangeRateFormErrors([err?.message || 'Error al actualizar el tipo de cambio']);
+        return { ok: false };
+      }
     });
 
-    if (!result.success) {
-      throw new Error(result.error || 'Error al actualizar el tipo de cambio');
+    if (result?.ok) {
+      setIsEditExchangeRateDialogOpen(false);
+      onRefresh?.();
     }
-
-    success('Tipo de cambio de recepción actualizado correctamente');
-    setIsEditExchangeRateDialogOpen(false);
-    onRefresh?.();
   };
 
   const handleSaveDate = async () => {
@@ -135,28 +154,32 @@ export function SummarySection({ summary, totals, documents, onRefresh }: Summar
       return;
     }
 
-    setIsSaving(true);
+    const result = await runSaveDate(async () => {
+      try {
+        const updateResult = await updateReceptionDate({
+          receptionId: summary.id,
+          newDate,
+          reason: reason.trim(),
+          userId: currentUserId,
+        });
 
-    try {
-      const result = await updateReceptionDate({
-        receptionId: summary.id,
-        newDate,
-        reason: reason.trim(),
-        userId: currentUserId,
-      });
+        if (updateResult.success) {
+          success('Fecha de recepción actualizada correctamente');
+          return { ok: true };
+        }
 
-      if (result.success) {
-        success('Fecha de recepción actualizada correctamente');
-        setIsEditDateDialogOpen(false);
-        onRefresh?.();
-      } else {
-        showError(result.error || 'Error al actualizar la fecha');
+        showError(updateResult.error || 'Error al actualizar la fecha');
+        return { ok: false };
+      } catch (err: any) {
+        console.error('Error updating reception date:', err);
+        showError('Error inesperado al actualizar la fecha');
+        return { ok: false };
       }
-    } catch (err: any) {
-      console.error('Error updating reception date:', err);
-      showError('Error inesperado al actualizar la fecha');
-    } finally {
-      setIsSaving(false);
+    });
+
+    if (result?.ok) {
+      setIsEditDateDialogOpen(false);
+      onRefresh?.();
     }
   };
 
@@ -322,9 +345,9 @@ export function SummarySection({ summary, totals, documents, onRefresh }: Summar
             <Button
               variant="primary"
               onClick={handleSaveDate}
-              disabled={isSaving}
+              loading={isSaving}
             >
-              {isSaving ? 'Guardando...' : 'Guardar cambios'}
+              Guardar cambios
             </Button>
           </div>
         </div>
@@ -332,7 +355,7 @@ export function SummarySection({ summary, totals, documents, onRefresh }: Summar
 
       <Dialog
         open={isEditExchangeRateDialogOpen}
-        onClose={() => setIsEditExchangeRateDialogOpen(false)}
+        onClose={() => !isSavingExchangeRate && setIsEditExchangeRateDialogOpen(false)}
         title="Editar tipo de cambio de recepción"
         maxWidth="sm"
       >
@@ -348,7 +371,8 @@ export function SummarySection({ summary, totals, documents, onRefresh }: Summar
           fields={exchangeRateFormFields}
           initialState={exchangeRateInitialState}
           onSubmit={handleSaveExchangeRate}
-          onCancel={() => setIsEditExchangeRateDialogOpen(false)}
+          onCancel={() => !isSavingExchangeRate && setIsEditExchangeRateDialogOpen(false)}
+          isSubmitting={isSavingExchangeRate}
           submitLabel="Guardar cambios"
           cancelButtonText="Cancelar"
           errors={exchangeRateFormErrors}

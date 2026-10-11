@@ -1,6 +1,6 @@
 'use client';
 
-import DataGrid from '@/app/baseComponents/DataGrid/DataGrid';
+import { DataGridTable as DataGrid } from '@felipechandiadev/ui';
 import CreateProducerButton from './CreateProducerButton';
 import UpdateProducerButton from './UpdateProducerButton';
 import DeleteProducerButton from './DeleteProducerButton';

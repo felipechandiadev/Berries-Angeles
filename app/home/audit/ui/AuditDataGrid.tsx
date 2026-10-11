@@ -7,7 +7,7 @@ import { getAuditExportData } from '@/app/actions/audits';
 import type { AuditGridFilters } from '@/app/actions/audits';
 import { formatAuditDate, formatAuditDateWithSeconds } from '@/lib/dateTimeUtils';
 import * as XLSX from 'xlsx';
-import DataGrid from '@/app/baseComponents/DataGrid/DataGrid';
+import { DataGridTable } from '@felipechandiadev/ui';
 import AuditMoreButton from './AuditMoreButton';
 
 interface AuditData {
@@ -218,7 +218,7 @@ export function AuditDataGrid({
 
   return (
     <div data-test-id="audit-data-grid">
-      <DataGrid
+      <DataGridTable
         rows={rows}
         columns={columns}
         limit={limit}

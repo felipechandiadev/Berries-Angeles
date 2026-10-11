@@ -6,6 +6,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import UpdateBaseForm from '@/app/baseComponents/BaseForm/UpdateBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { updateProductiveUnit } from '@/app/actions/productiveUnits';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface ProductiveUnit {
   id: string;
@@ -24,42 +25,47 @@ interface UpdateUnitButtonProps {
 export default function UpdateUnitButton({ unit, onSuccess }: UpdateUnitButtonProps) {
   const { showAlert } = useAlert();
   const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
 
   const handleSubmit = async (values: Record<string, any>) => {
-    setIsSubmitting(true);
-    try {
-      const result = await updateProductiveUnit({
-        id: unit.id,
-        name: values.name,
-        address: values.address,
-        description: values.description,
-      });
-
-      if (result.success) {
-        showAlert({
-          message: 'Unidad productiva actualizada exitosamente',
-          type: 'success',
-          duration: 4000,
+    const result = await run(async () => {
+      try {
+        const updateResult = await updateProductiveUnit({
+          id: unit.id,
+          name: values.name,
+          address: values.address,
+          description: values.description,
         });
-        setOpen(false);
-        onSuccess();
-      } else {
+
+        if (updateResult.success) {
+          showAlert({
+            message: 'Unidad productiva actualizada exitosamente',
+            type: 'success',
+            duration: 4000,
+          });
+          return { ok: true };
+        }
+
         showAlert({
-          message: result.error || 'Error al actualizar la unidad productiva',
+          message: updateResult.error || 'Error al actualizar la unidad productiva',
           type: 'error',
           duration: 4000,
         });
+        return { ok: false };
+      } catch (error) {
+        console.error('Error updating productive unit:', error);
+        showAlert({
+          message: 'Error al actualizar la unidad productiva',
+          type: 'error',
+          duration: 4000,
+        });
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('Error updating productive unit:', error);
-      showAlert({
-        message: 'Error al actualizar la unidad productiva',
-        type: 'error',
-        duration: 4000,
-      });
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      setOpen(false);
+      onSuccess();
     }
   };
 

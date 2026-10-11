@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import DataGrid from '@/app/baseComponents/DataGrid/DataGrid';
+import { DataGridTable as DataGrid } from '@felipechandiadev/ui';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import {
   getReceptionsExportData,

@@ -3,7 +3,7 @@
 // Tray movements DataGrid component
 
 import { useMemo } from 'react';
-import DataGrid, { DataGridColumn } from '@/app/baseComponents/DataGrid/DataGrid';
+import { DataGridTable as DataGrid, type DataGridColumn } from '@felipechandiadev/ui';
 import { formatAuditDate } from '@/lib/dateTimeUtils';
 import type { TrayTransactionRow } from '@/app/actions/transactions';
 

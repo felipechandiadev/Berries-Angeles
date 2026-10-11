@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
@@ -8,6 +8,7 @@ import UpdateBaseForm, { BaseUpdateFormField } from '@/app/baseComponents/BaseFo
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { Storage, StorageType } from '@/data/entities/Storage';
 import { updateStorage } from '@/app/actions/storages';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface UpdateStorageDialogProps {
   open: boolean;
@@ -21,7 +22,7 @@ const UpdateStorageDialog: React.FC<UpdateStorageDialogProps> = ({ open, onClose
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
 
   const storageTypeOptions = [
     { id: StorageType.COLD_ROOM, label: 'Cámara Fría' },
@@ -75,31 +76,34 @@ const UpdateStorageDialog: React.FC<UpdateStorageDialogProps> = ({ open, onClose
   };
 
   const handleSubmit = async (values: any) => {
-    setIsSubmitting(true);
+    const result = await run(async () => {
+      try {
+        const res = await updateStorage({
+          id: storage.id,
+          name: values.name,
+          type: values.type,
+          capacityPallets: values.capacityPallets || undefined,
+          location: values.location || undefined,
+          active: values.active,
+        }, currentUserId);
 
-    try {
-      const result = await updateStorage({
-        id: storage.id,
-        name: values.name,
-        type: values.type,
-        capacityPallets: values.capacityPallets || undefined,
-        location: values.location || undefined,
-        active: values.active,
-      }, currentUserId);
+        if (!res.success) {
+          error(res.error || 'Error al actualizar el almacenamiento');
+          return { ok: false };
+        }
 
-      if (result.success) {
-        success(result.message || 'Almacenamiento actualizado exitosamente');
-        onClose();
-        // Refresh the page to show the updated storage
-        router.refresh();
-      } else {
-        error(result.error || 'Error al actualizar el almacenamiento');
+        success(res.message || 'Almacenamiento actualizado exitosamente');
+        return { ok: true };
+      } catch (err: any) {
+        error('Error inesperado al actualizar el almacenamiento');
+        console.error('Update storage error:', err);
+        return { ok: false };
       }
-    } catch (err: any) {
-      error('Error inesperado al actualizar el almacenamiento');
-      console.error('Update storage error:', err);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      router.refresh();
     }
   };
 

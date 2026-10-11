@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import UpdateBaseForm, { BaseUpdateFormField } from '@/app/baseComponents/BaseForm/UpdateBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { updateFormat } from '@/app/actions/formats';
 
 interface Format {
@@ -26,7 +27,7 @@ const UpdateFormatDialog: React.FC<UpdateFormatDialogProps> = ({ open, onClose, 
   const { success, error } = useAlert();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -75,30 +76,34 @@ const UpdateFormatDialog: React.FC<UpdateFormatDialogProps> = ({ open, onClose, 
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     setErrors([]);
 
-    try {
-      const result = await updateFormat({
-        id: format.id,
-        name: formData.name,
-        description: formData.description || undefined,
-        active: formData.active,
-      }, currentUserId);
+    const result = await run(async () => {
+      try {
+        const res = await updateFormat({
+          id: format.id,
+          name: formData.name,
+          description: formData.description || undefined,
+          active: formData.active,
+        }, currentUserId);
 
-      if (result.success) {
-        success(result.message || 'Formato actualizado exitosamente');
-        onClose();
-        // Refresh the page to show the updated format
-        router.refresh();
-      } else {
-        error(result.error || 'Error al actualizar el formato');
+        if (!res.success) {
+          error(res.error || 'Error al actualizar el formato');
+          return { ok: false };
+        }
+
+        success(res.message || 'Formato actualizado exitosamente');
+        return { ok: true };
+      } catch (err: any) {
+        error('Error inesperado al actualizar el formato');
+        console.error('Update format error:', err);
+        return { ok: false };
       }
-    } catch (err: any) {
-      error('Error inesperado al actualizar el formato');
-      console.error('Update format error:', err);
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      onClose();
+      router.refresh();
     }
   };
 

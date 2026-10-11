@@ -4,6 +4,7 @@ import { useState } from 'react';
 import CreateBaseForm from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { createProductiveUnit } from '@/app/actions/productiveUnits';
+import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
 interface CreateUnitButtonProps {
   onSuccess: () => void;
@@ -17,42 +18,47 @@ export default function CreateUnitButton({ onSuccess, onClose }: CreateUnitButto
     address: '',
     description: '',
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isSubmitting, run } = useSubmitLock();
 
   const handleChange = (field: string, value: any) => {
     setValues(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      const result = await createProductiveUnit(values);
+    const result = await run(async () => {
+      try {
+        const createResult = await createProductiveUnit(values);
 
-      if (result.success) {
+        if (createResult.success) {
+          showAlert({
+            message: 'Unidad productiva creada exitosamente',
+            type: 'success',
+            duration: 4000,
+          });
+          return { ok: true };
+        }
+
         showAlert({
-          message: 'Unidad productiva creada exitosamente',
-          type: 'success',
-          duration: 4000,
-        });
-        setValues({ name: '', address: '', description: '' });
-        onClose?.();
-        onSuccess();
-      } else {
-        showAlert({
-          message: result.error || 'Error al crear la unidad productiva',
+          message: createResult.error || 'Error al crear la unidad productiva',
           type: 'error',
           duration: 4000,
         });
+        return { ok: false };
+      } catch (error) {
+        console.error('Error creating productive unit:', error);
+        showAlert({
+          message: 'Error al crear la unidad productiva',
+          type: 'error',
+          duration: 4000,
+        });
+        return { ok: false };
       }
-    } catch (error) {
-      console.error('Error creating productive unit:', error);
-      showAlert({
-        message: 'Error al crear la unidad productiva',
-        type: 'error',
-        duration: 4000,
-      });
-    } finally {
-      setIsSubmitting(false);
+    });
+
+    if (result?.ok) {
+      setValues({ name: '', address: '', description: '' });
+      onClose?.();
+      onSuccess();
     }
   };
 

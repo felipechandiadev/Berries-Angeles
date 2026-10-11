@@ -1,7 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from 'react';
-import Alert from '@/app/baseComponents/Alert/Alert';
-import IconButton from '@/app/baseComponents/IconButton/IconButton';
+import { Toast, ToastViewport } from '@felipechandiadev/ui';
 
 export type AppAlert = {
   id: string;
@@ -49,7 +48,6 @@ export function AlertProvider({ children }: { children: ReactNode }) {
     setAlerts((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
-  // Helper shortcuts
   const success = useCallback((message: string, opts?: Omit<AppAlert, 'id' | 'message' | 'type'>) => {
     showAlert({ message, type: 'success', duration: opts?.duration ?? 4000 });
   }, [showAlert]);
@@ -76,28 +74,17 @@ export function AlertProvider({ children }: { children: ReactNode }) {
   return (
     <AlertContext.Provider value={value}>
       {children}
-      {/* Alerts stack (top-right) */}
-      {alerts.length > 0 && (
-        <div className="fixed top-20 right-4 z-50 flex flex-col gap-3 max-w-md">
-          {alerts.map(({ id, message, type = 'info' }) => (
-            <div key={id} className="shadow-sm">
-              <Alert variant={type}>
-                <div className="flex items-start gap-3 w-full pr-7">
-                  <div className="flex-1 break-words">{message}</div>
-                  <IconButton
-                    icon="close"
-                    variant="text"
-                    size="sm"
-                    ariaLabel="Cerrar alerta"
-                    className="absolute right-1 top-1 text-secondary"
-                    onClick={() => removeAlert(id)}
-                  />
-                </div>
-              </Alert>
-            </div>
-          ))}
-        </div>
-      )}
+      <ToastViewport className="fixed top-20 right-4 z-50">
+        {alerts.map(({ id, message, type = 'info' }) => (
+          <Toast
+            key={id}
+            variant={type}
+            message={message}
+            onClose={() => removeAlert(id)}
+            data-test-id={`toast-${id}`}
+          />
+        ))}
+      </ToastViewport>
     </AlertContext.Provider>
   );
 }
