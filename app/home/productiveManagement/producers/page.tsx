@@ -1,8 +1,8 @@
-'use server';
-
 import React, { Suspense } from 'react';
+import { BasicPageLayout } from '@felipechandiadev/ui';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import { getProducersGridData } from '../../../actions/producers';
+import { WithNavSearch } from '@/app/ui/WithNavSearch';
 import ProducersGrid from './ui/ProducersGrid';
 
 interface ProducersPageProps {
@@ -35,12 +35,22 @@ export default async function ProducersPage({ searchParams }: ProducersPageProps
     columnFilters: filters,
   });
 
+  const navSearch = new URLSearchParams();
+  navSearch.set('page', String(page));
+  navSearch.set('limit', String(limit));
+  if (sortBy) navSearch.set('sortField', sortBy);
+  if (sortOrder) navSearch.set('sort', sortOrder);
+  if (search) navSearch.set('search', search);
+  if (filters) navSearch.set('filters', filters);
+
   return (
-    <div className="w-full h-full flex flex-col">
+    <BasicPageLayout title="Productores" data-test-id="producers-page">
       <Suspense fallback={<DotProgress size={16} />}>
-        <ProducersGrid initialData={gridData} />
+        <WithNavSearch search={navSearch.toString()}>
+          <ProducersGrid initialData={gridData} />
+        </WithNavSearch>
       </Suspense>
-    </div>
+    </BasicPageLayout>
   );
 }
 

@@ -1,3 +1,4 @@
+import { TabPageLayout } from '@felipechandiadev/ui';
 import {
   listPendingReceptions,
   listPendingAdvances,
@@ -5,8 +6,10 @@ import {
   getSettlementForWizard,
 } from '@/app/actions/settlements';
 import { getProducersSimpleListWithLabel } from '@/app/actions/producers';
+import { WithNavSearch } from '@/app/ui/WithNavSearch';
 import NewSettlementContent from './ui/NewSettlementContent';
 import SettlementsGrid from './ui/SettlementsGrid';
+import SettlementsTabs from './ui/SettlementsTabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,8 +53,7 @@ export default async function SettlementsPage({
       ? await getSettlementForWizard(settlementIdParam)
       : null;
 
-  const editingSettlement =
-    wizardLoad?.success === true ? wizardLoad.data : null;
+  const editingSettlement = wizardLoad?.success === true ? wizardLoad.data : null;
   const wizardError =
     tab === 'new' && settlementIdParam && wizardLoad && !wizardLoad.success
       ? wizardLoad.error
@@ -63,11 +65,12 @@ export default async function SettlementsPage({
 
   const buildUrl = (newTab: string) => {
     const urlParams = new URLSearchParams();
-    if (producerId && newTab === 'list') urlParams.set('producerId', producerId);
+    if (producerId) urlParams.set('producerId', producerId);
     if (newTab === 'list' && seasonId) urlParams.set('seasonId', seasonId);
     if (newTab === 'list' && search) urlParams.set('search', search);
     if (newTab === 'list' && page > 1) urlParams.set('page', page.toString());
     if (newTab === 'list' && limit !== 25) urlParams.set('limit', limit.toString());
+    if (newTab === 'new' && settlementIdParam) urlParams.set('settlementId', settlementIdParam);
     urlParams.set('tab', newTab);
     return `?${urlParams.toString()}`;
   };
@@ -76,7 +79,13 @@ export default async function SettlementsPage({
 
   const settlementsList =
     tab === 'list'
-      ? await listSettlements({ producerId: params?.producerId?.trim() || undefined, seasonId, search, page, limit })
+      ? await listSettlements({
+          producerId: params?.producerId?.trim() || undefined,
+          seasonId,
+          search,
+          page,
+          limit,
+        })
       : null;
 
   const pendingPage = editingSettlement ? 1 : page;
@@ -101,37 +110,36 @@ export default async function SettlementsPage({
       : [null, null];
 
   return (
-    <div className="space-y-6">
-      <div className="border-b border-border">
-        <nav className="-mb-px flex space-x-8">
-          <a
-            href={buildUrl('list')}
-            className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
-              tab === 'list'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-secondary hover:text-accent'
-            }`}
-          >
-            Liquidaciones
-          </a>
-          <a
-            href={buildUrl('new')}
-            className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
-              tab === 'new'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-secondary hover:text-accent'
-            }`}
-          >
-            Nueva Liquidación
-          </a>
-        </nav>
-      </div>
-
-      {tab === 'list' && settlementsList && (
-        <SettlementsGrid
-          rows={settlementsList.rows.map((row) => ({ ...row }))}
-          totalRows={settlementsList.total}
+    <TabPageLayout
+      title="Liquidaciones"
+      tabs={
+        <SettlementsTabs
+          listHref={buildUrl('list')}
+          newHref={buildUrl('new')}
+          activeTab={tab}
         />
+      }
+      compact
+      data-test-id="settlements-layout"
+    >
+      {tab === 'list' && settlementsList && (
+        <WithNavSearch
+          search={(() => {
+            const nav = new URLSearchParams();
+            nav.set('tab', 'list');
+            nav.set('page', String(page));
+            nav.set('limit', String(limit));
+            if (params?.producerId?.trim()) nav.set('producerId', params.producerId.trim());
+            if (seasonId) nav.set('seasonId', seasonId);
+            if (search) nav.set('search', search);
+            return nav.toString();
+          })()}
+        >
+          <SettlementsGrid
+            rows={settlementsList.rows.map((row) => ({ ...row }))}
+            totalRows={settlementsList.total}
+          />
+        </WithNavSearch>
       )}
 
       {tab === 'new' && wizardError && (
@@ -152,6 +160,6 @@ export default async function SettlementsPage({
           editingSettlement={editingSettlement}
         />
       )}
-    </div>
+    </TabPageLayout>
   );
 }

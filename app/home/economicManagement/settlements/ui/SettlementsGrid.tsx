@@ -185,7 +185,6 @@ const SettlementsGrid = ({ rows, totalRows }: SettlementsGridProps) => {
 
   return (
     <DataGrid
-      title="Liquidaciones"
       columns={columns}
       rows={rows}
       totalRows={totalRows}

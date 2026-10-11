@@ -1,6 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
 import { formatAuditDate } from '@/lib/dateTimeUtils';
 import type { PendingAdvanceRow } from '@/app/actions/settlements';
 import Switch from '@/app/baseComponents/Switch/Switch';
@@ -30,15 +29,6 @@ function formatPaymentMethod(value: string | undefined): string {
 }
 
 export default function PendingAdvancesTable({ rows, selectedIds, onToggle }: PendingAdvancesTableProps) {
-  const totalSelected = useMemo(() => {
-    return rows.reduce((total, row) => {
-      if (!selectedIds.has(row.transactionId)) {
-        return total;
-      }
-      return total + row.availableAmount;
-    }, 0);
-  }, [rows, selectedIds]);
-
   if (!rows.length) {
     return null;
   }
@@ -77,12 +67,6 @@ export default function PendingAdvancesTable({ rows, selectedIds, onToggle }: Pe
             );
           })}
         </tbody>
-        <tfoot className="bg-muted/30 text-sm font-semibold text-foreground">
-          <tr>
-            <td colSpan={4} className="px-4 py-3 text-right uppercase tracking-wide">Total anticipos</td>
-            <td className="px-4 py-3 text-right text-primary">{currencyFormatter.format(totalSelected)}</td>
-          </tr>
-        </tfoot>
       </table>
     </div>
   );

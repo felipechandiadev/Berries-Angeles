@@ -1,6 +1,7 @@
+import { Suspense } from 'react';
+import { BasicPageLayout } from '@felipechandiadev/ui';
 import { getAuditGridData } from '../../actions/audits';
 import { AuditDataGrid } from './ui/AuditDataGrid';
-import { Suspense } from 'react';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import { WithNavSearch } from '@/app/ui/WithNavSearch';
 
@@ -56,10 +57,10 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
   const params = await searchParams;
 
   return (
-    <div className="w-full space-y-6">
+    <BasicPageLayout title="Auditoría" data-test-id="audit-page">
       <Suspense fallback={<AuditLoadingFallback />}>
         <AuditContent params={params} />
       </Suspense>
-    </div>
+    </BasicPageLayout>
   );
 }

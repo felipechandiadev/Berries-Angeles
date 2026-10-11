@@ -229,7 +229,6 @@ export default function PalletsGrid({
         height={'85vh'}
         createForm={<CreatePalletButton onSuccess={handleRefresh} />}
         onExportExcel={handleExportExcel}
-        title="Gestión de Pallets"
         showBorder={false}
       />
 

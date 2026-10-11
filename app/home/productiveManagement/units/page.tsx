@@ -1,8 +1,10 @@
 import React, { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import { BasicPageLayout } from '@felipechandiadev/ui';
 import { getProductiveUnitsGridData } from '@/app/actions/productiveUnits';
 import ProductiveUnitsGrid from './ui/ProductiveUnitsGrid';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
+import { WithNavSearch } from '@/app/ui/WithNavSearch';
 
 interface PageProps {
   searchParams?: Promise<{
@@ -62,20 +64,32 @@ export default async function Page({ searchParams }: PageProps) {
   const initialData = result.data;
   const totalRows = result.total;
 
+  const navSearch = new URLSearchParams();
+  navSearch.set('page', String(page));
+  navSearch.set('limit', String(limit));
+  if (sort) navSearch.set('sort', sort);
+  if (sortField) navSearch.set('sortField', sortField);
+  if (search) navSearch.set('search', search);
+  if (filtration) navSearch.set('filtration', 'true');
+  if (filters) navSearch.set('filters', filters);
+  if (fields) navSearch.set('fields', fields);
+
   return (
-    <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
-      <div className="space-y-6">
-        <ProductiveUnitsGrid 
-          initialData={initialData}
-          totalRows={totalRows}
-          currentPage={page}
-          currentLimit={limit}
-          currentSort={sort}
-          currentSortField={sortField}
-          currentSearch={search}
-          currentFilters={filters}
-        />
-      </div>
-    </Suspense>
+    <BasicPageLayout title="Unidades Productivas" data-test-id="units-page">
+      <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
+        <WithNavSearch search={navSearch.toString()}>
+          <ProductiveUnitsGrid
+            initialData={initialData}
+            totalRows={totalRows}
+            currentPage={page}
+            currentLimit={limit}
+            currentSort={sort}
+            currentSortField={sortField}
+            currentSearch={search}
+            currentFilters={filters}
+          />
+        </WithNavSearch>
+      </Suspense>
+    </BasicPageLayout>
   );
 }

@@ -1,9 +1,9 @@
 import React, { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import { BasicPageLayout } from '@felipechandiadev/ui';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import { getReceptionsGridData } from '@/app/actions/receptions';
 import ReceptionsGrid from './ui/ReceptionsGrid';
-import { MainWidthManager } from './ui/MainWidthManager';
 import { WithNavSearch } from '@/app/ui/WithNavSearch';
 
 interface PageSearchParams {
@@ -81,22 +81,20 @@ export default async function Page({ searchParams }: PageProps) {
   if (fields) navSearch.set('fields', fields);
 
   return (
-    <>
+    <BasicPageLayout title="Recepciones" data-test-id="receptions-page">
       <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
-        <div className="space-y-6 w-full">
-          <WithNavSearch search={navSearch.toString()}>
-            <ReceptionsGrid
-              initialData={initialData}
-              totalRows={totalRows}
-              currentLimit={limit}
-              currentSort={sort}
-              currentSortField={sortField}
-              currentSearch={search}
-              currentFilters={filters}
-            />
-          </WithNavSearch>
-        </div>
+        <WithNavSearch search={navSearch.toString()}>
+          <ReceptionsGrid
+            initialData={initialData}
+            totalRows={totalRows}
+            currentLimit={limit}
+            currentSort={sort}
+            currentSortField={sortField}
+            currentSearch={search}
+            currentFilters={filters}
+          />
+        </WithNavSearch>
       </Suspense>
-    </>
+    </BasicPageLayout>
   );
 }

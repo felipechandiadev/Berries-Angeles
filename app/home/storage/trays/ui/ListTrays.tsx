@@ -35,7 +35,6 @@ const ListTrays: React.FC<ListTraysProps> = ({ trays }) => {
   return (
     <>
       <CollectionPageLayout
-        title="Bandejas"
         showSearch
         searchParamName="search"
         searchLabel="Buscar"

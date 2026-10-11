@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import { BasicPageLayout } from '@felipechandiadev/ui';
 import {
   listAdvances,
   type ListAdvancesFilters,
@@ -7,6 +8,7 @@ import {
   type AdvanceStatus,
 } from '@/app/actions/advances';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
+import { WithNavSearch } from '@/app/ui/WithNavSearch';
 import AdvancesGrid from './ui/AdvancesGrid';
 
 export const dynamic = 'force-dynamic';
@@ -91,11 +93,31 @@ export default async function Page({ searchParams }: PageProps) {
     filters.to = params.to.trim();
   }
 
+  const page = params?.page || '1';
+  const limit = params?.limit || '25';
+  const navSearch = new URLSearchParams();
+  navSearch.set('page', page);
+  navSearch.set('limit', limit);
+  if (filters.search) navSearch.set('search', filters.search);
+  if (filters.seasonId) navSearch.set('seasonId', filters.seasonId);
+  if (filters.producerId) navSearch.set('producerId', filters.producerId);
+  if (filters.paymentMethod) navSearch.set('paymentMethod', filters.paymentMethod);
+  if (filters.status) navSearch.set('status', filters.status);
+  if (filters.from) navSearch.set('from', filters.from);
+  if (filters.to) navSearch.set('to', filters.to);
+  if (params?.sort) navSearch.set('sort', params.sort);
+  if (params?.sortField) navSearch.set('sortField', params.sortField);
+  if (params?.filtration) navSearch.set('filtration', params.filtration);
+  if (params?.filters) navSearch.set('filters', params.filters);
+  if (params?.fields) navSearch.set('fields', params.fields);
+
   return (
-    <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
-      <div className="space-y-6">
-        <AdvancesContent filters={filters} />
-      </div>
-    </Suspense>
+    <BasicPageLayout title="Anticipos" data-test-id="advances-page">
+      <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
+        <WithNavSearch search={navSearch.toString()}>
+          <AdvancesContent filters={filters} />
+        </WithNavSearch>
+      </Suspense>
+    </BasicPageLayout>
   );
 }

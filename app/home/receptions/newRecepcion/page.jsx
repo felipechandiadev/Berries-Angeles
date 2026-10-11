@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
+import { BasicPageLayout } from '@felipechandiadev/ui';
 import TransactionData from './ui/TransactionData';
 import { getProducersSimpleListWithLabel } from '@/app/actions/producers';
 import { useSearchParams } from 'next/navigation';
@@ -147,7 +148,11 @@ export default function page() {
   const isProcessDisabled = !hasProducerSelected || !hasPacks || !allPacksHaveNetWeight;
 
   return (
-    <div >
+    <BasicPageLayout
+      title="Nueva Recepción"
+      subtitle="Registrar ingreso de fruta del productor"
+      data-test-id="new-reception-page"
+    >
       <div>
         <TransactionData
           key={transactionFormKey}
@@ -182,6 +187,6 @@ export default function page() {
         snapshot={processedReception}
         receptionTransactionId={processedReceptionId}
       />
-    </div>
+    </BasicPageLayout>
   );
 }

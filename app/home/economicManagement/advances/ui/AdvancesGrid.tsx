@@ -113,7 +113,6 @@ const AdvancesGrid = ({ rows, onRefresh }: AdvancesGridProps) => {
   return (
  
       <DataGrid
-        title="Anticipos"
         columns={columns}
         rows={rows}
         totalRows={rows.length}
@@ -121,7 +120,6 @@ const AdvancesGrid = ({ rows, onRefresh }: AdvancesGridProps) => {
         showBorder={false}
         createForm={<CreateAdvanceButton onSuccess={handleRefresh} />}
         createFormTitle="Crear anticipo"
-      
       />
 
   );

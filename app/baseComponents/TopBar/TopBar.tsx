@@ -7,7 +7,6 @@ import UserProfileDropdown from '@/app/home/users/ui/UserProfileDropdown';
 import PrinterSetupButton from './PrinterSetupButton';
 
 interface TopBarProps {
-  title?: string;
   logoSrc?: string;
   className?: string;
   onMenuClick?: () => void;
@@ -34,7 +33,6 @@ export function useSideBar() {
 }
 
 const TopBar: React.FC<TopBarProps> = ({
-  title = 'title',
   logoSrc,
   className,
   SideBarComponent,
@@ -62,7 +60,6 @@ const TopBar: React.FC<TopBarProps> = ({
             >
               <Menu size={36} className="cursor-pointer" aria-hidden />
             </button>
-            <span className="text-lg font-bold text-foreground" data-test-id="top-bar-title">{title}</span>
           </div>
 
           {/* Right side: printer, user, logo */}

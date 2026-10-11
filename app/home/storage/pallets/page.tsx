@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import { BasicPageLayout } from '@felipechandiadev/ui';
 import { getPalletsGridData } from '@/app/actions/pallets';
 import PalletsGrid from './ui/PalletsGrid';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
@@ -81,8 +82,8 @@ export default async function Page({ searchParams }: PageProps) {
   if (fields) navSearch.set('fields', fields);
 
   return (
-    <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
-      <div className="space-y-6">
+    <BasicPageLayout title="Pallets" data-test-id="pallets-page">
+      <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
         <WithNavSearch search={navSearch.toString()}>
           <PalletsGrid
             initialData={initialData}
@@ -95,7 +96,7 @@ export default async function Page({ searchParams }: PageProps) {
             currentFilters={filters}
           />
         </WithNavSearch>
-      </div>
-    </Suspense>
+      </Suspense>
+    </BasicPageLayout>
   );
 }

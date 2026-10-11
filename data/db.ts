@@ -19,6 +19,7 @@ import { AdminBankAccount } from "./entities/AdminBankAccount";
 import { Permission } from "./entities/Permission";
 import { AuditSubscriber } from "./subscribers/AuditSubscriber";
 import { getAppConfig } from "../lib/appConfig";
+import { ensureTransactionTypeEnum } from "./ensureTransactionTypeEnum";
 
 const appConfig = getAppConfig();
 
@@ -34,6 +35,7 @@ type DbGlobal = {
     ds?: DataSource;
     initPromise?: Promise<DataSource>;
     shutdownHooked?: boolean;
+    transactionTypeEnumReady?: boolean;
   };
 };
 
@@ -171,6 +173,10 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
       if (isEntityMetadataStale(state.ds)) {
         await discardDataSource("entity metadata stale / HMR");
       } else {
+        if (!state.transactionTypeEnumReady) {
+          await ensureTransactionTypeEnum(state.ds);
+          state.transactionTypeEnumReady = true;
+        }
         return state.ds;
       }
     }
@@ -189,6 +195,11 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           console.log("[DB] Inicializando DataSource...");
           await state.ds.initialize();
           console.log("[DB] DataSource listo");
+        }
+
+        if (!state.transactionTypeEnumReady) {
+          await ensureTransactionTypeEnum(state.ds);
+          state.transactionTypeEnumReady = true;
         }
 
         return state.ds;
