@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Berries Angeles";
+  const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Berries Maugro";
 
   return {
     name: appName,
     short_name: "Berries",
-    description: "Sistema de gestión Berries Angeles",
+    description: "Sistema de gestión Berries Maugro",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",

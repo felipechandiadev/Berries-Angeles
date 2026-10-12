@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import CreateBaseForm, { type BaseFormField } from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { createPallet, type CreatePalletInput } from '@/app/actions/pallets';
-import { getStorages } from '@/app/actions/storages';
 import { PalletStatus } from '@/data/entities/Pallet';
-import { getPalletStatusLabel } from '../../../../storage/pallets/ui/PalletStatusBadge';
+import { getPalletStatusLabel } from '@/app/home/dispatch/pallets/ui/PalletStatusBadge';
 
 interface CreatePalletDialogProps {
   open: boolean;
@@ -17,45 +16,15 @@ interface CreatePalletDialogProps {
   onSuccess: () => void;
 }
 
-interface SelectOption {
-  id: string;
-  label: string;
-}
-
 export default function CreatePalletDialog({ open, onClose, trayId, onSuccess }: CreatePalletDialogProps) {
   const { showAlert } = useAlert();
-  const [storageOptions, setStorageOptions] = useState<SelectOption[]>([]);
   const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [values, setValues] = useState({
-    storageId: '',
     capacity: '240',
     weight: '0',
   });
-
-  useEffect(() => {
-    if (open) {
-      const loadReferenceData = async () => {
-        try {
-          const storagesResult = await getStorages({ active: true });
-
-          if (storagesResult.success && Array.isArray(storagesResult.data)) {
-            setStorageOptions(
-              storagesResult.data.map((storage: any) => ({
-                id: storage.id,
-                label: storage.name,
-              }))
-            );
-          }
-        } catch (error) {
-          console.error('[CreatePalletDialog] Error loading reference data:', error);
-        }
-      };
-
-      loadReferenceData();
-    }
-  }, [open]);
 
   const handleChange = (field: string, value: any) => {
     setValues((prev) => ({
@@ -66,10 +35,6 @@ export default function CreatePalletDialog({ open, onClose, trayId, onSuccess }:
 
   const handleSubmit = async () => {
     const validationErrors: string[] = [];
-
-    if (!values.storageId) {
-      validationErrors.push('Debe seleccionar un almacenamiento');
-    }
 
     if (!values.capacity || Number(values.capacity) <= 0) {
       validationErrors.push('La capacidad debe ser mayor a 0');
@@ -87,7 +52,6 @@ export default function CreatePalletDialog({ open, onClose, trayId, onSuccess }:
     setErrors([]);
 
     const payload: CreatePalletInput = {
-      storageId: values.storageId,
       trayId,
       capacity: Number(values.capacity),
       weight: Number(values.weight),
@@ -103,7 +67,6 @@ export default function CreatePalletDialog({ open, onClose, trayId, onSuccess }:
         if (createResult.success) {
           showAlert({ message: `Pallet creado exitosamente (${getPalletStatusLabel(PalletStatus.AVAILABLE)})`, type: 'success', duration: 4000 });
           setValues({
-            storageId: '',
             capacity: '240',
             weight: '0',
           });
@@ -130,13 +93,6 @@ export default function CreatePalletDialog({ open, onClose, trayId, onSuccess }:
   };
 
   const fields: BaseFormField[] = [
-    {
-      name: 'storageId',
-      label: 'Almacenamiento',
-      type: 'select',
-      required: true,
-      options: storageOptions,
-    },
     {
       name: 'capacity',
       label: 'Capacidad (bandejas)',

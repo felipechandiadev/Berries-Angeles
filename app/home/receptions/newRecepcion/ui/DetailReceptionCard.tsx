@@ -6,7 +6,7 @@ import TraySelector from './detailCardComponents/TraySelector';
 import TraysQuantityStepper from './detailCardComponents/TraysQuantityStepper';
 import GrossWeightInput from './detailCardComponents/GrossWeightInput';
 import ImpurityPercent from './detailCardComponents/ImpurityPercent';
-import { getVarietiesWithPriceAndCurrency } from '@/app/actions/varieties';
+import { getVarietiesSimpleList } from '@/app/actions/varieties';
 import { getFormatsSimpleList } from '@/app/actions/formats';
 import { Currency } from '@/data/entities/Variety';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
@@ -42,9 +42,7 @@ interface DetailReceptionCardProps {
 }
 
 const DetailReceptionCard: React.FC<DetailReceptionCardProps> = ({ packNumber, onRemove, onChange }) => {
-  const [varietyOptions, setVarietyOptions] = useState<
-    { id: number; label: string; price: number; currency: Currency }[]
-  >([]);
+  const [varietyOptions, setVarietyOptions] = useState<{ id: number; label: string }[]>([]);
   const [formatOptions, setFormatOptions] = useState<{ id: number; label: string }[]>([]);
   const [receptionDetails, setReceptionDetails] = useState<ReceptionDetailsState>({
     varietyId: null,
@@ -63,7 +61,7 @@ const DetailReceptionCard: React.FC<DetailReceptionCardProps> = ({ packNumber, o
 
   useEffect(() => {
     const fetchVarieties = async () => {
-      const varieties = await getVarietiesWithPriceAndCurrency();
+      const varieties = await getVarietiesSimpleList();
       setVarietyOptions(varieties);
     };
 
@@ -119,17 +117,23 @@ const DetailReceptionCard: React.FC<DetailReceptionCardProps> = ({ packNumber, o
     });
   }, [receptionDetails, unitTrayWeight, onChange, varietyOptions, formatOptions]);
 
-  const handleVarietyChange = (id: number | null, price: number, currency: Currency | null) => {
+  const handleVarietyChange = (id: number | null) => {
     setReceptionDetails((prev) => ({
       ...prev,
       varietyId: id,
-      price,
-      currency,
+      formatId: null,
+      price: 0,
+      currency: null,
     }));
   };
 
-  const handleFormatChange = (id: number | null) => {
-    setReceptionDetails((prev) => ({ ...prev, formatId: id }));
+  const handleFormatChange = (id: number | null, price: number, currency: Currency | null) => {
+    setReceptionDetails((prev) => ({
+      ...prev,
+      formatId: id,
+      price,
+      currency,
+    }));
   };
 
   const handleTrayChange = (id: string | null, weight: number, label: string | null) => {
@@ -217,17 +221,18 @@ const DetailReceptionCard: React.FC<DetailReceptionCardProps> = ({ packNumber, o
       <VarietySelector
         varietyId={receptionDetails.varietyId}
         onVarietyChange={handleVarietyChange}
-        onPriceChange={(price) => setReceptionDetails((prev) => ({ ...prev, price }))}
-        onCurrencyChange={(currency) => setReceptionDetails((prev) => ({ ...prev, currency }))}
-        currentPrice={receptionDetails.price}
-        currentCurrency={receptionDetails.currency}
         dataTestIdPrefix="pack"
       />
 
       <FormatSelector
         formatOptions={formatOptions}
         formatId={receptionDetails.formatId}
+        varietyId={receptionDetails.varietyId}
         onFormatChange={handleFormatChange}
+        onPriceChange={(price) => setReceptionDetails((prev) => ({ ...prev, price }))}
+        onCurrencyChange={(currency) => setReceptionDetails((prev) => ({ ...prev, currency }))}
+        currentPrice={receptionDetails.price}
+        currentCurrency={receptionDetails.currency}
         dataTestIdPrefix="pack"
       />
 

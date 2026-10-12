@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
@@ -30,25 +30,16 @@ const UpdateFormatDialog: React.FC<UpdateFormatDialogProps> = ({ open, onClose, 
   const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
-  const [formData, setFormData] = useState({
+  const initialState = {
     name: format.name,
     description: format.description || '',
-    active: format.active,
-  });
-
-  // Update form data when format changes
-  useEffect(() => {
-    setFormData({
-      name: format.name,
-      description: format.description || '',
-      active: format.active,
-    });
-  }, [format]);
+    active: Boolean(format.active),
+  };
 
   const formFields: BaseUpdateFormField[] = [
     {
       name: 'name',
-      label: 'Nombre del formato',
+      label: 'Nombre del calidad',
       type: 'text',
       required: true
     },
@@ -68,34 +59,27 @@ const UpdateFormatDialog: React.FC<UpdateFormatDialogProps> = ({ open, onClose, 
     }
   ];
 
-  const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (values: Record<string, unknown>) => {
     setErrors([]);
 
     const result = await run(async () => {
       try {
         const res = await updateFormat({
           id: format.id,
-          name: formData.name,
-          description: formData.description || undefined,
-          active: formData.active,
+          name: String(values.name ?? ''),
+          description: values.description ? String(values.description) : undefined,
+          active: Boolean(values.active),
         }, currentUserId);
 
         if (!res.success) {
-          error(res.error || 'Error al actualizar el formato');
+          error(res.error || 'Error al actualizar el calidad');
           return { ok: false };
         }
 
-        success(res.message || 'Formato actualizado exitosamente');
+        success(res.message || 'Calidad actualizado exitosamente');
         return { ok: true };
       } catch (err: any) {
-        error('Error inesperado al actualizar el formato');
+        error('Error inesperado al actualizar el calidad');
         console.error('Update format error:', err);
         return { ok: false };
       }
@@ -118,18 +102,18 @@ const UpdateFormatDialog: React.FC<UpdateFormatDialogProps> = ({ open, onClose, 
     <Dialog
       open={open}
       onClose={handleClose}
-      title={`Editar Formato: ${format.name}`}
+      title={`Editar Calidad: ${format.name}`}
       maxWidth="md"
       data-test-id="update-format-dialog"
     >
       <UpdateBaseForm
         fields={formFields}
-        initialState={formData}
+        initialState={initialState}
         onSubmit={handleSubmit}
         onCancel={handleClose}
         isSubmitting={isSubmitting}
         errors={errors}
-        submitLabel="Actualizar Formato"
+        submitLabel="Actualizar Calidad"
         cancelButtonText="Cancelar"
       />
     </Dialog>

@@ -49,14 +49,14 @@ const FormatCard: React.FC<FormatCardProps> = ({ format, 'data-test-id': dataTes
           <IconButton
             icon="edit"
             variant="basicSecondary"
-            aria-label={`Editar formato ${format.name}`}
+            aria-label={`Editar calidad ${format.name}`}
             onClick={() => setOpenUpdateDialog(true)}
             data-test-id={`${dataTestId}-edit-button`}
           />
           <IconButton
             icon="delete"
             variant="basicSecondary"
-            aria-label={`Eliminar formato ${format.name}`}
+            aria-label={`Eliminar calidad ${format.name}`}
             onClick={() => setOpenDeleteDialog(true)}
             data-test-id={`${dataTestId}-delete-button`}
           />

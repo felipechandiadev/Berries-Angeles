@@ -66,8 +66,9 @@ Recepciones, anticipos, movimientos de bandejas y asignaciones de pallets se mod
 | `/home/receptions/receptions` | Protegida | Listar/consultar recepciones |
 | `/home/productiveManagement/*` | Protegida | Productores, unidades, temporadas |
 | `/home/economicManagement/*` | Protegida | Anticipos, liquidaciones, cuentas |
-| `/home/storage/*` | Protegida | Almacenes, bandejas, pallets |
-| `/home/products/*` | Protegida | Variedades, formatos |
+| `/home/trays` | Protegida | Bandejas |
+| `/home/dispatch/pallets` | Protegida | Pallets |
+| `/home/varieties` | Protegida | Variedades y calidades (tabs) |
 | `/home/users` | Protegida | Gestión de usuarios |
 | `/home/audit` | Protegida | Visor de auditoría |
 

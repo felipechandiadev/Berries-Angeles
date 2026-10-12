@@ -7,7 +7,6 @@ import {
   generateReceptions,
   generateAdvances,
   planSettlements,
-  planPallets,
   planClientTrayMoves,
   validateFullSeed,
   type GeneratedReception,
@@ -16,10 +15,9 @@ import {
 type LookupMaps = {
   producersByRut: Map<string, { id: string; name: string }>;
   usersByName: Map<string, { id: string; displayName: string }>;
-  varietiesByName: Map<string, { id: number; name: string; priceCLP: number }>;
+  varietiesByName: Map<string, { id: number; name: string; defaultPriceCLP: number }>;
   formatsByName: Map<string, { id: number; name: string }>;
   traysByName: Map<string, { id: string; name: string; weight: number }>;
-  storageIds: string[];
   seasonIds: string[];
   customerId: string | null;
   activeSeasonId: string | null;
@@ -50,13 +48,28 @@ async function loadLookups(connection: mysql.Connection): Promise<LookupMaps> {
   }
 
   const [varieties] = await connection.execute<
-    (RowDataPacket & { id: number; name: string; priceCLP: number })[]
-  >('SELECT id, name, priceCLP FROM varieties');
+    (RowDataPacket & { id: number; name: string; qualityPrices: unknown })[]
+  >('SELECT id, name, qualityPrices FROM varieties');
   const varietiesByName = new Map(
-    varieties.map((v) => [
-      v.name,
-      { id: Number(v.id), name: v.name, priceCLP: Number(v.priceCLP || 500) },
-    ])
+    varieties.map((v) => {
+      let prices: Array<{ priceCLP?: number }> = [];
+      try {
+        const raw = typeof v.qualityPrices === 'string'
+          ? JSON.parse(v.qualityPrices)
+          : v.qualityPrices;
+        prices = Array.isArray(raw) ? raw : [];
+      } catch {
+        prices = [];
+      }
+      const defaultPriceCLP =
+        prices.length > 0
+          ? Number(prices[0]?.priceCLP ?? 500) || 500
+          : 500;
+      return [
+        v.name,
+        { id: Number(v.id), name: v.name, defaultPriceCLP },
+      ] as const;
+    })
   );
 
   const [formats] = await connection.execute<
@@ -75,11 +88,6 @@ async function loadLookups(connection: mysql.Connection): Promise<LookupMaps> {
       { id: String(t.id), name: t.name, weight: Number(t.weight || 0.3) },
     ])
   );
-
-  const [storages] = await connection.execute<(RowDataPacket & { id: string })[]>(
-    'SELECT id FROM storages WHERE active = TRUE OR active IS NULL'
-  );
-  const storageIds = storages.map((s) => String(s.id));
 
   const [seasons] = await connection.execute<
     (RowDataPacket & { id: string; active: number | boolean })[]
@@ -101,7 +109,6 @@ async function loadLookups(connection: mysql.Connection): Promise<LookupMaps> {
     varietiesByName,
     formatsByName,
     traysByName,
-    storageIds,
     seasonIds,
     customerId,
     activeSeasonId,
@@ -356,7 +363,7 @@ export async function seedFullHistory(connection: mysql.Connection): Promise<voi
   const producerRuts = [...lookups.producersByRut.keys()];
   const varieties = [...lookups.varietiesByName.values()].map((v) => ({
     name: v.name,
-    priceCLP: v.priceCLP,
+    defaultPriceCLP: v.defaultPriceCLP,
   }));
   const formats = [...lookups.formatsByName.values()].map((f) => ({ name: f.name }));
   const trays = [...lookups.traysByName.values()].map((t) => ({
@@ -380,34 +387,7 @@ export async function seedFullHistory(connection: mysql.Connection): Promise<voi
     `   Planned: ${receptions.length} receptions, ${advances.length} advances (target ~${Object.values(FULL_PROFILE.receptionsBySeason).reduce((a, b) => a + b, 0)})`
   );
 
-  // Prefill standalone pallets
-  const palletPlans = planPallets({
-    rng,
-    storageIds: lookups.storageIds,
-    trayNames: trays.map((t) => t.name),
-    receptionsWithOps: receptions.filter((r) => r.withOps),
-  });
-  for (const plan of palletPlans) {
-    const tray = lookups.traysByName.get(plan.trayName);
-    if (!tray) continue;
-    await connection.execute(
-      `INSERT INTO pallets (storageId, trayId, traysQuantity, capacity, weight, dispatchWeight, metadata, status, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        plan.storageId,
-        tray.id,
-        plan.traysQuantity,
-        plan.capacity,
-        plan.weightKg,
-        plan.dispatchWeightKg,
-        JSON.stringify({ batchCode: plan.batchCode, seeded: true }),
-        plan.status,
-        new Date(plan.createdAt),
-        new Date(plan.createdAt),
-      ]
-    );
-  }
-  console.log(`   ✓ Inserted ${palletPlans.length} base pallets`);
+  console.log('   ℹ️  Skipping pallet seed (pallets left empty by design)');
 
   const guideToTxId = new Map<string, string>();
   const palletIdByTray = new Map<string, number>();

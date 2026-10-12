@@ -32,7 +32,7 @@ const DeleteFormatDialog: React.FC<DeleteFormatDialogProps> = ({ open, onClose, 
 
   const handleSubmit = async () => {
     if (!format?.id) {
-      setErrors(['Formato no identificado']);
+      setErrors(['Calidad no identificado']);
       return;
     }
 
@@ -43,14 +43,14 @@ const DeleteFormatDialog: React.FC<DeleteFormatDialogProps> = ({ open, onClose, 
         const res = await deleteFormat(format.id, currentUserId);
 
         if (!res?.success) {
-          error(res.error || 'Error al eliminar el formato');
+          error(res.error || 'Error al eliminar el calidad');
           return { ok: false };
         }
 
-        success(res.message || 'Formato eliminado exitosamente');
+        success(res.message || 'Calidad eliminado exitosamente');
         return { ok: true };
       } catch (err: any) {
-        error('Error inesperado al eliminar el formato');
+        error('Error inesperado al eliminar el calidad');
         console.error('Delete format error:', err);
         return { ok: false };
       }
@@ -69,14 +69,14 @@ const DeleteFormatDialog: React.FC<DeleteFormatDialogProps> = ({ open, onClose, 
     }
   };
 
-  const deleteMessage = `¿Estás seguro de que deseas eliminar el formato "${format.name}"?`;
-  const deleteDetails = 'Esta acción marcará el formato como eliminado, pero podrás restaurarlo más tarde si es necesario.';
+  const deleteMessage = `¿Estás seguro de que deseas eliminar el calidad "${format.name}"?`;
+  const deleteDetails = 'Esta acción marcará el calidad como eliminado, pero podrás restaurarlo más tarde si es necesario.';
 
   return (
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Eliminar Formato"
+      title="Eliminar Calidad"
       maxWidth="sm"
       data-test-id="delete-format-dialog"
     >
@@ -86,7 +86,7 @@ const DeleteFormatDialog: React.FC<DeleteFormatDialogProps> = ({ open, onClose, 
         onCancel={handleClose}
         isSubmitting={isSubmitting}
         errors={errors}
-        submitLabel="Eliminar Formato"
+        submitLabel="Eliminar Calidad"
         cancelButtonText="Cancelar"
       />
     </Dialog>

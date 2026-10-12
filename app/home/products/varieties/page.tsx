@@ -1,28 +1,13 @@
-import ListVarieties from './ui/ListVarieties';
-import { getVarieties } from '../../../actions/varieties';
-import { Suspense } from 'react';
-import DotProgress from '../../../baseComponents/DotProgress/DotProgress';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-
-async function VarietiesContent({ search }: { search: string }) {
-  const result = await getVarieties(search ? { name: search } : undefined);
-  const varieties = Array.isArray(result.data) ? result.data : [];
-  // Convert to plain objects to avoid Server->Client serialization error
-  const plainVarieties = JSON.parse(JSON.stringify(varieties));
-  return <ListVarieties varieties={plainVarieties} />;
-}
-
-export default async function Page(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  // FIXED: Properly await searchParams to avoid race conditions in Electron production builds
-  const searchParams = await props.searchParams;
-  const search = (typeof searchParams?.search === 'string' ? searchParams.search : '') || '';
-
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center h-96">
-      <DotProgress />
-    </div>}>
-      <VarietiesContent search={search} />
-    </Suspense>
-  );
+export default async function LegacyProductsVarietiesRedirect({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = searchParams ? await searchParams : undefined;
+  const q = new URLSearchParams();
+  q.set('tab', 'varieties');
+  if (typeof params?.search === 'string') q.set('search', params.search);
+  redirect(`/home/varieties?${q.toString()}`);
 }

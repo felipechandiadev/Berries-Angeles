@@ -22,16 +22,16 @@ const ListFormats: React.FC<ListFormatsProps> = ({ formats }) => {
   return (
     <>
       <CollectionPageLayout
-        title="Formatos"
+        title="Calidades"
         showSearch
         searchParamName="search"
         searchLabel="Buscar"
-        searchPlaceholder="Buscar formato..."
+        searchPlaceholder="Buscar calidad..."
         addAction={
           <IconButton
             icon="add"
             variant="outlined"
-            aria-label="Agregar formato"
+            aria-label="Agregar calidad"
             onClick={() => setOpenCreateDialog(true)}
             data-test-id="formats-add-button"
           />
@@ -45,7 +45,7 @@ const ListFormats: React.FC<ListFormatsProps> = ({ formats }) => {
         ))}
         contentGridColumns={{ default: 1, sm: 2, lg: 3 }}
         contentGridGapClassName="gap-6"
-        contentEmptyMessage="No hay formatos para mostrar."
+        contentEmptyMessage="No hay calidades para mostrar."
         data-test-id="formats-list-container"
       />
       <CreateFormatDialog

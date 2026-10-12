@@ -351,7 +351,6 @@ export function exportProductiveUnitsToExcel(
 
 export interface PalletExcelRow {
   id: number;
-  storageName: string;
   trayName: string;
   traysQuantity: number;
   capacity: number;
@@ -378,7 +377,6 @@ export function formatPalletsDataForExcel(palletsData: any[]): PalletExcelRow[] 
     const statusKey = typeof pallet.status === 'string' ? pallet.status : '';
     return {
       id: Number(pallet.id ?? 0),
-      storageName: pallet.storageName || '-',
       trayName: pallet.trayName || '-',
       traysQuantity: Number(pallet.traysQuantity ?? 0),
       capacity: Number(pallet.capacity ?? 0),
@@ -410,7 +408,6 @@ export function createPalletsWorkbook(data: PalletExcelRow[], options: ExcelExpo
 
   const dataWithHeaders = data.map(row => ({
     'ID': row.id,
-    'Almacenamiento': row.storageName,
     'Bandeja': row.trayName,
     'Bandejas': row.traysQuantity,
     'Capacidad': row.capacity,
@@ -444,7 +441,6 @@ export function createPalletsWorkbook(data: PalletExcelRow[], options: ExcelExpo
 
   const colWidths = [
     { wch: 36 }, // ID
-    { wch: 28 }, // Almacenamiento
     { wch: 24 }, // Bandeja
     { wch: 12 }, // Bandejas
     { wch: 12 }, // Capacidad
@@ -698,7 +694,7 @@ export function createReceptionsWorkbook(data: ReceptionExcelRow[], options: Exc
     'Productor': row.producerName,
     'Guía': row.guideNumber,
     'Variedad': row.varieties,
-    'Formato': row.formats,
+    'Calidad': row.formats,
     'Bandejas': row.totalTrays,
     'Bruto (kg)': row.grossWeightKg,
     'Neto (kg)': row.netWeightKg,
@@ -736,7 +732,7 @@ export function createReceptionsWorkbook(data: ReceptionExcelRow[], options: Exc
     { wch: 28 }, // Productor
     { wch: 18 }, // Guía
     { wch: 28 }, // Variedad
-    { wch: 28 }, // Formato
+    { wch: 28 }, // Calidad
     { wch: 16 }, // Bandejas
     { wch: 14 }, // Bruto
     { wch: 14 }, // Neto

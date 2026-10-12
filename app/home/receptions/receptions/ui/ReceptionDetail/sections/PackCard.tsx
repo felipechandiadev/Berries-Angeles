@@ -63,7 +63,7 @@ export function PackCard({
         <div className="flex items-start gap-3">
           <div className="text-right text-xs text-muted-foreground">
             <span className="font-semibold text-foreground">{pack.varietyName ?? 'Variedad no especificada'}</span>
-            <span className="block text-[10px] uppercase tracking-wide text-neutral-400">{pack.formatName ?? 'Formato no especificado'}</span>
+            <span className="block text-[10px] uppercase tracking-wide text-neutral-400">{pack.formatName ?? 'Calidad no especificada'}</span>
           </div>
         </div>
       </header>

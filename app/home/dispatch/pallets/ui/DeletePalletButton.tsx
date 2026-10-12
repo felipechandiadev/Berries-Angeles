@@ -55,7 +55,6 @@ export default function DeletePalletButton({ pallet, onSuccess }: DeletePalletBu
     }
   };
 
-  const storageLabel = pallet.storageName || 'sin almacenamiento';
   const trayLabel = pallet.trayName || 'sin bandeja';
 
   return (
@@ -74,7 +73,7 @@ export default function DeletePalletButton({ pallet, onSuccess }: DeletePalletBu
         size="xs"
       >
         <DeleteBaseForm
-          message={`¿Está seguro que desea eliminar el pallet asociado al almacenamiento "${storageLabel}" y bandeja "${trayLabel}"? Esta acción no se puede deshacer.`}
+          message={`¿Está seguro que desea eliminar el pallet #${pallet.id} (bandeja "${trayLabel}")? Esta acción no se puede deshacer.`}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
           errors={errors}

@@ -20,7 +20,7 @@ function serializeFormat(format: Format): any {
     id: format.id,
     name: format.name,
     description: format.description,
-    active: format.active,
+    active: Boolean(format.active),
     createdAt: format.createdAt,
     updatedAt: format.updatedAt,
     deletedAt: format.deletedAt,
@@ -31,15 +31,7 @@ function serializeFormat(format: Format): any {
  * Convierte un array de entidades Format a objetos planos serializables
  */
 function serializeFormats(formats: Format[]): any[] {
-  return formats.map(format => JSON.parse(JSON.stringify({
-    id: format.id,
-    name: format.name,
-    description: format.description,
-    active: format.active,
-    createdAt: format.createdAt,
-    updatedAt: format.updatedAt,
-    deletedAt: format.deletedAt,
-  })));
+  return formats.map(format => serializeFormat(format));
 }
 
 export interface CreateFormatInput {
@@ -285,16 +277,22 @@ export async function createFormat(data: CreateFormatInput, auditUserId?: string
       return savedFormat;
     });
 
-    // Revalidar cache (solo en contexto de request)
+    // Sync quality type onto every variety's qualityPrices map
+    const { syncQualityTypeOntoAllVarieties } = await import('./varieties');
+    await syncQualityTypeOntoAllVarieties(
+      { id: result.id, name: result.name, active: result.active },
+      userId,
+    );
+
     try {
-      revalidatePath('/home/formats');
-    } catch (error) {
-      // Ignorar error de revalidate en contextos sin request (como scripts)
+      revalidatePath('/home/varieties');
+    } catch {
+      // Ignorar error de revalidate en contextos sin request
     }
 
     return {
       success: true,
-      message: 'Formato creado exitosamente',
+      message: 'Calidad creada exitosamente',
       data: result ? serializeFormat(result) : null,
     };
   } catch (error: any) {
@@ -363,7 +361,7 @@ export async function updateFormat(data: UpdateFormatInput, auditUserId?: string
     }
 
     if (data.active !== undefined) {
-      updates.active = data.active;
+      updates.active = Boolean(data.active);
     }
 
     // Verificar que haya cambios
@@ -409,9 +407,18 @@ export async function updateFormat(data: UpdateFormatInput, auditUserId?: string
       return updatedFormat;
     });
 
+    // Mirror name/active onto every variety's qualityPrices entry
+    if (result && (updates.name !== undefined || updates.active !== undefined)) {
+      const { syncQualityTypeOntoAllVarieties } = await import('./varieties');
+      await syncQualityTypeOntoAllVarieties(
+        { id: result.id, name: result.name, active: result.active },
+        userId,
+      );
+    }
+
     // Revalidar cache (solo en contexto de request)
     try {
-      revalidatePath('/home/formats');
+      revalidatePath('/home/varieties');
     } catch (error) {
       // Ignorar error de revalidate en contextos sin request (como scripts)
     }
@@ -488,7 +495,7 @@ export async function deleteFormat(id: number, auditUserId?: string): Promise<Fo
 
     // Revalidar cache (solo en contexto de request)
     try {
-      revalidatePath('/home/formats');
+      revalidatePath('/home/varieties');
     } catch (error) {
       // Ignorar error de revalidate en contextos sin request (como scripts)
     }

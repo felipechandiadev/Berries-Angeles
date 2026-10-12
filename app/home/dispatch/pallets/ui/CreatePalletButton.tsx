@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import CreateBaseForm, { type BaseFormField } from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { createPallet, type CreatePalletInput } from '@/app/actions/pallets';
-import { getStorages } from '@/app/actions/storages';
 import { getTraysSimpleList } from '@/app/actions/trays';
 import { PalletStatus } from '@/data/entities/Pallet';
 import { getPalletStatusLabel } from './PalletStatusBadge';
@@ -22,13 +21,11 @@ interface SelectOption {
 
 export default function CreatePalletButton({ onSuccess, onClose }: CreatePalletButtonProps) {
   const { showAlert } = useAlert();
-  const [storageOptions, setStorageOptions] = useState<SelectOption[]>([]);
   const [trayOptions, setTrayOptions] = useState<SelectOption[]>([]);
   const { isSubmitting, run } = useSubmitLock();
   const [errors, setErrors] = useState<string[]>([]);
 
   const [values, setValues] = useState({
-    storageId: '',
     trayId: '',
     capacity: '240',
     weight: '0',
@@ -37,20 +34,7 @@ export default function CreatePalletButton({ onSuccess, onClose }: CreatePalletB
   useEffect(() => {
     const loadReferenceData = async () => {
       try {
-        const [storagesResult, traysResult] = await Promise.all([
-          getStorages({ active: true }),
-          getTraysSimpleList(),
-        ]);
-
-        if (storagesResult.success && Array.isArray(storagesResult.data)) {
-          setStorageOptions(
-            storagesResult.data.map((storage: any) => ({
-              id: storage.id,
-              label: storage.name,
-            }))
-          );
-        }
-
+        const traysResult = await getTraysSimpleList();
         setTrayOptions(
           Array.isArray(traysResult)
             ? traysResult.map((tray) => ({ id: tray.id, label: tray.label }))
@@ -74,10 +58,6 @@ export default function CreatePalletButton({ onSuccess, onClose }: CreatePalletB
 
   const validate = (currentValues: typeof values): string[] => {
     const validationErrors: string[] = [];
-
-    if (!currentValues.storageId) {
-      validationErrors.push('Debes seleccionar un almacenamiento.');
-    }
 
     if (!currentValues.trayId) {
       validationErrors.push('Debes seleccionar una bandeja.');
@@ -106,7 +86,6 @@ export default function CreatePalletButton({ onSuccess, onClose }: CreatePalletB
     setErrors([]);
 
     const payload: CreatePalletInput = {
-      storageId: values.storageId,
       trayId: values.trayId,
       capacity: Number(values.capacity),
       weight: Number(values.weight),
@@ -139,7 +118,6 @@ export default function CreatePalletButton({ onSuccess, onClose }: CreatePalletB
 
     if (result?.ok) {
       setValues({
-        storageId: '',
         trayId: '',
         capacity: '240',
         weight: '0',
@@ -150,13 +128,6 @@ export default function CreatePalletButton({ onSuccess, onClose }: CreatePalletB
   };
 
   const fields: BaseFormField[] = [
-    {
-      name: 'storageId',
-      label: 'Almacenamiento',
-      type: 'select',
-      required: true,
-      options: storageOptions,
-    },
     {
       name: 'trayId',
       label: 'Bandeja',

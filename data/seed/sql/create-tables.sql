@@ -79,9 +79,7 @@ CREATE TABLE `productive_units` (
 CREATE TABLE `varieties` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(255) NOT NULL UNIQUE,
-  `priceCLP` INT NOT NULL DEFAULT 0,
-  `priceUSD` FLOAT NOT NULL DEFAULT 0,
-  `currency` ENUM('CLP', 'USD') DEFAULT 'CLP',
+  `qualityPrices` JSON NOT NULL,
   `deletedAt` DATETIME NULL,
   `createdAt` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `updatedAt` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -110,25 +108,27 @@ CREATE TABLE `formats` (
 ALTER TABLE `formats` AUTO_INCREMENT = 1001;
 
 -- ==========================
--- 6. STORAGES (Independent)
+-- 5b. VARIETY PRICE HISTORY
 -- ==========================
-CREATE TABLE `storages` (
-  `id` VARCHAR(255) PRIMARY KEY,
-  `name` VARCHAR(255) NOT NULL,
-  `type` ENUM('COLD_ROOM', 'IQF_TUNNEL', 'DRY_WAREHOUSE', 'FREEZER') NOT NULL,
-  `capacityPallets` INT NULL,
-  `location` VARCHAR(255) NULL,
-  `active` BOOLEAN DEFAULT TRUE,
-  `deletedAt` DATETIME NULL,
-  `createdAt` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updatedAt` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX `idx_type` (`type`),
-  INDEX `idx_active` (`active`),
-  INDEX `idx_deletedAt` (`deletedAt`)
+CREATE TABLE `variety_price_history` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `varietyId` INT NOT NULL,
+  `qualityId` INT NOT NULL,
+  `qualityName` VARCHAR(255) NOT NULL,
+  `priceCLP` INT NOT NULL DEFAULT 0,
+  `priceUSD` FLOAT NOT NULL DEFAULT 0,
+  `currency` ENUM('CLP', 'USD') NOT NULL DEFAULT 'CLP',
+  `source` ENUM('SINGLE', 'BULK', 'QUALITY_CREATED', 'VARIETY_CREATED') NOT NULL,
+  `changedByUserId` VARCHAR(36) NULL,
+  `changedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_vph_varietyId` (`varietyId`),
+  INDEX `idx_vph_qualityId` (`qualityId`),
+  INDEX `idx_vph_changedAt` (`changedAt`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ==========================
--- 7. SEASONS (Independent)
+-- 6. SEASONS (Independent)
 -- ==========================
 CREATE TABLE `seasons` (
   `id` VARCHAR(36) PRIMARY KEY,
@@ -234,11 +234,10 @@ VALUES ('1', TRUE)
 ON DUPLICATE KEY UPDATE `id` = `id`;
 
 -- ==========================
--- 11. PALLETS (Depends on Storage, Tray)
+-- 11. PALLETS (Depends on Tray)
 -- ==========================
 CREATE TABLE `pallets` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `storageId` VARCHAR(255) NOT NULL,
   `trayId` VARCHAR(255) NOT NULL,
   `traysQuantity` INT NOT NULL DEFAULT 0,
   `capacity` INT NOT NULL,
@@ -255,10 +254,8 @@ CREATE TABLE `pallets` (
   CONSTRAINT `chk_weight_initial` CHECK (`weight` >= 0),
   CONSTRAINT `chk_weight_dispatch` CHECK (`dispatchWeight` >= 0),
   CONSTRAINT `chk_dispatch_vs_weight` CHECK (`dispatchWeight` <= `weight`),
-  FOREIGN KEY (`storageId`) REFERENCES `storages`(`id`),
   FOREIGN KEY (`trayId`) REFERENCES `trays`(`id`),
   PRIMARY KEY (`id`),
-  INDEX `idx_storageId` (`storageId`),
   INDEX `idx_trayId` (`trayId`),
   INDEX `idx_status` (`status`),
   INDEX `idx_deletedAt` (`deletedAt`)

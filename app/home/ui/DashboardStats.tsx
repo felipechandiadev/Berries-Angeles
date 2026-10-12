@@ -30,7 +30,7 @@ const QUICK_LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/home/receptions/newRecepcion', label: 'Nueva recepción', icon: PlusSquare },
   { href: '/home/receptions/receptions', label: 'Recepciones', icon: Package },
   { href: '/home/productiveManagement/producers', label: 'Productores', icon: Sprout },
-  { href: '/home/storage/pallets', label: 'Pallets', icon: Package },
+  { href: '/home/dispatch/pallets', label: 'Pallets', icon: Package },
   { href: '/home/economicManagement/advances', label: 'Anticipos', icon: Wallet },
   { href: '/home/audit', label: 'Auditoría', icon: History },
 ];
@@ -107,7 +107,7 @@ export default function DashboardStats({ stats, userName }: DashboardStatsProps)
               Hola, {greetingName}
             </h2>
             <p className="mt-2 max-w-xl text-sm text-white/85 md:text-base">
-              Resumen operativo de Berries Angeles: recepciones, productores, bodega y movimientos recientes.
+              Resumen operativo de Berries Maugro: recepciones, productores, bodega y movimientos recientes.
             </p>
           </div>
           {stats.activeSeasonName && (

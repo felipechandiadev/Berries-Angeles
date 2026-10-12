@@ -4,12 +4,12 @@ import { User } from "./entities/User";
 import { Person } from "./entities/Person";
 import { Audit } from "./entities/Audit";
 import { Variety } from "./entities/Variety";
+import { VarietyPriceHistory } from "./entities/VarietyPriceHistory";
 import { Format } from "./entities/Format";
 import { Season } from "./entities/Season";
 import { ProductiveUnit } from "./entities/ProductiveUnit";
 import { Producer } from "./entities/Producer";
 import { Customer } from "./entities/Customer";
-import { Storage } from "./entities/Storage";
 import { Tray } from "./entities/Tray";
 import { Pallet } from "./entities/Pallet";
 import { Transaction } from "./entities/Transaction";
@@ -22,6 +22,9 @@ import { AuditSubscriber } from "./subscribers/AuditSubscriber";
 import { getAppConfig } from "../lib/appConfig";
 import { ensureTransactionTypeEnum } from "./ensureTransactionTypeEnum";
 import { ensureAppConfigTable } from "./ensureAppConfigTable";
+import { ensurePalletsWithoutStorage } from "./ensurePalletsWithoutStorage";
+import { ensureVarietyQualityPrices } from "./ensureVarietyQualityPrices";
+import { ensureVarietyPriceHistoryTable } from "./ensureVarietyPriceHistoryTable";
 
 const appConfig = getAppConfig();
 
@@ -39,6 +42,9 @@ type DbGlobal = {
     shutdownHooked?: boolean;
     transactionTypeEnumReady?: boolean;
     appConfigTableReady?: boolean;
+    palletsWithoutStorageReady?: boolean;
+    varietyQualityPricesReady?: boolean;
+    varietyPriceHistoryReady?: boolean;
   };
 };
 
@@ -69,12 +75,12 @@ function createDataSource(): DataSource {
       Person,
       Audit,
       Variety,
+      VarietyPriceHistory,
       Format,
       Season,
       ProductiveUnit,
       Producer,
       Customer,
-      Storage,
       Tray,
       Pallet,
       Transaction,
@@ -185,6 +191,18 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           await ensureAppConfigTable(state.ds);
           state.appConfigTableReady = true;
         }
+        if (!state.palletsWithoutStorageReady) {
+          await ensurePalletsWithoutStorage(state.ds);
+          state.palletsWithoutStorageReady = true;
+        }
+        if (!state.varietyQualityPricesReady) {
+          await ensureVarietyQualityPrices(state.ds);
+          state.varietyQualityPricesReady = true;
+        }
+        if (!state.varietyPriceHistoryReady) {
+          await ensureVarietyPriceHistoryTable(state.ds);
+          state.varietyPriceHistoryReady = true;
+        }
         return state.ds;
       }
     }
@@ -212,6 +230,18 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
         if (!state.appConfigTableReady) {
           await ensureAppConfigTable(state.ds);
           state.appConfigTableReady = true;
+        }
+        if (!state.palletsWithoutStorageReady) {
+          await ensurePalletsWithoutStorage(state.ds);
+          state.palletsWithoutStorageReady = true;
+        }
+        if (!state.varietyQualityPricesReady) {
+          await ensureVarietyQualityPrices(state.ds);
+          state.varietyQualityPricesReady = true;
+        }
+        if (!state.varietyPriceHistoryReady) {
+          await ensureVarietyPriceHistoryTable(state.ds);
+          state.varietyPriceHistoryReady = true;
         }
 
         return state.ds;

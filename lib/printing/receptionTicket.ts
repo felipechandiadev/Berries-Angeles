@@ -546,7 +546,7 @@ export async function buildMultipackReceptionTicketEscPos(
       : meta.varieties[0] || '—'
   );
   kvLeft(enc, 
-    'Formato',
+    'Calidad',
     meta.formats.length > 1 ? `${meta.formats.length} formatos` : meta.formats[0] || '—'
   );
   kvLeft(enc, 
@@ -580,7 +580,7 @@ export async function buildMultipackReceptionTicketEscPos(
     packs.forEach((pack, index) => {
       enc.line(`Pack #${pack.packNumber || index + 1}`);
       kvLeft(enc, '  Variedad', pack.varietyName || '—');
-      kvLeft(enc, '  Formato', pack.formatName || '—');
+      kvLeft(enc, '  Calidad', pack.formatName || '—');
       kvLeft(enc, '  Bandeja', pack.trayLabel || '—');
       kvLeft(enc, '  Cant', `${pack.traysQuantity || 0} uds`);
       kvLeft(enc, '  P.Bruto', `${formatNumber(pack.grossWeight ?? 0)} kg`);

@@ -88,10 +88,6 @@ export default function DispatchDetailDialog({
               </div>
             </div>
             <div>
-              <div className="text-secondary">Almacén</div>
-              <div>{detail.storageName}</div>
-            </div>
-            <div>
               <div className="text-secondary">Totales</div>
               <div>
                 {detail.palletsCount} pallets · {detail.traysTotal} bandejas ·{' '}

@@ -119,14 +119,6 @@ export default function PalletsGrid({
         renderCell: ({ value }) => <span className="font-mono text-xs truncate">{value ?? '-'}</span>,
       },
       {
-        field: 'storageName',
-        headerName: 'Almacenamiento',
-        flex: 1.4,
-        sortable: true,
-        filterable: true,
-        renderCell: ({ value }) => <span className="truncate">{value || '-'}</span>,
-      },
-      {
         field: 'trayName',
         headerName: 'Bandeja',
         flex: 1.2,

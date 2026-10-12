@@ -811,7 +811,7 @@ export async function createTrayDelivery(input: CreateTrayDeliveryInput): Promis
       return { success: false, error: 'No se pudo registrar la entrega de bandejas' };
     }
 
-    revalidatePath('/home/storage/trays');
+    revalidatePath('/home/trays');
 
     return {
       success: true,
@@ -972,7 +972,7 @@ export async function createTrayReception(input: CreateTrayReceptionInput): Prom
       return { success: false, error: 'No se pudo registrar la recepción de bandejas' };
     }
 
-    revalidatePath('/home/storage/trays');
+    revalidatePath('/home/trays');
 
     return {
       success: true,

@@ -25,7 +25,7 @@ export function ReceptionsSection({ data }: SectionProps) {
                 Variedad
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Formato
+                Calidad
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Neto KG

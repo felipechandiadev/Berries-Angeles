@@ -26,7 +26,7 @@ DROP TABLE IF EXISTS `permissions`;
 
 -- Core tables with self-managed data
 DROP TABLE IF EXISTS `trays`;
-DROP TABLE IF EXISTS `storages`;
+DROP TABLE IF EXISTS `variety_price_history`;
 DROP TABLE IF EXISTS `formats`;
 DROP TABLE IF EXISTS `varieties`;
 DROP TABLE IF EXISTS `seasons`;

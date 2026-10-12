@@ -29,7 +29,6 @@ type PalletCard = {
 interface NewDispatchContentProps {
   customerOptions: SelectOption[];
   trayOptions: TrayOption[];
-  storageOptions: SelectOption[];
 }
 
 const kgFmt = new Intl.NumberFormat('es-CL', {
@@ -61,7 +60,6 @@ function parsePositiveInt(value: string): number | null {
 export default function NewDispatchContent({
   customerOptions,
   trayOptions,
-  storageOptions,
 }: NewDispatchContentProps) {
   const { showAlert } = useAlert();
   const router = useRouter();
@@ -71,7 +69,6 @@ export default function NewDispatchContent({
 
   const [customerId, setCustomerId] = useState('');
   const [trayId, setTrayId] = useState('');
-  const [storageId, setStorageId] = useState('');
   const [notes, setNotes] = useState('');
   const [pallets, setPallets] = useState<PalletCard[]>([newPalletCard()]);
 
@@ -133,7 +130,7 @@ export default function NewDispatchContent({
   }, [pallets, unitTrayWeight, stockAvailable]);
 
   const canConfirm =
-    Boolean(customerId && trayId && storageId && currentUserId) &&
+    Boolean(customerId && trayId && currentUserId) &&
     pallets.length > 0 &&
     !computed.invalid &&
     computed.stockOk &&
@@ -154,7 +151,7 @@ export default function NewDispatchContent({
       showAlert({
         message: !computed.stockOk
           ? `Stock insuficiente: disponibles ${stockAvailable}, requeridas ${computed.traysTotal}`
-          : 'Completa cliente, bandeja, almacén y pallets válidos',
+          : 'Completa cliente, bandeja y pallets válidos',
         type: 'warning',
       });
       return;
@@ -164,7 +161,6 @@ export default function NewDispatchContent({
       const payload = {
         customerId,
         trayId,
-        storageId,
         userId: currentUserId,
         notes: notes.trim() || undefined,
         pallets: pallets.map((p) => ({
@@ -199,7 +195,7 @@ export default function NewDispatchContent({
 
   return (
     <div className="space-y-4 pb-28" data-test-id="new-dispatch-content">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <AutoComplete
           label="Cliente"
           options={customerOptions}
@@ -212,13 +208,6 @@ export default function NewDispatchContent({
           options={traySelectOptions}
           value={optionById(traySelectOptions, trayId)}
           onChange={(opt) => setTrayId((opt as Option | null)?.id ? String((opt as Option).id) : '')}
-          required
-        />
-        <AutoComplete
-          label="Almacén destino"
-          options={storageOptions}
-          value={optionById(storageOptions, storageId)}
-          onChange={(opt) => setStorageId((opt as Option | null)?.id ? String((opt as Option).id) : '')}
           required
         />
       </div>

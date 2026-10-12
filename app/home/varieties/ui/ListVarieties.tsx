@@ -4,14 +4,12 @@ import { CollectionPageLayout } from "@felipechandiadev/ui";
 import VarietyCard from "./VarietyCard";
 import CreateVarietyDialog from "./CreateVarietyDialog";
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
-import { Currency } from '../../../../../data/entities/Variety';
+import type { VarietyQualityPrice } from '@/data/entities/Variety';
 
 export interface VarietyType {
   id: number;
   name: string;
-  priceCLP: number;
-  priceUSD: number;
-  currency: Currency;
+  qualityPrices?: VarietyQualityPrice[];
 }
 
 export interface ListVarietiesProps {

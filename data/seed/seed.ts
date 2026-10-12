@@ -92,23 +92,11 @@ type FormatSeedRow = {
 
 type VarietySeedRow = {
   name: string;
-  priceCLP?: number;
-  priceUSD?: number;
-  currency?: "CLP" | "USD";
-};
-
-type StorageSeedRow = {
-  id: string;
-  name: string;
-  type: string;
-  capacityPallets?: number;
-  location?: string;
-  active?: boolean;
+  /** Precio CLP inicial aplicado a todos los tipos de calidad al seedear. */
+  defaultPriceCLP?: number;
 };
 
 type PalletSeedRow = {
-  storageId?: string;
-  storageName?: string;
   trayId?: string;
   trayName?: string;
   traysQuantity?: number;
@@ -1320,39 +1308,6 @@ const seedSeasons = async (connection: mysql.Connection) => {
   console.log(`   ✓ Inserted ${inserted} seasons`);
 };
 
-const seedStorages = async (connection: mysql.Connection) => {
-  console.log("\n🏢 Seeding storages from JSON file...");
-
-  const storages = loadSeedJson<StorageSeedRow[]>("storages.json");
-
-  await connection.execute("DELETE FROM storages");
-
-  let inserted = 0;
-
-  for (const storage of storages) {
-    const id = (storage.id || "").trim();
-    const name = (storage.name || "").trim();
-    const type = (storage.type || "").trim();
-    if (!id || !name || !type) {
-      continue;
-    }
-
-    const capacityPallets = Number.isFinite(storage.capacityPallets) ? Number(storage.capacityPallets) : null;
-    const location = (storage.location || "").trim() || null;
-    const active = storage.active !== undefined ? Boolean(storage.active) : true;
-
-    await connection.execute(
-      `INSERT INTO storages (id, name, type, capacityPallets, location, active, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [id, name, type, capacityPallets, location, active]
-    );
-
-    inserted++;
-  }
-
-  console.log(`   ✓ Inserted ${inserted} storages`);
-};
-
 const seedPallets = async (connection: mysql.Connection) => {
   console.log("\n🪵 Seeding pallets from JSON file...");
 
@@ -1368,47 +1323,20 @@ const seedPallets = async (connection: mysql.Connection) => {
     return;
   }
 
+  await connection.execute("DELETE FROM pallets");
+
   if (!Array.isArray(pallets) || pallets.length === 0) {
-    await connection.execute("DELETE FROM pallets");
     console.log("   ℹ️  No pallets to seed.");
     return;
   }
 
-  await connection.execute("DELETE FROM pallets");
-
   let inserted = 0;
-  const missingStorages = new Set<string>();
   const missingTrays = new Set<string>();
   const invalidRows = new Set<string>();
 
   for (let index = 0; index < pallets.length; index++) {
     const pallet = pallets[index];
     const label = `[${index}]`;
-
-    let storageId: string | null = null;
-    const storageIdRaw = (pallet.storageId || "").trim();
-    if (storageIdRaw) {
-      const [storageRows] = await connection.execute<
-        (RowDataPacket & { id: string })[]
-      >("SELECT id FROM storages WHERE id = ? LIMIT 1", [storageIdRaw]);
-      if (storageRows.length) {
-        storageId = storageRows[0].id;
-      }
-    }
-
-    if (!storageId && pallet.storageName?.trim()) {
-      const [storageRowsByName] = await connection.execute<
-        (RowDataPacket & { id: string })[]
-      >("SELECT id FROM storages WHERE name = ? LIMIT 1", [pallet.storageName.trim()]);
-      if (storageRowsByName.length) {
-        storageId = storageRowsByName[0].id;
-      }
-    }
-
-    if (!storageId) {
-      missingStorages.add(`${label} → ${pallet.storageId || pallet.storageName || "(sin referencia)"}`);
-      continue;
-    }
 
     let trayId: string | null = null;
     const trayIdRaw = (pallet.trayId || "").trim();
@@ -1486,11 +1414,9 @@ const seedPallets = async (connection: mysql.Connection) => {
     }
 
     await connection.execute(
-      `INSERT INTO pallets (storageId, trayId, traysQuantity, capacity, weight, dispatchWeight, metadata, status, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        /* sql */,
+      `INSERT INTO pallets (trayId, traysQuantity, capacity, weight, dispatchWeight, metadata, status, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        storageId,
         trayId,
         Number(traysQuantityRaw),
         Number(capacity),
@@ -1504,12 +1430,6 @@ const seedPallets = async (connection: mysql.Connection) => {
     );
 
     inserted++;
-  }
-
-  if (missingStorages.size > 0) {
-    const preview = Array.from(missingStorages).slice(0, 5).join(", ");
-    const suffix = missingStorages.size > 5 ? ` (+${missingStorages.size - 5} more)` : "";
-    console.warn(`   ⚠️  Pallets omitidos: bodegas desconocidas ${preview}${suffix}`);
   }
 
   if (missingTrays.size > 0) {
@@ -1613,7 +1533,12 @@ const seedVarieties = async (connection: mysql.Connection) => {
 
   const varieties = loadSeedJson<VarietySeedRow[]>("varieties.json");
 
+  await connection.execute("DELETE FROM variety_price_history");
   await connection.execute("DELETE FROM varieties");
+
+  const [formatRows] = await connection.execute<
+    (RowDataPacket & { id: number; name: string; active: number | boolean })[]
+  >("SELECT id, name, active FROM formats WHERE deletedAt IS NULL ORDER BY id ASC");
 
   let inserted = 0;
   const seenNames = new Set<string>();
@@ -1629,21 +1554,54 @@ const seedVarieties = async (connection: mysql.Connection) => {
       continue;
     }
 
-    const priceCLP = Number.isFinite(variety.priceCLP) ? Number(variety.priceCLP) : 0;
-    const priceUSD = Number.isFinite(variety.priceUSD) ? Number(variety.priceUSD) : 0;
-    const currency = variety.currency === "USD" ? "USD" : "CLP";
+    const defaultPriceCLP = Number.isFinite(variety.defaultPriceCLP)
+      ? Number(variety.defaultPriceCLP)
+      : 0;
+
+    const qualityPrices = formatRows.map((f) => ({
+      qualityId: Number(f.id),
+      qualityName: String(f.name),
+      priceCLP: defaultPriceCLP,
+      priceUSD: 0,
+      currency: "CLP" as const,
+      active: f.active === undefined ? true : Boolean(f.active),
+    }));
 
     await connection.execute(
-      `INSERT INTO varieties (name, priceCLP, priceUSD, currency, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, NOW(), NOW())`,
-      [name, priceCLP, priceUSD, currency]
+      `INSERT INTO varieties (name, qualityPrices, createdAt, updatedAt)
+       VALUES (?, ?, NOW(), NOW())`,
+      [name, JSON.stringify(qualityPrices)]
     );
+
+    const [idRows] = await connection.execute<(RowDataPacket & { id: number })[]>(
+      "SELECT id FROM varieties WHERE name = ? LIMIT 1",
+      [name]
+    );
+    const varietyId = idRows[0]?.id;
+
+    if (varietyId) {
+      for (const entry of qualityPrices) {
+        await connection.execute(
+          `INSERT INTO variety_price_history
+            (varietyId, qualityId, qualityName, priceCLP, priceUSD, currency, source, changedAt)
+           VALUES (?, ?, ?, ?, ?, ?, 'VARIETY_CREATED', NOW())`,
+          [
+            varietyId,
+            entry.qualityId,
+            entry.qualityName,
+            entry.priceCLP,
+            entry.priceUSD,
+            entry.currency,
+          ]
+        );
+      }
+    }
 
     seenNames.add(key);
     inserted++;
   }
 
-  console.log(`   ✓ Inserted ${inserted} varieties`);
+  console.log(`   ✓ Inserted ${inserted} varieties (with qualityPrices)`);
 };
 
 const seedSampleTransaction = async (connection: mysql.Connection) => {
@@ -1826,12 +1784,7 @@ const runSeed = async (environment: "test" | "production" = "test") => {
     await seedFormats(connection);
     await seedVarieties(connection);
     await seedTrays(connection);
-    await seedStorages(connection);
-    if (profile === "minimal") {
-      await seedPallets(connection);
-    } else {
-      console.log("\n📦 Skipping JSON pallets (full history regenerates them)...");
-    }
+    await seedPallets(connection);
     await seedSeasons(connection);
     await seedCustomers(connection);
     await seedAdminBankAccounts(connection);

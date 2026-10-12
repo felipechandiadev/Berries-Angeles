@@ -18,8 +18,8 @@ App web de gestión agrícola para la industria de berries (frutillas, arándano
 | 6 | [Recepciones](./06-recepciones.md) | Registro, consulta y gestión de recepciones de fruta |
 | 7 | [Gestión productiva](./07-gestion-productiva.md) | Productores, unidades productivas y temporadas |
 | 8 | [Gestión económica](./08-gestion-economica.md) | Anticipos, liquidaciones y cuentas bancarias |
-| 9 | [Almacenamiento](./09-almacenamiento.md) | Almacenes, bandejas y pallets |
-| 10 | [Productos](./10-productos.md) | Variedades y formatos de empaque |
+| 9 | [Bandejas y Pallets](./09-almacenamiento.md) | Bandejas (top-level) y pallets bajo Despacho |
+| 10 | [Variedades y Calidades](./10-productos.md) | Precios por tipo de calidad en variedad |
 | 11 | [Usuarios y permisos](./11-usuarios-permisos.md) | Gestión de cuentas y control de acceso |
 | 12 | [Auditoría](./12-auditoria.md) | Registro de cambios y trazabilidad |
 | 13 | [Componentes base (`baseComponents/`)](./13-base-components.md) | Librería de UI interna reutilizable |

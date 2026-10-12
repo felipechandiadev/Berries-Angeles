@@ -45,8 +45,6 @@ export interface DispatchMetadata {
   customerName?: string;
   trayId: string;
   trayName?: string;
-  storageId: string;
-  storageName?: string;
   unitTrayWeight: number;
   palletIds: number[];
   trayOutTransactionId?: string;
@@ -76,7 +74,6 @@ export interface TrayAdjustmentMetadata {
   reason: string; // Motivo del ajuste
   previousStock?: number;
   newStock?: number;
-  storageId?: string; // ID del almacenamiento afectado
   trayId?: string; // ID de la bandeja afectada
   receptionTransactionId?: string;
   receptionPackId?: string | number;

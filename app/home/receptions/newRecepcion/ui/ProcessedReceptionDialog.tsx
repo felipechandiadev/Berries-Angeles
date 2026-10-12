@@ -145,7 +145,7 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
       },
       {
         key: 'formats',
-        label: 'Formatos',
+        label: 'Calidades',
         value: receptionMetadata.formats.length
           ? receptionMetadata.formats.join(', ')
           : '—',
@@ -415,7 +415,7 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
                       <span className="text-foreground">{pack.varietyName ?? '—'}</span>
                     </div>
                     <div className="flex flex-col text-left">
-                      <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">Formato</span>
+                      <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">Calidad</span>
                       <span className="text-foreground">{pack.formatName ?? '—'}</span>
                     </div>
                     <div className="flex flex-col text-left">

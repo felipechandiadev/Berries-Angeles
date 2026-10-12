@@ -21,7 +21,7 @@ const DEFAULTS = {
   name: "berries_angeles",
   synchronize: false,
   logging: false,
-  appName: "Berries Angeles",
+  appName: "Berries Maugro",
 };
 
 function envString(key: string, fallback: string): string {

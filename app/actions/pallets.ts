@@ -2,7 +2,6 @@
 'use server';
 
 import { Pallet, PalletStatus, PalletMetadata } from '../../data/entities/Pallet';
-import { Storage } from '../../data/entities/Storage';
 import { Tray } from '../../data/entities/Tray';
 import { Audit } from '../../data/entities/Audit';
 import { AuditActionType } from '../../data/entities/audit.types';
@@ -33,8 +32,6 @@ function serializePallet(pallet: Pallet): any {
 
   return JSON.parse(JSON.stringify({
     id: pallet.id,
-    storageId: pallet.storageId,
-    storageName: pallet.storage ? pallet.storage.name : null,
     trayId: pallet.trayId,
     trayName: pallet.tray ? pallet.tray.name : null,
     traysQuantity: typeof pallet.traysQuantity === 'number' ? pallet.traysQuantity : 0,
@@ -57,7 +54,6 @@ function serializePallets(pallets: Pallet[]): any[] {
 }
 
 export interface CreatePalletInput {
-  storageId: string;
   trayId: string;
   traysQuantity?: number;
   capacity: number;
@@ -69,7 +65,6 @@ export interface CreatePalletInput {
 
 export interface UpdatePalletInput {
   id: number;
-  storageId?: string;
   trayId?: string;
   traysQuantity?: number;
   capacity?: number;
@@ -80,7 +75,6 @@ export interface UpdatePalletInput {
 }
 
 export interface GetPalletsFilters {
-  storageId?: string;
   trayId?: string;
   status?: PalletStatus;
 }
@@ -120,8 +114,6 @@ export interface PalletExportResponse {
 
 export interface PalletAvailabilitySummary {
   id: number;
-  storageId: string;
-  storageName: string | null;
   trayId: string;
   trayName: string | null;
   status: PalletStatus;
@@ -137,14 +129,11 @@ export interface PalletAvailabilitySummary {
 
 export interface AvailablePalletFilters {
   trayId?: string;
-  storageId?: string;
   excludePalletId?: number;
 }
 
 const PALLET_VALID_FIELDS = [
   'id',
-  'storageId',
-  'storageName',
   'trayId',
   'trayName',
   'traysQuantity',
@@ -158,9 +147,7 @@ const PALLET_VALID_FIELDS = [
 
 const PALLET_VALID_SORT_FIELDS = [
   'id',
-  'storageName',
   'trayName',
-  'storageId',
   'trayId',
   'traysQuantity',
   'capacity',
@@ -204,19 +191,13 @@ function applyPalletFilters(query: any, filters?: PalletGridFilters) {
             [paramName]: filter.value as PalletStatus,
           });
           break;
-        case 'storageName':
-          query = query.andWhere(`${normalizeSqlExpr('storage.name')} LIKE :${paramName}`, {
-            [paramName]: `%${normalizedValue}%`,
-          });
-          break;
         case 'trayName':
           query = query.andWhere(`${normalizeSqlExpr('tray.name')} LIKE :${paramName}`, {
             [paramName]: `%${normalizedValue}%`,
           });
           break;
-        case 'storageId':
         case 'trayId':
-          query = query.andWhere(`${normalizeSqlExpr(`pallet.${filter.column}`)} LIKE :${paramName}`, {
+          query = query.andWhere(`${normalizeSqlExpr('pallet.trayId')} LIKE :${paramName}`, {
             [paramName]: `%${normalizedValue}%`,
           });
           break;
@@ -251,10 +232,8 @@ function applyPalletFilters(query: any, filters?: PalletGridFilters) {
   if (filters.search?.trim()) {
     applyTextSearch(query, {
       columns: [
-        'storage.name',
         'tray.name',
         'pallet.status',
-        'pallet.storageId',
         'pallet.trayId',
         'CAST(pallet.id AS CHAR)',
         'CAST(pallet.traysQuantity AS CHAR)',
@@ -360,14 +339,9 @@ export async function getPallets(filters?: GetPalletsFilters): Promise<PalletRes
     const repo = db.getRepository(Pallet);
 
     const queryBuilder = repo.createQueryBuilder('pallet')
-      .leftJoinAndSelect('pallet.storage', 'storage')
       .leftJoinAndSelect('pallet.tray', 'tray');
 
     // Aplicar filtros
-    if (filters?.storageId) {
-      queryBuilder.andWhere('pallet.storageId = :storageId', { storageId: filters.storageId });
-    }
-
     if (filters?.trayId) {
       queryBuilder.andWhere('pallet.trayId = :trayId', { trayId: filters.trayId });
     }
@@ -407,7 +381,6 @@ export async function getAvailablePalletSummaries(filters?: AvailablePalletFilte
     const repo = db.getRepository(Pallet);
 
     const query = repo.createQueryBuilder('pallet')
-      .leftJoinAndSelect('pallet.storage', 'storage')
       .leftJoinAndSelect('pallet.tray', 'tray')
       .where('pallet.deletedAt IS NULL')
       .andWhere('pallet.status = :status', { status: PalletStatus.AVAILABLE })
@@ -416,10 +389,6 @@ export async function getAvailablePalletSummaries(filters?: AvailablePalletFilte
 
     if (filters?.trayId) {
       query.andWhere('pallet.trayId = :trayId', { trayId: filters.trayId });
-    }
-
-    if (filters?.storageId) {
-      query.andWhere('pallet.storageId = :storageId', { storageId: filters.storageId });
     }
 
     if (filters?.excludePalletId) {
@@ -438,8 +407,6 @@ export async function getAvailablePalletSummaries(filters?: AvailablePalletFilte
 
       return {
         id: pallet.id,
-        storageId: pallet.storageId,
-        storageName: pallet.storage ? pallet.storage.name : null,
         trayId: pallet.trayId,
         trayName: pallet.tray ? pallet.tray.name : null,
         status: pallet.status,
@@ -488,7 +455,7 @@ export async function getPalletById(id: string | number): Promise<PalletResult> 
     const db = await getDb();
     const pallet = await db.getRepository(Pallet).findOne({
       where: { id: palletId, deletedAt: IsNull() },
-      relations: ['storage', 'tray']
+      relations: ['tray']
     });
 
     if (!pallet) {
@@ -534,7 +501,6 @@ export async function getPalletsGridData(
     let query = db
       .getRepository(Pallet)
       .createQueryBuilder('pallet')
-      .leftJoinAndSelect('pallet.storage', 'storage')
       .leftJoinAndSelect('pallet.tray', 'tray')
       .where('pallet.deletedAt IS NULL');
 
@@ -542,11 +508,9 @@ export async function getPalletsGridData(
 
     const total = await query.getCount();
 
-    const sortColumn = sortByRaw === 'storageName'
-      ? 'storage.name'
-      : sortByRaw === 'trayName'
-        ? 'tray.name'
-        : `pallet.${sortByRaw}`;
+    const sortColumn = sortByRaw === 'trayName'
+      ? 'tray.name'
+      : `pallet.${sortByRaw}`;
 
     const data = await query
       .clone()
@@ -569,10 +533,6 @@ export async function getPalletsGridData(
 
       if (!requestedFields.includes('id')) {
         shapedRow.id = row.id;
-      }
-
-      if (!requestedFields.includes('storageName')) {
-        shapedRow.storageName = (row as Record<string, any>).storageName;
       }
 
       if (!requestedFields.includes('trayName')) {
@@ -615,17 +575,14 @@ export async function getPalletsExportData(filters?: PalletGridFilters): Promise
     let query = db
       .getRepository(Pallet)
       .createQueryBuilder('pallet')
-      .leftJoinAndSelect('pallet.storage', 'storage')
       .leftJoinAndSelect('pallet.tray', 'tray')
       .where('pallet.deletedAt IS NULL');
 
     query = applyPalletFilters(query, filters);
 
-    const sortColumn = sortByRaw === 'storageName'
-      ? 'storage.name'
-      : sortByRaw === 'trayName'
-        ? 'tray.name'
-        : `pallet.${sortByRaw}`;
+    const sortColumn = sortByRaw === 'trayName'
+      ? 'tray.name'
+      : `pallet.${sortByRaw}`;
 
     const rows = await query
       .orderBy(sortColumn, sortOrder)
@@ -661,10 +618,6 @@ export async function getPalletsExportData(filters?: PalletGridFilters): Promise
 export async function createPallet(data: CreatePalletInput, auditUserId?: string): Promise<PalletResult> {
   try {
     // Validaciones
-    if (!data.storageId || data.storageId.trim() === '') {
-      return { success: false, error: 'El storageId es requerido' };
-    }
-
     if (!data.trayId || data.trayId.trim() === '') {
       return { success: false, error: 'El trayId es requerido' };
     }
@@ -696,15 +649,6 @@ export async function createPallet(data: CreatePalletInput, auditUserId?: string
 
     const db = await getDb();
 
-    // Verificar que existan las entidades relacionadas
-    const storage = await db.getRepository(Storage).findOne({
-      where: { id: data.storageId, deletedAt: IsNull() }
-    });
-
-    if (!storage) {
-      return { success: false, error: 'Storage no encontrado' };
-    }
-
     const tray = await db.getRepository(Tray).findOne({
       where: { id: data.trayId, deletedAt: IsNull() }
     });
@@ -725,7 +669,6 @@ export async function createPallet(data: CreatePalletInput, auditUserId?: string
     }
 
     const palletData = {
-      storageId: data.storageId,
       trayId: data.trayId,
       traysQuantity,
       capacity: data.capacity,
@@ -753,7 +696,7 @@ export async function createPallet(data: CreatePalletInput, auditUserId?: string
     });
 
     try {
-      revalidatePath('/home/storage/pallets');
+      revalidatePath('/home/dispatch/pallets');
     } catch (revalidateError) {
       console.warn('[createPallet] No se pudo ejecutar revalidatePath:', revalidateError);
     }
@@ -795,23 +738,6 @@ export async function updatePallet(data: UpdatePalletInput, auditUserId?: string
 
     // Validaciones y actualizaciones
     const updates: Partial<Pallet> = {};
-
-    if (data.storageId !== undefined) {
-      if (!data.storageId.trim()) {
-        return { success: false, error: 'El storageId es requerido' };
-      }
-
-      // Verificar que el storage existe
-      const storage = await db.getRepository(Storage).findOne({
-        where: { id: data.storageId, deletedAt: IsNull() }
-      });
-
-      if (!storage) {
-        return { success: false, error: 'Storage no encontrado' };
-      }
-
-      updates.storageId = data.storageId;
-    }
 
     if (data.trayId !== undefined) {
       if (!data.trayId.trim()) {
@@ -896,7 +822,6 @@ export async function updatePallet(data: UpdatePalletInput, auditUserId?: string
     }
 
     const oldValues = {
-      storageId: existingPallet.storageId,
       trayId: existingPallet.trayId,
       traysQuantity: existingPallet.traysQuantity,
       capacity: existingPallet.capacity,
@@ -911,7 +836,7 @@ export async function updatePallet(data: UpdatePalletInput, auditUserId?: string
 
       const updatedPallet = await manager.findOne(Pallet, {
         where: { id: palletId },
-        relations: ['storage', 'tray']
+        relations: ['tray']
       });
 
       // Registrar auditoría
@@ -928,7 +853,7 @@ export async function updatePallet(data: UpdatePalletInput, auditUserId?: string
     });
 
     try {
-      revalidatePath('/home/storage/pallets');
+      revalidatePath('/home/dispatch/pallets');
     } catch (revalidateError) {
       console.warn('[updatePallet] No se pudo ejecutar revalidatePath:', revalidateError);
     }
@@ -980,7 +905,6 @@ export async function deletePallet(id: string | number, auditUserId?: string): P
     }
 
     const oldValues = {
-      storageId: existingPallet.storageId,
       trayId: existingPallet.trayId,
       traysQuantity: existingPallet.traysQuantity,
       capacity: existingPallet.capacity,
@@ -1010,7 +934,7 @@ export async function deletePallet(id: string | number, auditUserId?: string): P
     });
 
     try {
-      revalidatePath('/home/storage/pallets');
+      revalidatePath('/home/dispatch/pallets');
     } catch (revalidateError) {
       console.warn('[deletePallet] No se pudo ejecutar revalidatePath:', revalidateError);
     }
@@ -1038,7 +962,7 @@ export async function getPalletsSimpleList() {
 
     const pallets = await palletRepository.find({
       where: { deletedAt: IsNull() },
-      relations: ['tray', 'storage'],
+      relations: ['tray'],
       order: { createdAt: 'DESC' },
     });
 

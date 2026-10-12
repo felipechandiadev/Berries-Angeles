@@ -12,7 +12,6 @@ import {
 import { Tray } from '@/data/entities/Tray';
 import { Pallet, PalletStatus } from '@/data/entities/Pallet';
 import { Customer } from '@/data/entities/Customer';
-import { Storage } from '@/data/entities/Storage';
 import { Season } from '@/data/entities/Season';
 import { User } from '@/data/entities/User';
 import { Brackets, IsNull, SelectQueryBuilder } from 'typeorm';
@@ -38,7 +37,6 @@ export type CreateDispatchPalletInput = {
 export type CreateDispatchInput = {
   customerId: string;
   trayId: string;
-  storageId: string;
   userId: string;
   seasonId?: string;
   notes?: string;
@@ -59,8 +57,6 @@ export type DispatchSummaryRow = {
 };
 
 export type DispatchDetail = DispatchSummaryRow & {
-  storageId: string;
-  storageName: string;
   unitTrayWeight: number;
   trayOutTransactionId?: string;
   notes?: string;
@@ -87,12 +83,11 @@ export async function createDispatch(
   try {
     const customerId = input.customerId?.trim();
     const trayId = input.trayId?.trim();
-    const storageId = input.storageId?.trim();
     const userId = input.userId?.trim();
     const pallets = Array.isArray(input.pallets) ? input.pallets : [];
 
-    if (!customerId || !trayId || !storageId || !userId) {
-      return { success: false, error: 'Cliente, bandeja, almacén y usuario son requeridos.' };
+    if (!customerId || !trayId || !userId) {
+      return { success: false, error: 'Cliente, bandeja y usuario son requeridos.' };
     }
     if (pallets.length === 0) {
       return { success: false, error: 'Debe agregar al menos un pallet.' };
@@ -101,16 +96,13 @@ export async function createDispatch(
     const db = await getDb();
 
     const result = await db.transaction(async (manager) => {
-      const [customer, tray, storage, user] = await Promise.all([
+      const [customer, tray, user] = await Promise.all([
         manager.getRepository(Customer).findOne({
           where: { id: customerId, deletedAt: IsNull() },
           relations: { person: true },
         }),
         manager.getRepository(Tray).findOne({
           where: { id: trayId, deletedAt: IsNull(), active: true },
-        }),
-        manager.getRepository(Storage).findOne({
-          where: { id: storageId, deletedAt: IsNull() },
         }),
         manager.getRepository(User).findOne({
           where: { id: userId, deletedAt: IsNull() },
@@ -120,7 +112,6 @@ export async function createDispatch(
 
       if (!customer) throw new Error('Cliente no encontrado.');
       if (!tray) throw new Error('Tipo de bandeja no encontrado.');
-      if (!storage) throw new Error('Almacén no encontrado.');
       if (!user) throw new Error('Usuario no encontrado.');
 
       let seasonId = input.seasonId?.trim();
@@ -221,7 +212,6 @@ export async function createDispatch(
         const capacity = Math.max(line.traysQuantity, 1);
         const pallet = await manager.save(
           manager.create(Pallet, {
-            storageId,
             trayId,
             traysQuantity: line.traysQuantity,
             capacity,
@@ -249,8 +239,6 @@ export async function createDispatch(
         customerName,
         trayId,
         trayName: tray.name,
-        storageId,
-        storageName: storage.name,
         unitTrayWeight,
         palletIds: createdPalletIds,
         trayOutTransactionId: String(trayOut.id),
@@ -296,8 +284,8 @@ export async function createDispatch(
 
     revalidatePath('/home/dispatch/dispatches');
     revalidatePath('/home/dispatch/new');
-    revalidatePath('/home/storage/trays');
-    revalidatePath('/home/storage/pallets');
+    revalidatePath('/home/trays');
+    revalidatePath('/home/dispatch/pallets');
 
     return { success: true, data: result };
   } catch (error: any) {
@@ -525,8 +513,6 @@ export async function getDispatchDetail(
         customerName: meta.customerName ?? '—',
         trayId: meta.trayId ?? '',
         trayName: meta.trayName ?? '—',
-        storageId: meta.storageId ?? '',
-        storageName: meta.storageName ?? '—',
         unitTrayWeight: meta.unitTrayWeight ?? 0,
         trayOutTransactionId: meta.trayOutTransactionId,
         notes: meta.notes,

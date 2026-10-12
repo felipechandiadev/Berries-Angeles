@@ -31,7 +31,7 @@ const CreateFormatDialog: React.FC<CreateFormatDialogProps> = ({ open, onClose }
   const formFields: BaseFormField[] = [
     {
       name: 'name',
-      label: 'Nombre del formato',
+      label: 'Nombre del calidad',
       type: 'text',
       required: true
     },
@@ -70,14 +70,14 @@ const CreateFormatDialog: React.FC<CreateFormatDialogProps> = ({ open, onClose }
         }, currentUserId);
 
         if (!res.success) {
-          error(res.error || 'Error al crear el formato');
+          error(res.error || 'Error al crear el calidad');
           return { ok: false };
         }
 
-        success(res.message || 'Formato creado exitosamente');
+        success(res.message || 'Calidad creado exitosamente');
         return { ok: true };
       } catch (err: any) {
-        error('Error inesperado al crear el formato');
+        error('Error inesperado al crear el calidad');
         console.error('Create format error:', err);
         return { ok: false };
       }
@@ -110,7 +110,7 @@ const CreateFormatDialog: React.FC<CreateFormatDialogProps> = ({ open, onClose }
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Crear Nuevo Formato"
+      title="Crear Nuevo Calidad"
       maxWidth="md"
       data-test-id="create-format-dialog"
     >
@@ -122,7 +122,7 @@ const CreateFormatDialog: React.FC<CreateFormatDialogProps> = ({ open, onClose }
         onCancel={handleClose}
         isSubmitting={isSubmitting}
         errors={errors}
-        submitLabel="Crear Formato"
+        submitLabel="Crear Calidad"
         cancelButtonText="Cancelar"
       />
     </Dialog>

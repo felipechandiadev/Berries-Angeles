@@ -49,25 +49,11 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         { id: 'despachos', label: 'Despachos', url: '/home/dispatch/dispatches' },
         { id: 'nuevo-despacho', label: 'Nuevo despacho', url: '/home/dispatch/new' },
         { id: 'clientes', label: 'Clientes', url: '/home/dispatch/customers' },
+        { id: 'pallets', label: 'Pallets', url: '/home/dispatch/pallets' },
       ],
     },
-    {
-      id: 'almacenamiento',
-      label: 'Almacenamiento',
-      children: [
-        { id: 'almacenamientos', label: 'Almacenes', url: '/home/storage/storages' },
-        { id: 'bandejas', label: 'Bandejas', url: '/home/storage/trays' },
-        { id: 'pallets', label: 'Pallets', url: '/home/storage/pallets' },
-      ],
-    },
-    {
-      id: 'productos',
-      label: 'Productos',
-      children: [
-        { id: 'variedades', label: 'Variedades', url: '/home/products/varieties' },
-        { id: 'formatos', label: 'Formatos', url: '/home/products/formats' },
-      ],
-    },
+    { id: 'bandejas', label: 'Bandejas', url: '/home/trays' },
+    { id: 'variedades', label: 'Variedades', url: '/home/varieties' },
     { id: 'reportes', label: 'Reportes', url: '/home/reports' },
     { id: 'usuarios', label: 'Usuarios', url: '/home/users' },
     { id: 'auditoria', label: 'Auditoría', url: '/home/audit' },

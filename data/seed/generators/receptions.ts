@@ -47,7 +47,8 @@ export type GeneratedReception = {
   packs: GeneratedPack[];
 };
 
-export type VarietyInfo = { name: string; priceCLP: number };
+/** defaultPriceCLP: precio base por kg (desde qualityPrices de la variedad). */
+export type VarietyInfo = { name: string; defaultPriceCLP: number };
 export type FormatInfo = { name: string };
 export type TrayInfo = { name: string; weight: number };
 
@@ -94,7 +95,7 @@ function buildPack(
   const grossWeightKg =
     Math.round((netWeightBeforeImpuritiesKg + traysTotalWeightKg) * 10) / 10;
   const priceJitter = floatBetween(rng, 0.85, 1.35, 3);
-  const pricePerKg = Math.round(Math.max(400, variety.priceCLP * priceJitter));
+  const pricePerKg = Math.round(Math.max(400, variety.defaultPriceCLP * priceJitter));
   const totalToPay = Math.round(netWeightKg * pricePerKg);
 
   return {

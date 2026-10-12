@@ -5,7 +5,6 @@ import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import UpdateBaseForm, { type BaseUpdateFormField } from '@/app/baseComponents/BaseForm/UpdateBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
-import { getStorages } from '@/app/actions/storages';
 import { getTraysSimpleList } from '@/app/actions/trays';
 import { updatePallet, type UpdatePalletInput } from '@/app/actions/pallets';
 import { PalletStatus } from '@/data/entities/Pallet';
@@ -27,7 +26,6 @@ export default function UpdatePalletButton({ pallet, onSuccess }: UpdatePalletBu
   const { showAlert } = useAlert();
   const [open, setOpen] = useState(false);
   const { isSubmitting, run } = useSubmitLock();
-  const [storageOptions, setStorageOptions] = useState<SelectOption[]>([]);
   const [trayOptions, setTrayOptions] = useState<SelectOption[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [hasLoadedReferences, setHasLoadedReferences] = useState(false);
@@ -36,26 +34,12 @@ export default function UpdatePalletButton({ pallet, onSuccess }: UpdatePalletBu
 
   const loadReferenceData = useCallback(async () => {
     try {
-      const [storagesResult, traysResult] = await Promise.all([
-        getStorages({ active: true }),
-        getTraysSimpleList(),
-      ]);
-
-      if (storagesResult.success && Array.isArray(storagesResult.data)) {
-        setStorageOptions(
-          storagesResult.data.map((storage: any) => ({
-            id: storage.id,
-            label: storage.name,
-          }))
-        );
-      }
-
+      const traysResult = await getTraysSimpleList();
       setTrayOptions(
         Array.isArray(traysResult)
           ? traysResult.map((tray) => ({ id: tray.id, label: tray.label }))
           : []
       );
-
       setHasLoadedReferences(true);
     } catch (error) {
       console.error('[UpdatePalletButton] Error cargando referencias:', error);
@@ -71,7 +55,6 @@ export default function UpdatePalletButton({ pallet, onSuccess }: UpdatePalletBu
 
   const initialState = useMemo(
     () => ({
-      storageId: pallet.storageId,
       trayId: pallet.trayId,
       capacity: pallet.capacity,
       weight: pallet.weight,
@@ -83,13 +66,6 @@ export default function UpdatePalletButton({ pallet, onSuccess }: UpdatePalletBu
 
   const fields: BaseUpdateFormField[] = useMemo(
     () => [
-      {
-        name: 'storageId',
-        label: 'Almacenamiento',
-        type: 'select',
-        required: true,
-        options: storageOptions,
-      },
       {
         name: 'trayId',
         label: 'Bandeja',
@@ -128,22 +104,17 @@ export default function UpdatePalletButton({ pallet, onSuccess }: UpdatePalletBu
         options: statusOptions,
       },
     ],
-    [storageOptions, trayOptions, statusOptions]
+    [trayOptions, statusOptions]
   );
 
   const validate = (values: Record<string, any>): string[] => {
     const validationErrors: string[] = [];
 
-    const storageId = String(values.storageId ?? '').trim();
     const trayId = String(values.trayId ?? '').trim();
     const capacity = Number(values.capacity);
     const weight = Number(values.weight);
     const dispatchWeight = Number(values.dispatchWeight);
     const status = values.status as PalletStatus | undefined;
-
-    if (!storageId) {
-      validationErrors.push('Debes seleccionar un almacenamiento.');
-    }
 
     if (!trayId) {
       validationErrors.push('Debes seleccionar una bandeja.');
@@ -181,7 +152,6 @@ export default function UpdatePalletButton({ pallet, onSuccess }: UpdatePalletBu
       return;
     }
 
-    const storageId = String(values.storageId ?? '').trim();
     const trayId = String(values.trayId ?? '').trim();
     const capacity = Number(values.capacity);
     const weight = Number(values.weight);
@@ -189,10 +159,6 @@ export default function UpdatePalletButton({ pallet, onSuccess }: UpdatePalletBu
     const status = values.status as PalletStatus;
 
     const payload: UpdatePalletInput = { id: pallet.id };
-
-    if (storageId && storageId !== pallet.storageId) {
-      payload.storageId = storageId;
-    }
 
     if (trayId && trayId !== pallet.trayId) {
       payload.trayId = trayId;

@@ -242,7 +242,7 @@ export function SummarySection({
             </p>
           </div>
           <div className="border border-gray-200 rounded-md p-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Formatos</p>
+            <p className="text-xs uppercase tracking-wide text-gray-500">Calidades</p>
             <p className="text-base font-medium text-gray-900">
               {documents.formatNames.length > 0 ? documents.formatNames.join(', ') : '—'}
             </p>

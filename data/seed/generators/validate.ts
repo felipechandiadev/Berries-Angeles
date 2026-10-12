@@ -87,8 +87,8 @@ export async function validateFullSeed(
   if (settledReceptionRelations < 10) {
     errors.push(`Expected settlement relations on receptions, got ${settledReceptionRelations}`);
   }
-  if (palletCount < 15) {
-    errors.push(`Expected >= 15 pallets, got ${palletCount}`);
+  if (palletCount !== 0) {
+    errors.push(`Expected 0 pallets, got ${palletCount}`);
   }
 
   // Spot-check: pack totals vs metadata for a sample

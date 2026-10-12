@@ -1,5 +1,4 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { Storage } from './Storage';
 import { Tray } from './Tray';
 
 export interface PalletTrayAssignment {
@@ -30,9 +29,6 @@ export enum PalletStatus {
 export class Pallet {
     @PrimaryGeneratedColumn({ type: 'int', unsigned: true })
     id!: number;
-
-    @Column({ type: 'varchar', length: 255 })
-    storageId!: string;
 
     @Column({ type: 'varchar', length: 255 })
     trayId!: string;
@@ -67,10 +63,6 @@ export class Pallet {
 
     @DeleteDateColumn()
     deletedAt?: Date;
-
-    @ManyToOne(() => Storage)
-    @JoinColumn({ name: 'storageId' })
-    storage!: Storage;
 
     @ManyToOne(() => Tray)
     @JoinColumn({ name: 'trayId' })

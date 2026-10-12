@@ -3,11 +3,11 @@ import type { Metadata, Viewport } from 'next';
 import { Providers } from './Providers';
 import '../app/global.css';
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME ?? 'Berries Angeles';
+const appName = process.env.NEXT_PUBLIC_APP_NAME ?? 'Berries Maugro';
 
 export const metadata: Metadata = {
   title: appName,
-  description: 'Sistema de gestión Berries Angeles',
+  description: 'Sistema de gestión Berries Maugro',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
