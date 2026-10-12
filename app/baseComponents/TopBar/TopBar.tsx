@@ -98,7 +98,7 @@ const TopBar: React.FC<TopBarProps> = ({
                     height={32}
                     className={`h-8 w-8 object-contain transition-opacity duration-300 ${logoLoaded ? 'opacity-100' : 'opacity-0'}`}
                     data-test-id="top-bar-logo"
-                    onLoadingComplete={() => setLogoLoaded(true)}
+                    onLoad={() => setLogoLoaded(true)}
                     onError={() => setLogoError(true)}
                   />
                 ) : null}

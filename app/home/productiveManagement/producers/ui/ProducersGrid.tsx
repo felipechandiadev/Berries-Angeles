@@ -4,7 +4,8 @@ import { DataGridTable as DataGrid } from '@felipechandiadev/ui';
 import CreateProducerButton from './CreateProducerButton';
 import UpdateProducerButton from './UpdateProducerButton';
 import DeleteProducerButton from './DeleteProducerButton';
-import { useRouter, useSearchParams } from 'next/navigation';
+import IconButton from '@/app/baseComponents/IconButton/IconButton';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { getProducersExportData, GetProducersGridDataInput } from '@/app/actions/producers';
 import { exportProducersToExcel } from '@/lib/excelExport';
@@ -32,10 +33,23 @@ interface ProducersGridProps {
     totalPages: number;
     error?: string;
   };
+  currentLimit: number;
+  currentSort?: 'ASC' | 'DESC';
+  currentSortField?: string;
+  currentSearch?: string;
+  currentFilters?: string;
 }
 
-export default function ProducersGrid({ initialData }: ProducersGridProps) {
+export default function ProducersGrid({
+  initialData,
+  currentLimit,
+  currentSort,
+  currentSortField,
+  currentSearch,
+  currentFilters,
+}: ProducersGridProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { showAlert } = useAlert();
   const [isExporting, setIsExporting] = useState(false);
@@ -44,14 +58,25 @@ export default function ProducersGrid({ initialData }: ProducersGridProps) {
     router.refresh();
   };
 
+  const handleViewDetail = (producerId: string) => {
+    const returnTo = `${pathname}?${searchParams.toString()}`;
+    router.push(
+      `/home/productiveManagement/producers/${producerId}?returnTo=${encodeURIComponent(returnTo)}`,
+    );
+  };
+
   const handleExportExcel = async () => {
     try {
       setIsExporting(true);
-      showAlert({ message: 'Preparing export...', type: 'info', duration: 3000 });
+      showAlert({ message: 'Preparando exportación...', type: 'info', duration: 3000 });
 
       const search = searchParams.get('search') || undefined;
-      const sortBy = searchParams.get('sortBy') || 'createdAt';
-      const sortOrder = (searchParams.get('sortOrder') || 'DESC') as 'ASC' | 'DESC';
+      const sortBy = searchParams.get('sortField') || searchParams.get('sortBy') || 'createdAt';
+      const sortOrder = (
+        searchParams.get('sort') ||
+        searchParams.get('sortOrder') ||
+        'DESC'
+      ).toUpperCase() as 'ASC' | 'DESC';
 
       const exportInput: GetProducersGridDataInput = {
         search,
@@ -63,18 +88,18 @@ export default function ProducersGrid({ initialData }: ProducersGridProps) {
 
       if (!result.success) {
         showAlert({
-          message: result.error || 'Error exporting',
+          message: result.error || 'Error al exportar',
           type: 'error',
-          duration: 5000
+          duration: 5000,
         });
         return;
       }
 
       if (!result.data || result.data.length === 0) {
         showAlert({
-          message: 'No data to export',
+          message: 'No hay datos para exportar',
           type: 'warning',
-          duration: 4000
+          duration: 4000,
         });
         return;
       }
@@ -83,23 +108,23 @@ export default function ProducersGrid({ initialData }: ProducersGridProps) {
 
       if (exportResult.success) {
         showAlert({
-          message: `${exportResult.recordCount} records exported successfully`,
+          message: `${exportResult.recordCount} registros exportados`,
           type: 'success',
-          duration: 4000
+          duration: 4000,
         });
       } else {
         showAlert({
-          message: `Error generating Excel: ${exportResult.error}`,
+          message: `Error al generar Excel: ${exportResult.error}`,
           type: 'error',
-          duration: 5000
+          duration: 5000,
         });
       }
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       showAlert({
-        message: 'Unexpected error during export',
+        message: 'Error inesperado al exportar',
         type: 'error',
-        duration: 5000
+        duration: 5000,
       });
     } finally {
       setIsExporting(false);
@@ -115,7 +140,7 @@ export default function ProducersGrid({ initialData }: ProducersGridProps) {
     },
     {
       field: 'dni',
-      headerName: 'DNI',
+      headerName: 'RUT',
       flex: 1,
       sortable: true,
     },
@@ -140,11 +165,20 @@ export default function ProducersGrid({ initialData }: ProducersGridProps) {
     },
     {
       field: 'actions',
-      headerName: 'Acciones',
-      flex: 0.6,
+      headerName: '',
+      flex: 0.8,
       sortable: false,
+      filterable: false,
       actionComponent: ({ row }: { row: Producer }) => (
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1">
+          <IconButton
+            icon="more_horiz"
+            variant="basicSecondary"
+            size="xs"
+            title="Ver detalle"
+            ariaLabel="Ver detalle del productor"
+            onClick={() => handleViewDetail(row.id)}
+          />
           <UpdateProducerButton producer={row} onSuccess={handleRefresh} />
           <DeleteProducerButton producer={row} onSuccess={handleRefresh} />
         </div>
@@ -153,16 +187,21 @@ export default function ProducersGrid({ initialData }: ProducersGridProps) {
   ];
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200">
-      <DataGrid
-        columns={columns}
-        rows={initialData.data}
-        limit={initialData.limit}
-        totalRows={initialData.totalRecords}
-        onExportExcel={handleExportExcel}
-        createForm={<CreateProducerButton onSuccess={handleRefresh} />}
-        height={'85vh'}
-      />
-    </div>
+    <DataGrid
+      title="Productores"
+      columns={columns}
+      rows={initialData.data}
+      limit={currentLimit}
+      totalRows={initialData.totalRecords}
+      onExportExcel={isExporting ? undefined : handleExportExcel}
+      sort={currentSort?.toLowerCase() as 'asc' | 'desc' | undefined}
+      sortField={currentSortField}
+      search={currentSearch}
+      filters={currentFilters}
+      createForm={<CreateProducerButton onSuccess={handleRefresh} />}
+      createFormTitle="Crear productor"
+      height="85vh"
+      showBorder={false}
+    />
   );
 }

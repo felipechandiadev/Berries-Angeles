@@ -12,13 +12,15 @@ import { useAlert } from '@/app/state/hooks/useAlert';
 import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { useSession } from 'next-auth/react';
 import type { ReceptionDetailSummary, ReceptionDetailTotals, ReceptionDetailDocumentInfo } from '../types';
-import { paymentStatusLabel } from '@/lib/receptionPayment';
+import { receptionDisplayStatusFromSources } from '@/lib/receptionDisplayStatus';
+import { isReceptionLinkedToSettlement } from '@/lib/receptionSettlement';
 
 interface SummarySectionProps {
   summary: ReceptionDetailSummary;
   totals: ReceptionDetailTotals | null;
   documents: ReceptionDetailDocumentInfo;
   onRefresh?: () => void;
+  lockedBySettlement?: boolean;
 }
 
 const numberFormatter = new Intl.NumberFormat('es-CL', {
@@ -37,7 +39,15 @@ const usdFormatter = new Intl.NumberFormat('es-CL', {
   maximumFractionDigits: 2,
 });
 
-export function SummarySection({ summary, totals, documents, onRefresh }: SummarySectionProps) {
+export function SummarySection({
+  summary,
+  totals,
+  documents,
+  onRefresh,
+  lockedBySettlement: lockedBySettlementProp,
+}: SummarySectionProps) {
+  const lockedBySettlement =
+    lockedBySettlementProp ?? isReceptionLinkedToSettlement(summary.settlementStatus);
   const [isEditDateDialogOpen, setIsEditDateDialogOpen] = useState(false);
   const [newDate, setNewDate] = useState('');
   const [reason, setReason] = useState('');
@@ -200,15 +210,17 @@ export function SummarySection({ summary, totals, documents, onRefresh }: Summar
             )}
           </div>
           <div className="border border-gray-200 rounded-md p-3 relative">
-            <div className="absolute top-2 right-2">
-              <IconButton
-                icon="edit"
-                size="sm"
-                variant="text"
-                onClick={handleEditDate}
-                title="Editar fecha y hora de recepción"
-              />
-            </div>
+            {!lockedBySettlement ? (
+              <div className="absolute top-2 right-2">
+                <IconButton
+                  icon="edit"
+                  size="sm"
+                  variant="text"
+                  onClick={handleEditDate}
+                  title="Editar fecha y hora de recepción"
+                />
+              </div>
+            ) : null}
             <p className="text-xs uppercase tracking-wide text-gray-500">Fecha de registro</p>
             <p className="text-base font-medium text-gray-900">
               {summary.createdAt ? formatAuditDate(summary.createdAt) : '—'}
@@ -258,15 +270,17 @@ export function SummarySection({ summary, totals, documents, onRefresh }: Summar
 
           {/* Row 4 */}
           <div className="border border-gray-200 rounded-md p-3 relative">
-            <div className="absolute top-2 right-2">
-              <IconButton
-                icon="edit"
-                size="sm"
-                variant="text"
-                onClick={handleEditExchangeRate}
-                title="Editar tipo de cambio de recepción"
-              />
-            </div>
+            {!lockedBySettlement ? (
+              <div className="absolute top-2 right-2">
+                <IconButton
+                  icon="edit"
+                  size="sm"
+                  variant="text"
+                  onClick={handleEditExchangeRate}
+                  title="Editar tipo de cambio de recepción"
+                />
+              </div>
+            ) : null}
             <p className="text-xs uppercase tracking-wide text-gray-500">Cambio</p>
             <p className="text-base font-medium text-gray-900">
               {summary.exchangeRate !== undefined && summary.exchangeRate !== null
@@ -286,10 +300,20 @@ export function SummarySection({ summary, totals, documents, onRefresh }: Summar
             )}
           </div>
           <div className="border border-gray-200 rounded-md p-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Estado de pago</p>
+            <p className="text-xs uppercase tracking-wide text-gray-500">Estado</p>
             <p className="text-base font-medium text-gray-900">
-              {paymentStatusLabel(summary.paymentStatus)}
+              {
+                receptionDisplayStatusFromSources(
+                  summary.paymentStatus,
+                  summary.settlementStatus,
+                ).label
+              }
             </p>
+            {lockedBySettlement ? (
+              <p className="mt-1 text-xs text-amber-600">
+                Recepción bloqueada: no se puede editar ni eliminar.
+              </p>
+            ) : null}
           </div>
         </div>
       {summary.updatedAt && summary.updatedAt !== summary.createdAt && (

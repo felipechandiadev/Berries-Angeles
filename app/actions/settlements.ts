@@ -17,6 +17,13 @@ import { ReceptionPack } from '../../data/entities/ReceptionPack';
 import { Producer } from '../../data/entities/Producer';
 import { User } from '../../data/entities/User';
 import { Season } from '../../data/entities/Season';
+import { AdminBankAccount } from '../../data/entities/AdminBankAccount';
+import { getAppConfigSettings } from './appConfigSettings';
+import {
+  buildOutboundPaymentDetails,
+  type PaymentDetails,
+  type PaymentMethod,
+} from '@/lib/paymentDetails';
 
 export interface ListPendingReceptionsInput {
   producerId?: string;
@@ -417,6 +424,8 @@ export interface SaveSettlementInput {
   notes?: string;
   seasonId?: string;
   settlementId?: string;
+  paymentMethod?: PaymentMethod;
+  paymentDetails?: PaymentDetails;
 }
 
 export interface SaveSettlementResult {
@@ -445,6 +454,8 @@ export interface SettlementWizardData {
   advancesAppliedCLP: number;
   netAmountCLP: number;
   notes?: string;
+  paymentMethod?: PaymentMethod;
+  paymentDetails?: PaymentDetails;
 }
 
 export interface ListSettlementsFilters {
@@ -474,6 +485,7 @@ export interface SettlementSummary {
   advancesAppliedCLP: number;
   netAmountCLP: number;
   notes?: string;
+  paymentMethod?: PaymentMethod | null;
 }
 
 export interface ListSettlementsResult {
@@ -675,6 +687,42 @@ export async function saveSettlement(
       }
       const netAmountCLP = Math.max(0, receptionsTotalCLP - advancesAppliedCLP);
 
+      let paymentMethod: PaymentMethod | undefined;
+      let paymentDetails: PaymentDetails | undefined;
+
+      if (netAmountCLP > 0) {
+        const method = input.paymentMethod;
+        if (status === 'COMPLETA') {
+          if (method !== 'CASH' && method !== 'TRANSFER' && method !== 'CHECK') {
+            throw new Error('Debe indicar la forma de pago de la liquidación.');
+          }
+          const configResult = await getAppConfigSettings();
+          const requireBankAccountsInPayments =
+            configResult.data?.requireBankAccountsInPayments !== false;
+          paymentMethod = method;
+          paymentDetails = buildOutboundPaymentDetails(method, input.paymentDetails, {
+            requireBankAccountsInPayments,
+          });
+        } else if (method === 'CASH' || method === 'TRANSFER' || method === 'CHECK') {
+          paymentMethod = method;
+          paymentDetails = {
+            producerAccountId: input.paymentDetails?.producerAccountId,
+            bankAccountId: input.paymentDetails?.bankAccountId,
+            transactionId: input.paymentDetails?.transactionId,
+            checkNumber: input.paymentDetails?.checkNumber,
+          };
+        }
+
+        if (paymentDetails?.bankAccountId) {
+          const bankAccount = await manager.getRepository(AdminBankAccount).findOne({
+            where: { id: paymentDetails.bankAccountId },
+          });
+          if (!bankAccount || !bankAccount.isActive || bankAccount.deletedAt) {
+            throw new Error('La cuenta bancaria de la administración seleccionada no está activa.');
+          }
+        }
+      }
+
       const metadata: SettlementMetadata = {
         status,
         receptionTransactionIds: receptionIds,
@@ -683,6 +731,8 @@ export async function saveSettlement(
         advancesAppliedCLP,
         netAmountCLP,
         ...(input.notes?.trim() ? { notes: input.notes.trim() } : {}),
+        ...(paymentMethod ? { paymentMethod } : {}),
+        ...(paymentDetails ? { paymentDetails } : {}),
       };
 
       if (!settlement) {
@@ -808,6 +858,20 @@ export async function getSettlementForWizard(
         advancesAppliedCLP: toNumber(metadata?.advancesAppliedCLP, 0),
         netAmountCLP: toNumber(metadata?.netAmountCLP, toNumber(settlement.amount, 0)),
         notes: typeof metadata?.notes === 'string' ? metadata.notes : undefined,
+        paymentMethod:
+          metadata?.paymentMethod === 'CASH' ||
+          metadata?.paymentMethod === 'TRANSFER' ||
+          metadata?.paymentMethod === 'CHECK'
+            ? metadata.paymentMethod
+            : undefined,
+        paymentDetails: metadata?.paymentDetails
+          ? {
+              producerAccountId: metadata.paymentDetails.producerAccountId,
+              bankAccountId: metadata.paymentDetails.bankAccountId,
+              transactionId: metadata.paymentDetails.transactionId,
+              checkNumber: metadata.paymentDetails.checkNumber,
+            }
+          : undefined,
       },
     };
   } catch (error: any) {
@@ -1002,6 +1066,12 @@ export async function listSettlements(
           ? metadata.netAmountCLP
           : toNumber(settlement.amount, 0),
       notes: typeof metadata?.notes === 'string' ? metadata.notes : undefined,
+      paymentMethod:
+        metadata?.paymentMethod === 'CASH' ||
+        metadata?.paymentMethod === 'TRANSFER' ||
+        metadata?.paymentMethod === 'CHECK'
+          ? metadata.paymentMethod
+          : null,
     };
   });
 

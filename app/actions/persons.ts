@@ -1,11 +1,60 @@
 // Server Actions para CRUD de la entidad Person
 'use server';
 
-import { Person } from '../../data/entities/Person';
+import {
+  Person,
+  AccountTypeName,
+  BankName,
+  type PersonBankAccount,
+} from '../../data/entities/Person';
 import { getDb } from '../../data/db';
 import { AuditActionType } from '../../data/entities/audit.types';
 import { logPersonAudit } from './audit.persons';
 import { getCurrentUserSession } from './auth.server';
+import { revalidatePath } from 'next/cache';
+
+const allowedAccountTypes = new Set<string>(Object.values(AccountTypeName));
+const allowedBankNames = new Set<string>(Object.values(BankName));
+
+function sanitizeBankAccounts(input?: PersonBankAccount[] | null): PersonBankAccount[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  const sanitizedAccounts: PersonBankAccount[] = [];
+
+  for (const rawAccount of input) {
+    if (!rawAccount) continue;
+
+    const accountTypeRaw =
+      typeof rawAccount.accountType === 'string' ? rawAccount.accountType.trim() : '';
+    const bankRaw = typeof rawAccount.bank === 'string' ? rawAccount.bank.trim() : '';
+    const accountNumber =
+      typeof rawAccount.accountNumber === 'string' ? rawAccount.accountNumber.trim() : '';
+
+    if (!accountTypeRaw || !bankRaw || !accountNumber) continue;
+    if (!allowedAccountTypes.has(accountTypeRaw) || !allowedBankNames.has(bankRaw)) continue;
+
+    const sanitizedAccount: PersonBankAccount = {
+      accountType: accountTypeRaw as AccountTypeName,
+      bank: bankRaw as BankName,
+      accountNumber,
+    };
+
+    if (typeof rawAccount.alias === 'string') {
+      const alias = rawAccount.alias.trim();
+      if (alias) sanitizedAccount.alias = alias;
+    }
+
+    if (rawAccount.isPrimary !== undefined) {
+      sanitizedAccount.isPrimary = Boolean(rawAccount.isPrimary);
+    }
+
+    sanitizedAccounts.push(sanitizedAccount);
+  }
+
+  return sanitizedAccounts;
+}
 
 export interface PersonCreateInput {
   name: string;
@@ -235,6 +284,66 @@ export async function deletePerson(id: string): Promise<PersonResult> {
     return {
       success: false,
       error: error?.message || 'Error al eliminar la persona',
+    };
+  }
+}
+
+/**
+ * UPDATE - Actualizar cuentas bancarias de una persona
+ */
+export async function updatePersonBankAccounts(
+  personId: string,
+  bankAccounts: PersonBankAccount[],
+): Promise<PersonResult> {
+  try {
+    if (!personId?.trim()) {
+      return { success: false, error: 'ID de persona inválido' };
+    }
+
+    const db = await getDb();
+    const repo = db.getRepository(Person);
+
+    const person = await repo.findOne({ where: { id: personId } });
+    if (!person) {
+      return { success: false, error: 'Persona no encontrada' };
+    }
+
+    const sanitized = sanitizeBankAccounts(bankAccounts);
+    const oldValues = { bankAccounts: person.bankAccounts };
+
+    let userId: string | undefined;
+    try {
+      const session = await getCurrentUserSession();
+      userId = session.userId;
+    } catch {
+      /* optional session */
+    }
+
+    await db.transaction(async (manager) => {
+      await manager.update(Person, personId, {
+        bankAccounts: sanitized.length > 0 ? sanitized : null,
+      });
+      await logPersonAudit(
+        manager,
+        personId,
+        AuditActionType.UPDATE,
+        userId,
+        oldValues,
+        { bankAccounts: sanitized },
+      );
+    });
+
+    revalidatePath('/home/productiveManagement/producers', 'layout');
+
+    return {
+      success: true,
+      message: 'Cuentas bancarias actualizadas exitosamente',
+    };
+  } catch (error: any) {
+    console.error('[updatePersonBankAccounts] Error:', error);
+    return {
+      success: false,
+      error: error?.message || 'Error al actualizar cuentas bancarias',
     };
   }
 }

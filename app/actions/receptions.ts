@@ -2,7 +2,14 @@
 
 import { DataSource, EntityManager, In, IsNull } from 'typeorm';
 import { getDb } from '../../data/db';
-import { Transaction, TransactionDirection, TransactionType, TransactionUnit, TransactionMetadata } from '../../data/entities/Transaction';
+import {
+  Transaction,
+  TransactionDirection,
+  TransactionType,
+  TransactionUnit,
+  TransactionMetadata,
+  type SettlementMetadata,
+} from '../../data/entities/Transaction';
 import { ReceptionPack } from '../../data/entities/ReceptionPack';
 import { TransactionRelation, TransactionRelationType } from '../../data/entities/TransactionRelation';
 import { Pallet, PalletMetadata, PalletStatus, PalletTrayAssignment } from '../../data/entities/Pallet';
@@ -35,6 +42,106 @@ import {
   normalizePaymentStatus,
   type ReceptionPaymentStatus,
 } from '@/lib/receptionPayment';
+import {
+  type ReceptionSettlementStatus,
+} from '@/lib/receptionSettlement';
+
+const RECEPTION_LOCKED_BY_SETTLEMENT_MESSAGE =
+  'No se puede modificar ni eliminar una recepción asociada a una liquidación.';
+
+export async function mapReceptionSettlementStatus(
+  receptionIds: string[],
+  manager?: EntityManager,
+): Promise<Map<string, ReceptionSettlementStatus>> {
+  const result = new Map<string, ReceptionSettlementStatus>();
+  const uniqueIds = Array.from(
+    new Set(receptionIds.map((id) => String(id).trim()).filter(Boolean)),
+  );
+  for (const id of uniqueIds) {
+    result.set(id, 'NONE');
+  }
+  if (uniqueIds.length === 0) {
+    return result;
+  }
+
+  const db = manager ?? (await getDb()).manager;
+  const relations = await db.getRepository(TransactionRelation).find({
+    where: {
+      parentTransactionId: In(uniqueIds),
+      relationType: TransactionRelationType.RECEPTION_TO_SETTLEMENT,
+    },
+  });
+  if (relations.length === 0) {
+    return result;
+  }
+
+  const settlementIdStrings = Array.from(
+    new Set(
+      relations
+        .map((relation) => String(relation.childTransactionId ?? '').trim())
+        .filter(Boolean),
+    ),
+  );
+  const settlementBigInts: bigint[] = [];
+  for (const id of settlementIdStrings) {
+    try {
+      settlementBigInts.push(BigInt(id));
+    } catch {
+      /* skip invalid */
+    }
+  }
+  if (settlementBigInts.length === 0) {
+    return result;
+  }
+
+  const settlements = await db.getRepository(Transaction).find({
+    where: {
+      id: In(settlementBigInts),
+      type: TransactionType.SETTLEMENT,
+      deletedAt: IsNull(),
+    },
+  });
+
+  const statusBySettlementId = new Map<string, ReceptionSettlementStatus>();
+  for (const settlement of settlements) {
+    const metadata = settlement.metadata as SettlementMetadata | null | undefined;
+    const status =
+      metadata?.status === 'BORRADOR'
+        ? ('BORRADOR' as const)
+        : ('COMPLETA' as const);
+    statusBySettlementId.set(String(settlement.id), status);
+  }
+
+  for (const relation of relations) {
+    const receptionId = String(relation.parentTransactionId);
+    const settlementStatus = statusBySettlementId.get(
+      String(relation.childTransactionId),
+    );
+    if (!settlementStatus) continue;
+    const current = result.get(receptionId) ?? 'NONE';
+    if (current === 'COMPLETA') continue;
+    if (settlementStatus === 'COMPLETA' || current === 'NONE') {
+      result.set(receptionId, settlementStatus);
+    }
+  }
+
+  return result;
+}
+
+async function assertReceptionNotLinkedToSettlement(
+  receptionId: string,
+  manager: EntityManager,
+): Promise<void> {
+  const relation = await manager.getRepository(TransactionRelation).findOne({
+    where: {
+      parentTransactionId: String(receptionId),
+      relationType: TransactionRelationType.RECEPTION_TO_SETTLEMENT,
+    },
+  });
+  if (relation) {
+    throw new Error(RECEPTION_LOCKED_BY_SETTLEMENT_MESSAGE);
+  }
+}
 
 export interface ReceptionProducerOption {
   id: string | number;
@@ -103,7 +210,15 @@ export interface ProcessReceptionResult {
   error?: string;
 }
 
-export type RemoveReceptionPackHandlingMode = 'adjust' | 'return';
+/** keep = bandejas quedan en inventario; return = sale al productor; writeoff = baja stock sin devolución. */
+export type RemoveReceptionPackHandlingMode = 'keep' | 'return' | 'writeoff';
+
+function normalizeRemovePackHandlingMode(raw: unknown): RemoveReceptionPackHandlingMode {
+  if (raw === 'return') return 'return';
+  // 'adjust' legacy = writeoff (bajaba stock sin devolución)
+  if (raw === 'writeoff' || raw === 'adjust') return 'writeoff';
+  return 'keep';
+}
 
 export interface RemoveReceptionPackInput {
   receptionTransactionId: string;
@@ -367,10 +482,8 @@ export async function processReception(input: ProcessReceptionInput): Promise<Pr
           pricePerKg,
           currency: pack.currency ?? Currency.CLP,
           totalToPay,
-          palletAssignments: (pack.palletAssignments ?? []).map((assignment) => ({
-            palletId: assignment.palletId,
-            traysAssigned: normalizeNumber(assignment.traysAssigned),
-          })),
+          // Packs ya no se asignan a pallets en recepción (despacho crea pallets).
+          palletAssignments: [],
         });
 
         const savedPack = await manager.save(ReceptionPack, receptionPack);
@@ -385,99 +498,6 @@ export async function processReception(input: ProcessReceptionInput): Promise<Pr
         });
 
         await manager.save(TransactionRelation, relation);
-      }
-
-      const palletAssignmentTransactions: Array<{ transaction: Transaction; pack: ProcessReceptionPackInput; palletId: number; traysAssigned: number; }>
-        = [];
-
-      for (const { pack, entity } of savedPacks) {
-        const assignments = Array.isArray(pack.palletAssignments) ? pack.palletAssignments : [];
-
-        for (const assignment of assignments) {
-          const traysAssigned = normalizeNumber(assignment.traysAssigned);
-          if (!assignment.palletId || traysAssigned <= 0) {
-            continue;
-          }
-
-          const pallet = await manager.getRepository(Pallet).findOne({ where: { id: assignment.palletId } });
-          if (!pallet) {
-            throw new Error(`El pallet ${assignment.palletId} no existe.`);
-          }
-
-          const currentTraysQuantity = normalizeNumber(pallet.traysQuantity);
-          const nextTraysQuantity = currentTraysQuantity + traysAssigned;
-          const palletTraysBefore = currentTraysQuantity;
-          const palletTraysAfter = nextTraysQuantity;
-
-          const metadata: PalletMetadata = Array.isArray(pallet.metadata) ? [...pallet.metadata] : [];
-
-          const trayIdForMetadata = pack.trayId ? String(pack.trayId) : 'N/A';
-          const existingAssignment = metadata.find((item: PalletTrayAssignment) =>
-            item.receptionPackId === String(entity.id) && item.trayId === trayIdForMetadata
-          );
-
-          if (existingAssignment) {
-            existingAssignment.quantity += traysAssigned;
-          } else {
-            metadata.push({
-              receptionPackId: String(entity.id),
-              trayId: trayIdForMetadata,
-              quantity: traysAssigned,
-            });
-          }
-
-          pallet.traysQuantity = nextTraysQuantity;
-          if (pallet.capacity && nextTraysQuantity >= pallet.capacity) {
-            pallet.status = PalletStatus.FULL;
-          } else if (nextTraysQuantity === 0) {
-            pallet.status = PalletStatus.AVAILABLE;
-          }
-          pallet.metadata = metadata;
-
-          await manager.save(Pallet, pallet);
-
-          const assignmentTransaction = manager.create(Transaction, {
-            type: TransactionType.PALLET_TRAY_ASSIGNMENT,
-            direction: TransactionDirection.IN,
-            unit: TransactionUnit.TRAY,
-            amount: Number(traysAssigned.toFixed(2)),
-            seasonId: season.id,
-            producerId: producerData.id,
-            userId: user.id,
-            metadata: ({
-              receptionTransactionId,
-              receptionPackId: entity.id,
-              packNumber: pack.packNumber,
-              palletId: assignment.palletId,
-              trayId: pack.trayId,
-              trayLabel: pack.trayLabel,
-              traysAssigned,
-              palletTraysBefore,
-              palletTraysAfter,
-              performedBy: user.id,
-              performedByName: user.name,
-              performedAt: nowIso,
-            } as any),
-          });
-
-          const savedAssignmentTransaction = await manager.save(Transaction, assignmentTransaction);
-
-          const assignmentRelation = manager.create(TransactionRelation, {
-            parentTransactionId: receptionTransactionId,
-            childTransactionId: String(savedAssignmentTransaction.id),
-            relationType: TransactionRelationType.PALLET_ASSIGNMENT,
-            context: `pack ${pack.packNumber} → pallet ${assignment.palletId}`,
-          });
-
-          await manager.save(TransactionRelation, assignmentRelation);
-
-          palletAssignmentTransactions.push({
-            transaction: savedAssignmentTransaction,
-            pack,
-            palletId: assignment.palletId,
-            traysAssigned,
-          });
-        }
       }
 
       const trayIdsToLoad = new Set<string>();
@@ -679,10 +699,7 @@ export async function processReception(input: ProcessReceptionInput): Promise<Pr
         currency: pack.currency ?? Currency.CLP,
         pricePerKg: normalizeNumber(pack.price),
         totalToPay: normalizeNumber(pack.totalToPay),
-        palletAssignments: (pack.palletAssignments ?? []).map((assignment) => ({
-          palletId: assignment.palletId,
-          traysAssigned: normalizeNumber(assignment.traysAssigned),
-        })),
+        palletAssignments: [],
       }));
 
       const metadataTrayReturns = trayDevolutionTransactions.map((item) => ({
@@ -767,7 +784,7 @@ export async function processReception(input: ProcessReceptionInput): Promise<Pr
 export async function removeReceptionPack(input: RemoveReceptionPackInput): Promise<RemoveReceptionPackResult> {
   const receptionTransactionId = input?.receptionTransactionId?.toString().trim();
   const packIdRaw = input?.packId?.toString().trim();
-  const handlingMode: RemoveReceptionPackHandlingMode = input?.handlingMode === 'return' ? 'return' : 'adjust';
+  const handlingMode = normalizeRemovePackHandlingMode(input?.handlingMode);
   const reason = (input?.reason ?? '').trim();
   const notes = (input?.notes ?? '').trim() || undefined;
 
@@ -808,6 +825,19 @@ export async function removeReceptionPack(input: RemoveReceptionPackInput): Prom
       if (!reception) {
         await queryRunner.rollbackTransaction();
         return { success: false, error: 'La recepción no existe o ya fue eliminada.' };
+      }
+
+      try {
+        await assertReceptionNotLinkedToSettlement(String(reception.id), manager);
+      } catch (assertError) {
+        await queryRunner.rollbackTransaction();
+        return {
+          success: false,
+          error:
+            assertError instanceof Error
+              ? assertError.message
+              : RECEPTION_LOCKED_BY_SETTLEMENT_MESSAGE,
+        };
       }
 
       const user = await resolveUser(manager, input.userId);
@@ -993,7 +1023,9 @@ export async function removeReceptionPack(input: RemoveReceptionPackInput): Prom
         await manager.save(TransactionRelation, palletReleaseRelation);
       }
 
-      if (traysQuantity > 0 && pack.trayId) {
+      // keep: bandejas quedan en inventario (solo se liberan del pallet).
+      // return / writeoff: descuentan stock; return además registra salida al productor.
+      if (traysQuantity > 0 && pack.trayId && handlingMode !== 'keep') {
         const tray = await manager.getRepository(Tray).findOne({
           where: {
             id: pack.trayId,
@@ -1068,6 +1100,7 @@ export async function removeReceptionPack(input: RemoveReceptionPackInput): Prom
           });
           receptionMetadata.trayReturns = trayReturns;
         } else {
+          // writeoff
           const trayAdjustment = manager.create(Transaction, {
             type: TransactionType.TRAY_ADJUSTMENT,
             direction: TransactionDirection.OUT,
@@ -1145,7 +1178,13 @@ export async function removeReceptionPack(input: RemoveReceptionPackInput): Prom
         changedAt: nowIso,
         changedBy: user.id,
         changedByName: user.name,
-        summary: `Pack ${packNumber ?? pack.id} eliminado (${handlingMode === 'return' ? 'devolución a productor' : 'ajuste interno'})`,
+        summary: `Pack ${packNumber ?? pack.id} eliminado (${
+          handlingMode === 'return'
+            ? 'devolución a productor'
+            : handlingMode === 'writeoff'
+              ? 'baja de inventario'
+              : 'bandejas en inventario'
+        })`,
         details: [
           {
             field: 'packsCount',
@@ -1371,6 +1410,7 @@ export interface ReceptionGridRow {
   exchangeRate: number;
   totalCLP: number;
   paymentStatus: ReceptionPaymentStatus;
+  settlementStatus: ReceptionSettlementStatus;
   createdAt?: string;
 }
 
@@ -1469,9 +1509,25 @@ const formatReceptionRow = (raw: RawReceptionRow): ReceptionGridRow => {
     exchangeRate,
     totalCLP,
     paymentStatus: normalizePaymentStatus(metadata?.paymentStatus),
+    settlementStatus: 'NONE',
     createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : undefined,
   };
 };
+
+async function attachSettlementStatusToRows(
+  rows: ReceptionGridRow[],
+  manager?: EntityManager,
+): Promise<ReceptionGridRow[]> {
+  if (rows.length === 0) return rows;
+  const statusMap = await mapReceptionSettlementStatus(
+    rows.map((row) => row.id),
+    manager,
+  );
+  return rows.map((row) => ({
+    ...row,
+    settlementStatus: statusMap.get(row.id) ?? 'NONE',
+  }));
+}
 
 export async function getReceptionsGridData(
   filters?: ReceptionsGridFilters
@@ -1546,7 +1602,7 @@ export async function getReceptionsGridData(
       .take(limit)
       .getRawMany<RawReceptionRow>();
 
-    const data = rawRows.map(formatReceptionRow);
+    const data = await attachSettlementStatusToRows(rawRows.map(formatReceptionRow));
 
     return {
       data,
@@ -1643,7 +1699,7 @@ export async function getReceptionsExportData(filters?: ReceptionsGridFilters): 
       };
     }
 
-    const data = rawRows.map(formatReceptionRow);
+    const data = await attachSettlementStatusToRows(rawRows.map(formatReceptionRow));
 
     return {
       success: true,
@@ -2034,6 +2090,10 @@ export async function getReceptionDetail(receptionId: string): Promise<Reception
         totalCLPToPay: totals.totalCLPToPay,
         payableUSD: totals.payableUSD,
         paymentStatus: normalizePaymentStatus(metadata?.paymentStatus),
+        settlementStatus:
+          (
+            await mapReceptionSettlementStatus([String(reception.id)], dataSource.manager)
+          ).get(String(reception.id)) ?? 'NONE',
       },
       producer: producerInfo,
       documents: {
@@ -2279,6 +2339,8 @@ export async function deleteReception(receptionId: string, auditUserId?: string)
         );
       }
 
+      await assertReceptionNotLinkedToSettlement(String(reception.id), manager);
+
       const relationsRepo = manager.getRepository(TransactionRelation);
       const relations = await relationsRepo.find({
         where: { parentTransactionId: receptionId },
@@ -2413,6 +2475,8 @@ export async function updateReceptionDate(input: UpdateReceptionDateInput): Prom
         throw new Error('Recepción no encontrada');
       }
 
+      await assertReceptionNotLinkedToSettlement(String(reception.id), transactionManager);
+
       const oldDate = reception.createdAt;
 
       // Update the transaction date
@@ -2519,12 +2583,13 @@ export async function updateReceptionExchangeRate(input: UpdateReceptionExchange
       // Obtener la recepción actual
       const reception = await transactionManager.findOne(Transaction, {
         where: { id: BigInt(receptionId) },
-        select: ['id', 'metadata', 'createdAt', 'updatedAt'],
       });
 
       if (!reception) {
         throw new Error('Recepción no encontrada');
       }
+
+      await assertReceptionNotLinkedToSettlement(String(reception.id), transactionManager);
 
       const oldMetadata = toReceptionMetadata(reception.metadata) || {};
       const oldExchangeRate = oldMetadata.exchangeRate || 0;
@@ -2658,6 +2723,8 @@ export async function updatePackImpurity(input: UpdatePackImpurityInput): Promis
       if (!reception) {
         throw new Error('Recepción no encontrada');
       }
+
+      await assertReceptionNotLinkedToSettlement(String(reception.id), transactionManager);
 
       // Get pack
       const pack = await transactionManager.getRepository(ReceptionPack).findOne({
@@ -2864,6 +2931,8 @@ export async function updatePackPrice(input: UpdatePackPriceInput): Promise<Upda
       if (!reception) {
         throw new Error('Recepción no encontrada');
       }
+
+      await assertReceptionNotLinkedToSettlement(String(reception.id), transactionManager);
 
       // Get pack
       const pack = await transactionManager.getRepository(ReceptionPack).findOne({

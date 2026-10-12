@@ -20,8 +20,15 @@ import type { PersonBankAccount } from '@/data/entities/Person';
 
 import { AuditActionType } from '@/data/entities/audit.types';
 import { logAdvanceAudit } from './audit.advances';
+import { getAppConfigSettings } from './appConfigSettings';
+import { updatePersonBankAccounts } from './persons';
+import {
+  buildOutboundPaymentDetails,
+  type PaymentDetails,
+  type PaymentMethod,
+} from '@/lib/paymentDetails';
 
-export type AdvancePaymentMethod = 'CASH' | 'TRANSFER' | 'CHECK';
+export type AdvancePaymentMethod = PaymentMethod;
 
 export type AdvanceStatus = 'ACTIVE' | 'APPLIED' | 'CANCELLED';
 
@@ -109,33 +116,11 @@ function ensureIntegerCLP(amount: number) {
   }
 }
 
-function buildPaymentDetails(input: CreateAdvanceInput): AdvanceMetadata['paymentDetails'] {
-  const details = input.paymentDetails ?? {};
-
-  if (input.paymentMethod === 'TRANSFER') {
-    if (!details.bankAccountId) {
-      throw new Error('Debe seleccionar la cuenta bancaria de la administración para transferencias.');
-    }
-    if (!details.producerAccountId) {
-      throw new Error('Debe seleccionar la cuenta bancaria del productor para transferencias.');
-    }
-  }
-
-  if (input.paymentMethod === 'CHECK') {
-    if (!details.bankAccountId) {
-      throw new Error('Debe seleccionar la cuenta bancaria emisora del cheque.');
-    }
-    if (!details.checkNumber) {
-      throw new Error('Debe ingresar el número de serie del cheque.');
-    }
-  }
-
-  return {
-    producerAccountId: details.producerAccountId,
-    bankAccountId: details.bankAccountId,
-    transactionId: details.transactionId,
-    checkNumber: details.checkNumber,
-  };
+function buildPaymentDetails(
+  input: CreateAdvanceInput,
+  options: { requireBankAccountsInPayments: boolean } = { requireBankAccountsInPayments: true },
+): PaymentDetails {
+  return buildOutboundPaymentDetails(input.paymentMethod, input.paymentDetails, options);
 }
 
 function resolvePaymentReference(metadata?: AdvanceMetadata): string | undefined {
@@ -295,6 +280,90 @@ export async function getProducerBankAccounts(producerId: string): Promise<Array
   });
 }
 
+export async function addProducerBankAccount(
+  producerId: string,
+  account: PersonBankAccount,
+): Promise<{
+  success: boolean;
+  error?: string;
+  message?: string;
+  data?: {
+    accounts: Array<{ id: string; label: string }>;
+    selectedId: string;
+  };
+}> {
+  try {
+    if (!producerId?.trim()) {
+      return { success: false, error: 'Debe seleccionar un productor' };
+    }
+
+    const accountNumber =
+      typeof account.accountNumber === 'string' ? account.accountNumber.trim() : '';
+    if (!accountNumber) {
+      return { success: false, error: 'El número de cuenta es requerido' };
+    }
+
+    const db = await getDb();
+    const producer = await db.getRepository(Producer).findOne({
+      where: { id: producerId },
+      relations: { person: true },
+    });
+
+    if (!producer?.person?.id) {
+      return { success: false, error: 'No se encontró la persona asociada al productor' };
+    }
+
+    const existing = [...(producer.person.bankAccounts ?? [])];
+    const duplicate = existing.some(
+      (item) => item.accountNumber?.trim() === accountNumber,
+    );
+    if (duplicate) {
+      return { success: false, error: 'El productor ya tiene una cuenta con ese número' };
+    }
+
+    const nextAccount: PersonBankAccount = {
+      accountType: account.accountType,
+      bank: account.bank,
+      accountNumber,
+      ...(typeof account.alias === 'string' && account.alias.trim()
+        ? { alias: account.alias.trim() }
+        : {}),
+      isPrimary: existing.length === 0 ? true : Boolean(account.isPrimary),
+    };
+
+    let nextAccounts = existing;
+    if (nextAccount.isPrimary) {
+      nextAccounts = existing.map((item) => ({ ...item, isPrimary: false }));
+    }
+    nextAccounts = [...nextAccounts, nextAccount];
+
+    const result = await updatePersonBankAccounts(producer.person.id, nextAccounts);
+    if (!result.success) {
+      return { success: false, error: result.error || 'Error al guardar la cuenta' };
+    }
+
+    const accounts = nextAccounts.map((item, index) => ({
+      id: item.accountNumber || `account-${index}`,
+      label: formatProducerBankAccount(item),
+    }));
+
+    return {
+      success: true,
+      message: 'Cuenta bancaria agregada exitosamente',
+      data: {
+        accounts,
+        selectedId: nextAccount.accountNumber,
+      },
+    };
+  } catch (error: any) {
+    console.error('[addProducerBankAccount] Error:', error);
+    return {
+      success: false,
+      error: error?.message || 'Error al agregar la cuenta bancaria',
+    };
+  }
+}
+
 export async function createAdvance(input: CreateAdvanceInput): Promise<AdvanceDetail> {
   ensureIntegerCLP(input.amount);
 
@@ -316,7 +385,11 @@ export async function createAdvance(input: CreateAdvanceInput): Promise<AdvanceD
     throw new Error('No hay una temporada activa configurada.');
   }
 
-  const paymentDetails = buildPaymentDetails(input);
+  const configResult = await getAppConfigSettings();
+  const requireBankAccountsInPayments =
+    configResult.data?.requireBankAccountsInPayments !== false;
+
+  const paymentDetails = buildPaymentDetails(input, { requireBankAccountsInPayments });
 
   if (paymentDetails.bankAccountId) {
     const bankAccount = await db.getRepository(AdminBankAccount).findOne({

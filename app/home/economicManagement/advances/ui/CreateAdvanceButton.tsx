@@ -5,10 +5,12 @@ import { useSession } from 'next-auth/react';
 import CreateBaseForm from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { createAdvance, getProducerBankAccounts, type AdvancePaymentMethod } from '@/app/actions/advances';
+import { getAppConfigSettings } from '@/app/actions/appConfigSettings';
 import { getProducersSimpleListWithLabel } from '@/app/actions/producers';
 import { getActiveSeason } from '@/app/actions/seasons';
 import { getActiveAdminBankAccounts } from '@/app/actions/adminBankAccounts';
 import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
+import ProducerBankAccountSelect from '@/app/home/economicManagement/ui/ProducerBankAccountSelect';
 
 interface CreateAdvanceButtonProps {
   onSuccess: () => void;
@@ -51,17 +53,22 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
   const [adminAccounts, setAdminAccounts] = useState<SelectOption[]>([]);
   const [producerAccounts, setProducerAccounts] = useState<SelectOption[]>([]);
   const [isLoadingProducerAccounts, setIsLoadingProducerAccounts] = useState(false);
+  const [requireBankAccountsInPayments, setRequireBankAccountsInPayments] = useState(true);
 
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        const [producerList, seasonResult, adminAccountsResult] = await Promise.all([
+        const [producerList, seasonResult, configResult, adminAccountsResult] = await Promise.all([
           getProducersSimpleListWithLabel(),
           getActiveSeason(),
+          getAppConfigSettings(),
           getActiveAdminBankAccounts(),
         ]);
 
         setProducers(producerList);
+
+        const requireAccounts = configResult.data?.requireBankAccountsInPayments !== false;
+        setRequireBankAccountsInPayments(requireAccounts);
 
         if (seasonResult.success && seasonResult.data) {
           const season = seasonResult.data as { id: string; name: string };
@@ -72,6 +79,10 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
             type: 'warning',
             duration: 5000,
           });
+        }
+
+        if (!requireAccounts) {
+          return;
         }
 
         if (adminAccountsResult.success && Array.isArray(adminAccountsResult.data)) {
@@ -134,7 +145,9 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
         producerId: value,
         producerAccountId: '',
       }));
-      loadProducerAccounts(value);
+      if (requireBankAccountsInPayments) {
+        loadProducerAccounts(value);
+      }
       return;
     }
 
@@ -202,7 +215,7 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
       return;
     }
 
-    if (values.paymentMethod === 'TRANSFER') {
+    if (values.paymentMethod === 'TRANSFER' && requireBankAccountsInPayments) {
       if (!values.bankAccountId) {
         showAlert({
           message: 'Debe seleccionar la cuenta de la administración para la transferencia',
@@ -223,7 +236,7 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
     }
 
     if (values.paymentMethod === 'CHECK') {
-      if (!values.bankAccountId) {
+      if (requireBankAccountsInPayments && !values.bankAccountId) {
         showAlert({
           message: 'Debe seleccionar la cuenta de la administración que emite el cheque',
           type: 'error',
@@ -247,15 +260,21 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
         const paymentDetails: Record<string, string> = {};
 
         if (values.paymentMethod === 'TRANSFER') {
-          paymentDetails.bankAccountId = values.bankAccountId;
-          paymentDetails.producerAccountId = values.producerAccountId;
+          if (values.bankAccountId) {
+            paymentDetails.bankAccountId = values.bankAccountId;
+          }
+          if (values.producerAccountId) {
+            paymentDetails.producerAccountId = values.producerAccountId;
+          }
           if (values.transferReference?.trim()) {
             paymentDetails.transactionId = values.transferReference.trim();
           }
         }
 
         if (values.paymentMethod === 'CHECK') {
-          paymentDetails.bankAccountId = values.bankAccountId;
+          if (values.bankAccountId) {
+            paymentDetails.bankAccountId = values.bankAccountId;
+          }
           paymentDetails.checkNumber = values.checkNumber.trim();
         }
 
@@ -317,7 +336,10 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
       },
     ];
 
-    if (values.paymentMethod === 'TRANSFER' || values.paymentMethod === 'CHECK') {
+    if (
+      requireBankAccountsInPayments &&
+      (values.paymentMethod === 'TRANSFER' || values.paymentMethod === 'CHECK')
+    ) {
       baseFields.push({
         name: 'bankAccountId',
         label: 'Cuenta Administración',
@@ -328,20 +350,35 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
     }
 
     if (values.paymentMethod === 'TRANSFER') {
-      baseFields.push(
-        {
+      if (requireBankAccountsInPayments) {
+        baseFields.push({
           name: 'producerAccountId',
-          label: isLoadingProducerAccounts ? 'Cuentas del productor (cargando...)' : 'Cuenta Productor',
-          type: 'select' as const,
+          label: 'Cuenta Productor',
+          type: 'custom' as const,
           required: true,
-          options: producerAccounts,
-        },
-        {
-          name: 'transferReference',
-          label: 'Referencia de Transferencia',
-          type: 'text' as const,
-        },
-      );
+          render: () => (
+            <ProducerBankAccountSelect
+              producerId={values.producerId}
+              label="Cuenta Productor"
+              value={values.producerAccountId}
+              options={producerAccounts}
+              loading={isLoadingProducerAccounts}
+              required
+              data-test-id="advance-producer-account"
+              onChange={(accountId) => handleChange('producerAccountId', accountId)}
+              onAccountsUpdated={(accounts, selectedId) => {
+                setProducerAccounts(accounts);
+                handleChange('producerAccountId', selectedId);
+              }}
+            />
+          ),
+        });
+      }
+      baseFields.push({
+        name: 'transferReference',
+        label: 'Referencia de Transferencia',
+        type: 'text' as const,
+      });
     }
 
     if (values.paymentMethod === 'CHECK') {
@@ -361,7 +398,16 @@ export default function CreateAdvanceButton({ onSuccess, onClose }: CreateAdvanc
     });
 
     return baseFields;
-  }, [adminAccounts, producerAccounts, producers, values.paymentMethod, isLoadingProducerAccounts]);
+  }, [
+    adminAccounts,
+    producerAccounts,
+    producers,
+    values.paymentMethod,
+    values.producerId,
+    values.producerAccountId,
+    isLoadingProducerAccounts,
+    requireBankAccountsInPayments,
+  ]);
 
   return (
     <div className="space-y-4">

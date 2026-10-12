@@ -541,7 +541,7 @@ export function createProducersWorkbook(data: ProducerExcelRow[], options: Excel
   const dataWithHeaders = data.map(row => ({
     'ID': row.id,
     'Name': row.name,
-    'DNI': row.dni,
+    'RUT': row.dni,
     'Email': row.mail,
     'Phone': row.phone,
     'Productive Unit': row.productiveUnit,
@@ -573,7 +573,7 @@ export function createProducersWorkbook(data: ProducerExcelRow[], options: Excel
   const colWidths = [
     { wch: 36 }, // ID
     { wch: 25 }, // Name
-    { wch: 15 }, // DNI
+    { wch: 15 }, // RUT
     { wch: 25 }, // Email
     { wch: 15 }, // Phone
     { wch: 25 }, // Productive Unit
@@ -636,7 +636,7 @@ export interface ReceptionExcelRow {
   payableUSD: number;
   exchangeRate: number;
   totalCLP: number;
-  paymentStatus: string;
+  status: string;
   createdAt: string;
 }
 
@@ -650,8 +650,14 @@ export function formatReceptionsDataForExcel(receptionsData: any[]): ReceptionEx
       ? reception.formats.filter((value: unknown) => typeof value === 'string' && value.trim() !== '').join(', ')
       : '-';
 
-    const paymentStatus =
-      reception.paymentStatus === 'PAID_ON_RECEPTION' ? 'Pagada' : 'Pendiente';
+    const status =
+      reception.paymentStatus === 'PAID_ON_RECEPTION'
+        ? 'Pagada'
+        : reception.settlementStatus === 'COMPLETA'
+          ? 'Liquidada'
+          : reception.settlementStatus === 'BORRADOR'
+            ? 'Liq. borrador'
+            : 'Pendiente';
 
     return {
       id: typeof reception.id === 'string' ? reception.id : String(reception.id ?? ''),
@@ -666,7 +672,7 @@ export function formatReceptionsDataForExcel(receptionsData: any[]): ReceptionEx
       payableUSD: Number(reception.payableUSD ?? 0),
       exchangeRate: Number(reception.exchangeRate ?? 0),
       totalCLP: Number(reception.totalCLP ?? 0),
-      paymentStatus,
+      status,
       createdAt: reception.createdAt
         ? formatAuditDate(reception.createdAt)
         : '-',
@@ -700,7 +706,7 @@ export function createReceptionsWorkbook(data: ReceptionExcelRow[], options: Exc
     'USD': row.payableUSD,
     'Cambio': row.exchangeRate,
     'A Pagar (CLP)': row.totalCLP,
-    'Estado pago': row.paymentStatus,
+    'Estado': row.status,
     'Creado': row.createdAt,
   }));
 
@@ -738,7 +744,7 @@ export function createReceptionsWorkbook(data: ReceptionExcelRow[], options: Exc
     { wch: 18 }, // USD
     { wch: 14 }, // Cambio
     { wch: 20 }, // A Pagar
-    { wch: 14 }, // Estado pago
+    { wch: 18 }, // Estado
     { wch: 20 }, // Creado
   ];
   dataSheet['!cols'] = colWidths;

@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS `pallets`;
 DROP TABLE IF EXISTS `producers`;
 DROP TABLE IF EXISTS `customers`;
 DROP TABLE IF EXISTS `admin_bank_accounts`;
+DROP TABLE IF EXISTS `app_config`;
 
 -- Audit (depends on User)
 DROP TABLE IF EXISTS `audits`;

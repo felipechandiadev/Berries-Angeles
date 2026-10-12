@@ -28,6 +28,34 @@ export enum TransactionType {
   PALLET_TRAY_RELEASE = 'PALLET_TRAY_RELEASE',
   ADVANCE = 'ADVANCE',
   SETTLEMENT = 'SETTLEMENT',
+  DISPATCH = 'DISPATCH',
+}
+
+export interface DispatchPalletLine {
+  emptyWeightKg: number;
+  traysQuantity: number;
+  grossWeightKg: number;
+  fruitWeightKg: number;
+  palletId?: number;
+}
+
+export interface DispatchMetadata {
+  status: 'COMPLETA';
+  customerId: string;
+  customerName?: string;
+  trayId: string;
+  trayName?: string;
+  storageId: string;
+  storageName?: string;
+  unitTrayWeight: number;
+  palletIds: number[];
+  trayOutTransactionId?: string;
+  palletsCount: number;
+  traysTotal: number;
+  fruitKgTotal: number;
+  grossKgTotal: number;
+  palletLines?: DispatchPalletLine[];
+  notes?: string;
 }
 
 export enum TransactionDirection {
@@ -59,7 +87,7 @@ export interface TrayAdjustmentMetadata {
   performedBy?: string;
   performedByName?: string;
   performedAt?: string;
-  handlingMode?: 'adjustment' | 'return';
+  handlingMode?: 'keep' | 'return' | 'writeoff' | 'adjust' | 'adjustment';
 }
 
 export interface TrayMovementMetadata {
@@ -82,7 +110,7 @@ export interface TrayMovementMetadata {
   performedBy?: string;
   performedByName?: string;
   performedAt?: string;
-  handlingMode?: 'adjustment' | 'return';
+  handlingMode?: 'keep' | 'return' | 'writeoff' | 'adjust' | 'adjustment';
   revertedTransactionId?: string | number;
   counterpartyType?: 'producer' | 'client';
   counterpartyId?: string;
@@ -127,6 +155,9 @@ export interface SettlementMetadata {
   advancesAppliedCLP: number;
   netAmountCLP: number;
   notes?: string;
+  /** Present when completed with netAmountCLP > 0 (optional on drafts). */
+  paymentMethod?: AdvanceMetadata['paymentMethod'];
+  paymentDetails?: AdvanceMetadata['paymentDetails'];
 }
 
 // Union type para metadata según tipo de transacción
@@ -135,6 +166,7 @@ export type TransactionMetadata =
   | TrayMovementMetadata
   | TrayDeliveryMetadata
   | TrayReceptionMetadata
+  | DispatchMetadata
   | AdvanceMetadata
   | SettlementMetadata;
 

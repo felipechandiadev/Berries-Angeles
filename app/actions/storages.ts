@@ -194,6 +194,23 @@ export async function getStorages(filters?: GetStoragesFilters): Promise<Storage
   }
 }
 
+export async function getStoragesSimpleListWithLabel(): Promise<Array<{ id: string; label: string }>> {
+  try {
+    const db = await getDb();
+    const storages = await db.getRepository(Storage).find({
+      where: { deletedAt: IsNull(), active: true },
+      order: { name: 'ASC' },
+    });
+    return storages.map((storage) => ({
+      id: storage.id,
+      label: storage.name,
+    }));
+  } catch (error: any) {
+    console.error('[getStoragesSimpleListWithLabel] Error:', error);
+    return [];
+  }
+}
+
 /**
  * GET - Obtener un storage por ID
  */

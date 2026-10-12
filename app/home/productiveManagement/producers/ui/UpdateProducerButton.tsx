@@ -61,7 +61,7 @@ export default function UpdateProducerButton({ producer, onSuccess }: UpdateProd
 
     if (!values.dni?.trim()) {
       showAlert({
-        message: 'DNI is required',
+        message: 'RUT is required',
         type: 'error',
         duration: 4000,
       });
@@ -122,7 +122,7 @@ export default function UpdateProducerButton({ producer, onSuccess }: UpdateProd
 
   const fields = [
     { name: 'name', label: 'Name', type: 'text' as const, required: true },
-    { name: 'dni', label: 'DNI', type: 'dni' as const, required: true },
+    { name: 'dni', label: 'RUT', type: 'dni' as const, required: true },
     { name: 'mail', label: 'Email', type: 'email' as const, required: false },
     { name: 'phone', label: 'Phone', type: 'text' as const, required: false },
     {

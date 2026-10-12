@@ -6,6 +6,7 @@ import { DataGridTable as DataGrid, type DataGridColumn } from '@felipechandiade
 import type { SettlementStatus, SettlementSummary } from '@/app/actions/settlements';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import { formatAuditDate } from '@/lib/dateTimeUtils';
+import { paymentMethodLabel } from '@/lib/paymentDetails';
 import DeleteSettlementButton from './DeleteSettlementButton';
 
 interface SettlementsGridProps {
@@ -128,6 +129,16 @@ const SettlementsGrid = ({ rows, totalRows }: SettlementsGridProps) => {
         filterable: false,
         renderCell: ({ value }) => (
           <span className="font-semibold">{formatCLP(Number(value) || 0)}</span>
+        ),
+      },
+      {
+        field: 'paymentMethod',
+        headerName: 'Pago',
+        flex: 0.9,
+        sortable: true,
+        filterable: true,
+        renderCell: ({ value }) => (
+          <span>{paymentMethodLabel(value as string | null | undefined)}</span>
         ),
       },
       {

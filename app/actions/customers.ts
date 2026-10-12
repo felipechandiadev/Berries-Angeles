@@ -2,6 +2,7 @@
 'use server';
 
 import { Customer } from '../../data/entities/Customer';
+import { Person } from '../../data/entities/Person';
 import { Audit } from '../../data/entities/Audit';
 import { AuditActionType } from '../../data/entities/audit.types';
 import { getDb } from '../../data/db';
@@ -19,6 +20,10 @@ function serializeCustomer(customer: Customer): any {
   return JSON.parse(JSON.stringify({
     id: customer.id,
     personId: customer.personId,
+    name: customer.person?.name ?? '',
+    dni: customer.person?.dni ?? '',
+    mail: customer.person?.mail ?? '',
+    phone: customer.person?.phone ?? '',
     createdAt: customer.createdAt,
     updatedAt: customer.updatedAt,
     deletedAt: customer.deletedAt,
@@ -29,22 +34,31 @@ function serializeCustomer(customer: Customer): any {
  * Convierte un array de entidades Customer a objetos planos serializables
  */
 function serializeCustomers(customers: Customer[]): any[] {
-  return customers.map(customer => JSON.parse(JSON.stringify({
-    id: customer.id,
-    personId: customer.personId,
-    createdAt: customer.createdAt,
-    updatedAt: customer.updatedAt,
-    deletedAt: customer.deletedAt,
-  })));
+  return customers.map((customer) => serializeCustomer(customer));
 }
 
 export interface CreateCustomerInput {
   personId: string;
 }
 
+export interface CreateCustomerWithPersonInput {
+  name: string;
+  dni: string;
+  mail?: string;
+  phone?: string;
+}
+
 export interface UpdateCustomerInput {
   id: string;
   personId?: string;
+}
+
+export interface UpdateCustomerWithPersonInput {
+  id: string;
+  name?: string;
+  dni?: string;
+  mail?: string;
+  phone?: string;
 }
 
 export interface GetCustomersFilters {
@@ -215,7 +229,7 @@ export async function getCustomerById(id: string): Promise<CustomerResult> {
 
     return {
       success: true,
-      data: customer,
+      data: serializeCustomer(customer),
     };
   } catch (error: any) {
     console.error('[getCustomerById] Error:', error);
@@ -223,6 +237,174 @@ export async function getCustomerById(id: string): Promise<CustomerResult> {
       success: false,
       error: error?.message || 'Error al obtener el cliente',
       data: null,
+    };
+  }
+}
+
+/**
+ * CREATE - Crear cliente con persona (nombre/RUT) en una sola transacción
+ */
+export async function createCustomerWithPerson(
+  data: CreateCustomerWithPersonInput,
+  auditUserId?: string,
+): Promise<CustomerResult> {
+  try {
+    if (!data.name?.trim()) {
+      return { success: false, error: 'El nombre es requerido' };
+    }
+    if (!data.dni?.trim()) {
+      return { success: false, error: 'El RUT es requerido' };
+    }
+
+    const db = await getDb();
+
+    let userId = auditUserId;
+    if (!userId) {
+      try {
+        const { userId: sessionUserId } = await getCurrentUserSession();
+        userId = sessionUserId;
+      } catch {
+        console.warn('[createCustomerWithPerson] No se pudo obtener la sesión del usuario para auditoría');
+      }
+    }
+
+    const result = await db.transaction(async (manager) => {
+      const person = manager.create(Person, {
+        name: data.name.trim(),
+        dni: data.dni.trim(),
+        mail: data.mail?.trim() || undefined,
+        phone: data.phone?.trim() || undefined,
+      });
+      const savedPerson = await manager.save(Person, person);
+
+      const customer = manager.create(Customer, { personId: savedPerson.id });
+      const savedCustomer = await manager.save(Customer, customer);
+      savedCustomer.person = savedPerson;
+
+      await logCustomerAudit(
+        manager,
+        savedCustomer.id,
+        AuditActionType.CREATE,
+        userId,
+        undefined,
+        {
+          personId: savedPerson.id,
+          name: savedPerson.name,
+          dni: savedPerson.dni,
+          mail: savedPerson.mail,
+          phone: savedPerson.phone,
+        },
+      );
+
+      return savedCustomer;
+    });
+
+    revalidatePath('/home/dispatch/customers');
+
+    return {
+      success: true,
+      message: 'Cliente creado exitosamente',
+      data: serializeCustomer(result),
+    };
+  } catch (error: any) {
+    console.error('[createCustomerWithPerson] Error:', error);
+    return {
+      success: false,
+      error: error?.message || 'Error al crear el cliente',
+    };
+  }
+}
+
+/**
+ * UPDATE - Actualizar datos de persona del cliente
+ */
+export async function updateCustomerWithPerson(
+  data: UpdateCustomerWithPersonInput,
+  auditUserId?: string,
+): Promise<CustomerResult> {
+  try {
+    if (!data.id?.trim()) {
+      return { success: false, error: 'ID inválido' };
+    }
+
+    const db = await getDb();
+    const existingCustomer = await db.getRepository(Customer).findOne({
+      where: { id: data.id, deletedAt: IsNull() },
+      relations: ['person'],
+    });
+
+    if (!existingCustomer?.person) {
+      return { success: false, error: 'Cliente no encontrado' };
+    }
+
+    const personUpdates: Partial<Person> = {};
+    if (data.name !== undefined) {
+      if (!data.name.trim()) return { success: false, error: 'El nombre es requerido' };
+      personUpdates.name = data.name.trim();
+    }
+    if (data.dni !== undefined) {
+      if (!data.dni.trim()) return { success: false, error: 'El RUT es requerido' };
+      personUpdates.dni = data.dni.trim();
+    }
+    if (data.mail !== undefined) {
+      personUpdates.mail = data.mail.trim() || undefined;
+    }
+    if (data.phone !== undefined) {
+      personUpdates.phone = data.phone.trim() || undefined;
+    }
+
+    if (Object.keys(personUpdates).length === 0) {
+      return { success: false, error: 'No se detectaron cambios' };
+    }
+
+    let userId = auditUserId;
+    if (!userId) {
+      try {
+        const { userId: sessionUserId } = await getCurrentUserSession();
+        userId = sessionUserId;
+      } catch {
+        console.warn('[updateCustomerWithPerson] No se pudo obtener la sesión del usuario para auditoría');
+      }
+    }
+
+    const oldValues = {
+      name: existingCustomer.person.name,
+      dni: existingCustomer.person.dni,
+      mail: existingCustomer.person.mail,
+      phone: existingCustomer.person.phone,
+    };
+
+    const result = await db.transaction(async (manager) => {
+      await manager.update(Person, existingCustomer.personId, personUpdates);
+      const updated = await manager.findOne(Customer, {
+        where: { id: data.id },
+        relations: ['person'],
+      });
+
+      await logCustomerAudit(
+        manager,
+        data.id,
+        AuditActionType.UPDATE,
+        userId,
+        oldValues,
+        personUpdates,
+      );
+
+      return updated;
+    });
+
+    revalidatePath('/home/dispatch/customers');
+
+    return {
+      success: true,
+      message: 'Cliente actualizado exitosamente',
+      data: result ? serializeCustomer(result) : null,
+    };
+  } catch (error: any) {
+    console.error('[updateCustomerWithPerson] Error:', error);
+    return {
+      success: false,
+      error: error?.message || 'Error al actualizar el cliente',
     };
   }
 }
@@ -292,7 +474,7 @@ export async function createCustomer(data: CreateCustomerInput, auditUserId?: st
       return savedCustomer;
     });
 
-    revalidatePath('/home/customers');
+    revalidatePath('/home/dispatch/customers');
 
     return {
       success: true,
@@ -403,7 +585,7 @@ export async function updateCustomer(data: UpdateCustomerInput, auditUserId?: st
       return updatedCustomer;
     });
 
-    revalidatePath('/home/customers');
+    revalidatePath('/home/dispatch/customers');
 
     return {
       success: true,
@@ -473,7 +655,7 @@ export async function deleteCustomer(id: string, auditUserId?: string): Promise<
       return existingCustomer;
     });
 
-    revalidatePath('/home/customers');
+    revalidatePath('/home/dispatch/customers');
 
     return {
       success: true,

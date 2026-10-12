@@ -26,18 +26,32 @@ interface DeletePackDialogProps {
   dataTestId?: string;
 }
 
-const HANDLING_MODE_OPTIONS: Array<{ value: RemoveReceptionPackHandlingMode; title: string; description: string; icon: string; }> = [
+const HANDLING_MODE_OPTIONS: Array<{
+  value: RemoveReceptionPackHandlingMode;
+  title: string;
+  description: string;
+  icon: string;
+}> = [
   {
-    value: 'adjust',
-    title: 'Ajustar stock interno',
-    description: 'Descuenta las bandejas del inventario interno sin registrar devolución al productor.',
+    value: 'keep',
+    title: 'Mantener en inventario',
+    description:
+      'Elimina el pack de la recepción sin descontar bandejas del inventario ni devolverlas al productor.',
     icon: 'inventory_2',
   },
   {
     value: 'return',
     title: 'Devolver al productor',
-    description: 'Registra la salida de bandejas al productor como devolución asociada a esta recepción.',
+    description:
+      'Descuenta las bandejas del inventario y registra la salida al productor como devolución asociada a esta recepción.',
     icon: 'u_turn_left',
+  },
+  {
+    value: 'writeoff',
+    title: 'Baja de inventario',
+    description:
+      'Descuenta las bandejas del inventario interno sin devolución al productor (error de ingreso, merma o anulación).',
+    icon: 'delete_sweep',
   },
 ];
 
@@ -54,7 +68,7 @@ export function DeletePackDialog({
   const currentUserId = (session?.user as any)?.id;
   const { success, error } = useAlert();
 
-  const [handlingMode, setHandlingMode] = useState<RemoveReceptionPackHandlingMode>('adjust');
+  const [handlingMode, setHandlingMode] = useState<RemoveReceptionPackHandlingMode>('keep');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const { isSubmitting, run } = useSubmitLock();
@@ -62,7 +76,7 @@ export function DeletePackDialog({
 
   useEffect(() => {
     if (!open) {
-      setHandlingMode('adjust');
+      setHandlingMode('keep');
       setReason('');
       setNotes('');
       setErrors([]);

@@ -8,7 +8,16 @@ export interface PalletTrayAssignment {
     quantity: number;
 }
 
-export type PalletMetadata = PalletTrayAssignment[] | null;
+export type PalletDispatchMetadata = {
+  dispatchTransactionId?: string | null;
+  fruitWeightKg?: number;
+  emptyWeightKg?: number;
+  traysQuantity?: number;
+  grossWeightKg?: number;
+  trayId?: string;
+};
+
+export type PalletMetadata = PalletTrayAssignment[] | PalletDispatchMetadata | null;
 
 export enum PalletStatus {
     AVAILABLE = 'AVAILABLE',

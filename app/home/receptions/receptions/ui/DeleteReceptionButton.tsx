@@ -8,6 +8,8 @@ import { useAlert } from '@/app/state/contexts/AlertContext';
 import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import { deleteReception, type ReceptionGridRow } from '@/app/actions/receptions';
 import { isPaidOnReception } from '@/lib/receptionPayment';
+import { receptionDisplayStatusFromSources } from '@/lib/receptionDisplayStatus';
+import { isReceptionLinkedToSettlement } from '@/lib/receptionSettlement';
 
 interface DeleteReceptionButtonProps {
   reception: ReceptionGridRow;
@@ -65,6 +67,15 @@ export default function DeleteReceptionButton({ reception, onSuccess }: DeleteRe
 
   const guideLabel = reception.guideNumber ? `guía ${reception.guideNumber}` : `ID ${reception.id}`;
   const paidOnReception = isPaidOnReception(reception.paymentStatus);
+  const linkedToSettlement = isReceptionLinkedToSettlement(reception.settlementStatus);
+  const deleteBlocked = paidOnReception || linkedToSettlement;
+  const displayLabel = receptionDisplayStatusFromSources(
+    reception.paymentStatus,
+    reception.settlementStatus,
+  ).label;
+  const deleteBlockedReason = deleteBlocked
+    ? `No se puede eliminar: estado ${displayLabel.toLowerCase()}`
+    : 'Eliminar';
 
   return (
     <div className="inline-flex items-center">
@@ -73,13 +84,9 @@ export default function DeleteReceptionButton({ reception, onSuccess }: DeleteRe
         variant="basicSecondary"
         size="xs"
         onClick={() => setOpen(true)}
-        title={
-          paidOnReception
-            ? 'No se puede eliminar una recepción pagada contra recepción'
-            : 'Eliminar'
-        }
+        title={deleteBlockedReason}
         ariaLabel="Eliminar recepción"
-        disabled={paidOnReception}
+        disabled={deleteBlocked}
       />
       <Dialog
         open={open}

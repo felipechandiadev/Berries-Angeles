@@ -85,7 +85,7 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
     }
 
     if (!values.dni?.trim()) {
-      errors.push('DNI is required');
+      errors.push('RUT is required');
     }
 
     if (!values.productiveUnitId?.trim()) {
@@ -190,7 +190,7 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
 
   const fields = [
     { name: 'name', label: 'Name', type: 'text' as const, required: true },
-    { name: 'dni', label: 'DNI', type: 'dni' as const, required: true },
+    { name: 'dni', label: 'RUT', type: 'dni' as const, required: true },
     { name: 'mail', label: 'Email', type: 'email' as const, required: false },
     { name: 'phone', label: 'Phone', type: 'text' as const, required: false },
     {

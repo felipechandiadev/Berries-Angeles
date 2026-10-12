@@ -43,6 +43,15 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       ],
     },
     {
+      id: 'despacho',
+      label: 'Despacho',
+      children: [
+        { id: 'despachos', label: 'Despachos', url: '/home/dispatch/dispatches' },
+        { id: 'nuevo-despacho', label: 'Nuevo despacho', url: '/home/dispatch/new' },
+        { id: 'clientes', label: 'Clientes', url: '/home/dispatch/customers' },
+      ],
+    },
+    {
       id: 'almacenamiento',
       label: 'Almacenamiento',
       children: [

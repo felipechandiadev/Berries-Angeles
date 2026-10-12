@@ -2,7 +2,7 @@
 
 import { SessionProvider } from "next-auth/react";
 import { ReactNode } from "react";
-import { NextNavProvider } from "@felipechandiadev/ui";
+import { KaiResponsiveRoot, NextNavProvider } from "@felipechandiadev/ui";
 import { AlertProvider } from "./state/contexts/AlertContext";
 import { PermissionsProvider } from "./state/contexts/PermissionsContext";
 
@@ -11,11 +11,13 @@ export function Providers({ children }: { children: ReactNode }) {
     <SessionProvider>
       {/* search="" evita useSearchParams (no suspende en SSG); grillas pasan search real vía WithNavSearch */}
       <NextNavProvider search="">
-        <PermissionsProvider>
-          <AlertProvider>
-            {children}
-          </AlertProvider>
-        </PermissionsProvider>
+        <KaiResponsiveRoot>
+          <PermissionsProvider>
+            <AlertProvider>
+              {children}
+            </AlertProvider>
+          </PermissionsProvider>
+        </KaiResponsiveRoot>
       </NextNavProvider>
     </SessionProvider>
   );

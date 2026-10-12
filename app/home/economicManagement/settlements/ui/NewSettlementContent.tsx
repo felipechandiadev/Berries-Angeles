@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import type { Option } from '@/app/baseComponents/AutoComplete/AutoComplete';
@@ -16,7 +16,17 @@ import { useAlert } from '@/app/state/contexts/AlertContext';
 import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import PendingReceptionsSection from './PendingReceptionsSection';
 import PendingAdvancesSection from './PendingAdvancesSection';
-import SettlementSummary from './SettlementSummary';
+import SettlementSummary, {
+  buildSettlementPaymentDetails,
+  type SettlementPaymentState,
+} from './SettlementSummary';
+import { paymentMethodLabel } from '@/lib/paymentDetails';
+import {
+  clearWizardSession,
+  loadWizardSession,
+  saveWizardSession,
+  wizardSessionKey,
+} from './settlementWizardSession';
 
 interface NewSettlementContentProps {
   producerOptions: Option[];
@@ -44,6 +54,31 @@ function formatCLP(value: number): string {
 
 const toIdSet = (ids: string[]): Set<string> => new Set(ids);
 
+function intersectIds(prev: Set<string>, validIds: string[]): Set<string> {
+  if (validIds.length === 0) {
+    return prev.size === 0 ? prev : new Set();
+  }
+  const valid = new Set(validIds);
+  let changed = false;
+  const next = new Set<string>();
+  for (const id of prev) {
+    if (valid.has(id)) next.add(id);
+    else changed = true;
+  }
+  if (!changed && next.size === prev.size) return prev;
+  return next;
+}
+
+function paymentFromDraft(editing: SettlementWizardData | null | undefined): SettlementPaymentState {
+  return {
+    paymentMethod: editing?.paymentMethod ?? 'CASH',
+    bankAccountId: editing?.paymentDetails?.bankAccountId ?? '',
+    producerAccountId: editing?.paymentDetails?.producerAccountId ?? '',
+    checkNumber: editing?.paymentDetails?.checkNumber ?? '',
+    transferReference: editing?.paymentDetails?.transactionId ?? '',
+  };
+}
+
 export default function NewSettlementContent({
   producerOptions,
   selectedProducerId,
@@ -56,6 +91,10 @@ export default function NewSettlementContent({
   const currentUserId = (session?.user as { id?: string } | undefined)?.id;
   const { showAlert } = useAlert();
   const { isSubmitting, run } = useSubmitLock();
+
+  const sessionKey = wizardSessionKey(editingSettlement?.settlementId, selectedProducerId);
+  const [readyToPersist, setReadyToPersist] = useState(false);
+  const prevSessionKeyRef = useRef(sessionKey);
 
   const [step, setStep] = useState(1);
   const [selectedReceptionIds, setSelectedReceptionIds] = useState<Set<string>>(() => {
@@ -70,16 +109,74 @@ export default function NewSettlementContent({
     }
     return toIdSet(advances.rows.map((row) => row.transactionId));
   });
+  const [payment, setPayment] = useState<SettlementPaymentState>(() =>
+    paymentFromDraft(editingSettlement),
+  );
+
+  // Restaurar sessionStorage (o select-all / draft al cambiar productor) antes de persistir.
+  useLayoutEffect(() => {
+    const keyChanged = prevSessionKeyRef.current !== sessionKey;
+    prevSessionKeyRef.current = sessionKey;
+
+    const receptionIds = receptions.rows.map((row) => row.transactionId);
+    const advanceIds = advances.rows.map((row) => row.transactionId);
+    const saved = loadWizardSession(sessionKey);
+
+    if (saved) {
+      setStep(saved.step);
+      setSelectedReceptionIds(intersectIds(toIdSet(saved.selectedReceptionIds), receptionIds));
+      setSelectedAdvanceIds(intersectIds(toIdSet(saved.selectedAdvanceIds), advanceIds));
+      setPayment(saved.payment);
+    } else if (keyChanged) {
+      if (editingSettlement) {
+        setStep(1);
+        setSelectedReceptionIds(toIdSet(editingSettlement.receptionTransactionIds));
+        setSelectedAdvanceIds(
+          toIdSet(editingSettlement.advanceApplications.map((a) => a.transactionId)),
+        );
+        setPayment(paymentFromDraft(editingSettlement));
+      } else {
+        setStep(1);
+        setSelectedReceptionIds(toIdSet(receptionIds));
+        setSelectedAdvanceIds(toIdSet(advanceIds));
+        setPayment(paymentFromDraft(null));
+      }
+    }
+
+    setReadyToPersist(true);
+    // Solo reaccionar a cambio de clave (productor / borrador); rows se leen en ese momento.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [sessionKey, editingSettlement?.settlementId]);
+
+  // Al refrescar props RSC: solo podar IDs inválidos (nunca select-all).
+  useEffect(() => {
+    if (!readyToPersist) return;
+    const receptionIds = receptions.rows.map((row) => row.transactionId);
+    setSelectedReceptionIds((prev) => intersectIds(prev, receptionIds));
+  }, [receptions.rows, readyToPersist]);
 
   useEffect(() => {
-    if (editingSettlement) return;
-    setSelectedReceptionIds(toIdSet(receptions.rows.map((row) => row.transactionId)));
-  }, [editingSettlement, receptions.rows]);
+    if (!readyToPersist) return;
+    const advanceIds = advances.rows.map((row) => row.transactionId);
+    setSelectedAdvanceIds((prev) => intersectIds(prev, advanceIds));
+  }, [advances.rows, readyToPersist]);
 
   useEffect(() => {
-    if (editingSettlement) return;
-    setSelectedAdvanceIds(toIdSet(advances.rows.map((row) => row.transactionId)));
-  }, [advances.rows, editingSettlement]);
+    if (!readyToPersist) return;
+    saveWizardSession(sessionKey, {
+      step,
+      selectedReceptionIds: Array.from(selectedReceptionIds),
+      selectedAdvanceIds: Array.from(selectedAdvanceIds),
+      payment,
+    });
+  }, [
+    readyToPersist,
+    sessionKey,
+    step,
+    selectedReceptionIds,
+    selectedAdvanceIds,
+    payment,
+  ]);
 
   const producerLabel =
     producerOptions.find((opt) => opt.id === selectedProducerId)?.label ||
@@ -191,6 +288,8 @@ export default function NewSettlementContent({
       return;
     }
 
+    const paymentPayload = buildSettlementPaymentDetails(payment, balance);
+
     const result = await run(async () => {
       const response = await saveSettlement({
         producerId: selectedProducerId,
@@ -202,6 +301,7 @@ export default function NewSettlementContent({
           transactionId: row.transactionId,
           amount: Math.round(row.availableAmount),
         })),
+        ...paymentPayload,
       });
 
       if (!response.success) {
@@ -225,6 +325,7 @@ export default function NewSettlementContent({
     });
 
     if (result?.ok) {
+      clearWizardSession(sessionKey);
       router.push('/home/economicManagement/settlements?tab=list');
       router.refresh();
     }
@@ -243,8 +344,8 @@ export default function NewSettlementContent({
   return (
     <div className="space-y-6">
       {/* Flush under app TopBar: same token as shell inset (--app-topbar-height) */}
-      <div className="sticky top-[var(--app-topbar-height)] z-20 -mx-page border-b border-border/80 bg-background/90 px-page py-3 shadow-sm backdrop-blur-md backdrop-saturate-150 supports-[backdrop-filter]:bg-background/75">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="sticky top-[var(--app-topbar-height)] z-20 -mx-page border-b border-border bg-background/95 px-page py-2.5 backdrop-blur-md supports-[backdrop-filter]:bg-background/85">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
           <ol className="flex flex-wrap items-center gap-1.5" aria-label="Pasos de liquidación">
             {STEPS.map((item, index) => {
               const active = step === item.id;
@@ -299,22 +400,35 @@ export default function NewSettlementContent({
             })}
           </ol>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-secondary sm:text-sm">
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border/70 bg-muted/25 px-3 py-2"
+            data-test-id="settlement-wizard-summary-bar"
+          >
             {editingSettlement && (
-              <span className="rounded-lg bg-[color-mix(in_srgb,var(--color-secondary)_22%,transparent)] px-2.5 py-1 font-medium text-foreground">
+              <span className="rounded-md bg-[color-mix(in_srgb,var(--color-secondary)_22%,transparent)] px-2 py-0.5 text-xs font-medium text-foreground">
                 Borrador #{editingSettlement.settlementId}
               </span>
             )}
-            <span className="truncate max-w-[12rem]" title={producerLabel}>
+            <span
+              className="max-w-[10rem] truncate text-xs text-muted-foreground sm:max-w-[14rem]"
+              title={producerLabel}
+            >
               {producerLabel}
             </span>
-            <span>
+            <span className="text-xs text-muted-foreground">
               Rec. {receptionsCount} · {formatCLP(receptionsTotal)}
             </span>
-            <span>
+            <span className="text-xs text-muted-foreground">
               Ant. {advancesCount} · {formatCLP(advancesTotal)}
             </span>
-            <span className="font-semibold text-primary">Neto {formatCLP(balance)}</span>
+            <span className="text-sm font-semibold tracking-tight text-primary sm:text-base">
+              Neto {formatCLP(balance)}
+            </span>
+            {step === 3 && balance > 0 ? (
+              <span className="rounded-md border border-border bg-background px-2 py-0.5 text-xs font-medium text-foreground">
+                Pago: {paymentMethodLabel(payment.paymentMethod)}
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -350,6 +464,9 @@ export default function NewSettlementContent({
             advancesCount={advancesCount}
             advancesTotal={advancesTotal}
             balance={balance}
+            producerId={selectedProducerId}
+            payment={payment}
+            onPaymentChange={setPayment}
             canSave={canSave}
             validationError={validationError}
             isSubmitting={isSubmitting}
@@ -372,14 +489,20 @@ export default function NewSettlementContent({
           </div>
 
           <div className="justify-self-center text-center">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {step === 2 ? 'Anticipos seleccionados' : 'Recepciones seleccionadas'}
-            </p>
-            <p className="text-sm font-semibold text-foreground sm:text-base">
-              {step === 2
-                ? `${advancesCount} · ${formatCLP(advancesTotal)}`
-                : `${receptionsCount} · ${formatCLP(receptionsTotal)}`}
-            </p>
+            {step === 3 ? (
+              <p className="text-xs text-muted-foreground">Paso 3 de 3</p>
+            ) : (
+              <>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {step === 2 ? 'Anticipos seleccionados' : 'Recepciones seleccionadas'}
+                </p>
+                <p className="text-sm font-semibold text-foreground sm:text-base">
+                  {step === 2
+                    ? `${advancesCount} · ${formatCLP(advancesTotal)}`
+                    : `${receptionsCount} · ${formatCLP(receptionsTotal)}`}
+                </p>
+              </>
+            )}
           </div>
 
           <div className="justify-self-end">

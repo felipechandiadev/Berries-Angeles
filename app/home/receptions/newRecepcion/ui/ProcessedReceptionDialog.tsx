@@ -290,10 +290,7 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
             price: pack.price ?? 0,
             currency: pack.currency ?? Currency.CLP,
             totalToPay: pack.totalToPay ?? 0,
-            palletAssignments: (pack.palletAssignments ?? []).map((assignment) => ({
-              palletId: assignment.palletId,
-              traysAssigned: assignment.traysAssigned,
-            })),
+            palletAssignments: [],
           };
         });
 
@@ -439,18 +436,6 @@ const ProcessedReceptionDialog: React.FC<ProcessedReceptionDialogProps> = ({
                     </div>
                   </div>
 
-                  {pack.palletAssignments?.length ? (
-                    <div className="mt-2 rounded-md bg-gray-100 p-2">
-                      <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">Distribución en pallets</p>
-                      <ul className="mt-1 space-y-1 text-[0.65rem] text-foreground">
-                        {pack.palletAssignments.map((assignment, index) => (
-                          <li key={`${pack.id}-pallet-${assignment.palletId}-${index}`}>
-                            Pallet #{assignment.palletId}: {assignment.traysAssigned} bandejas
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
                 </div>
               ))}
             </div>

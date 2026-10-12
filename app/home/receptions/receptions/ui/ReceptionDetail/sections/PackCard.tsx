@@ -11,6 +11,7 @@ interface PackCardProps {
   pack: ReceptionDetailPack;
   receptionId: string;
   onPackDeleted?: () => void;
+  lockedBySettlement?: boolean;
 }
 
 const numberFormatter = new Intl.NumberFormat('es-CL', {
@@ -39,12 +40,18 @@ function formatAssignments(assignments: ReceptionDetailPalletAssignment[]): stri
   });
 }
 
-export function PackCard({ pack, receptionId, onPackDeleted }: PackCardProps) {
+export function PackCard({
+  pack,
+  receptionId,
+  onPackDeleted,
+  lockedBySettlement = false,
+}: PackCardProps) {
   const [updateImpurityOpen, setUpdateImpurityOpen] = useState(false);
   const [updatePriceOpen, setUpdatePriceOpen] = useState(false);
   const assignments = formatAssignments(pack.palletAssignments);
   const priceFormatter = pack.currency === 'USD' ? usdCurrencyFormatter : clpCurrencyFormatter;
   const totalFormatter = pack.currency === 'USD' ? usdCurrencyFormatter : clpCurrencyFormatter;
+  const lockTitle = 'No se puede editar: recepción asociada a una liquidación';
 
   return (
     <article className="flex flex-col gap-4 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
@@ -82,13 +89,15 @@ export function PackCard({ pack, receptionId, onPackDeleted }: PackCardProps) {
           <dt className="text-xs uppercase text-muted-foreground">Impureza</dt>
           <dd className="flex items-center gap-1 text-foreground">
             {numberFormatter.format(pack.impurityPercent)} %
-            <IconButton
-              icon="edit"
-              size="sm"
-              variant="text"
-              onClick={() => setUpdateImpurityOpen(true)}
-              aria-label="Editar impureza"
-            />
+            {!lockedBySettlement ? (
+              <IconButton
+                icon="edit"
+                size="sm"
+                variant="text"
+                onClick={() => setUpdateImpurityOpen(true)}
+                aria-label="Editar impureza"
+              />
+            ) : null}
           </dd>
         </div>
         <div>
@@ -96,7 +105,16 @@ export function PackCard({ pack, receptionId, onPackDeleted }: PackCardProps) {
           <dd className="flex items-center gap-1 text-foreground">
             {priceFormatter.format(pack.pricePerKg)}
             <span className="ml-1 text-xs uppercase text-muted-foreground">{pack.currency}</span>
-            <IconButton icon="edit" size="sm" variant="text" onClick={() => setUpdatePriceOpen(true)} />
+            {!lockedBySettlement ? (
+              <IconButton
+                icon="edit"
+                size="sm"
+                variant="text"
+                onClick={() => setUpdatePriceOpen(true)}
+                title={lockTitle}
+                aria-label="Editar precio"
+              />
+            ) : null}
           </dd>
         </div>
         <div>
@@ -121,17 +139,23 @@ export function PackCard({ pack, receptionId, onPackDeleted }: PackCardProps) {
         )}
       </section>
 
-      <div className="flex justify-end">
-        <DeletePackButton
-          receptionId={receptionId}
-          pack={pack}
-          onDeleted={onPackDeleted}
-          data-test-id={`delete-pack-button-${pack.packId}`}
-        />
-      </div>
+      {!lockedBySettlement ? (
+        <div className="flex justify-end">
+          <DeletePackButton
+            receptionId={receptionId}
+            pack={pack}
+            onDeleted={onPackDeleted}
+            data-test-id={`delete-pack-button-${pack.packId}`}
+          />
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground" title={lockTitle}>
+          Pack bloqueado por liquidación asociada.
+        </p>
+      )}
 
       <UpdatePackImpurityDialog
-        open={updateImpurityOpen}
+        open={updateImpurityOpen && !lockedBySettlement}
         onClose={() => setUpdateImpurityOpen(false)}
         receptionId={receptionId}
         pack={pack}
@@ -144,7 +168,7 @@ export function PackCard({ pack, receptionId, onPackDeleted }: PackCardProps) {
       />
 
       <UpdatePackPriceDialog
-        open={updatePriceOpen}
+        open={updatePriceOpen && !lockedBySettlement}
         onClose={() => setUpdatePriceOpen(false)}
         receptionId={receptionId}
         pack={pack}

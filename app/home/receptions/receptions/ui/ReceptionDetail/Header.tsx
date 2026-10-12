@@ -2,7 +2,7 @@
 
 import { Button } from '@/app/baseComponents/Button/Button';
 import type { ReceptionDetailSummary, ReceptionDetailTotals } from './types';
-import { paymentStatusLabel } from '@/lib/receptionPayment';
+import { receptionDisplayStatusFromSources } from '@/lib/receptionDisplayStatus';
 
 interface ReceptionDetailHeaderProps {
   summary: ReceptionDetailSummary;
@@ -66,16 +66,24 @@ export function ReceptionDetailHeader({ summary, totals, onClose }: ReceptionDet
           <span className="text-xs font-medium">A PAGAR</span>
           <span className="text-lg font-semibold">{formattedPayLabel}</span>
         </div>
-        <div
-          className={`flex flex-col items-center px-3 py-2 rounded-lg ${
-            summary.paymentStatus === 'PAID_ON_RECEPTION'
+        {(() => {
+          const { status, label } = receptionDisplayStatusFromSources(
+            summary.paymentStatus,
+            summary.settlementStatus,
+          );
+          const tone =
+            status === 'PAID' || status === 'SETTLED'
               ? 'bg-green-100 text-green-800'
-              : 'bg-amber-100 text-amber-800'
-          }`}
-        >
-          <span className="text-xs font-medium">ESTADO</span>
-          <span className="text-lg font-semibold">{paymentStatusLabel(summary.paymentStatus)}</span>
-        </div>
+              : status === 'SETTLED_DRAFT'
+                ? 'bg-sky-100 text-sky-800'
+                : 'bg-amber-100 text-amber-800';
+          return (
+            <div className={`flex flex-col items-center px-3 py-2 rounded-lg ${tone}`}>
+              <span className="text-xs font-medium">ESTADO</span>
+              <span className="text-lg font-semibold">{label}</span>
+            </div>
+          );
+        })()}
       </div>
     </header>
   );

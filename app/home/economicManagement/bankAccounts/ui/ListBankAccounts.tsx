@@ -3,6 +3,7 @@ import { useState } from "react";
 import { CollectionPageLayout } from "@felipechandiadev/ui";
 import BankAccountCard from "./BankAccountCard";
 import CreateBankAccountDialog from "./CreateBankAccountDialog";
+import PaymentBankConfigSection from "./PaymentBankConfigSection";
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 
 export interface BankAccountType {
@@ -19,13 +20,20 @@ export interface BankAccountType {
 
 export interface ListBankAccountsProps {
   bankAccounts: BankAccountType[];
+  requireBankAccountsInPayments: boolean;
 }
 
-const ListBankAccounts: React.FC<ListBankAccountsProps> = ({ bankAccounts }) => {
+const ListBankAccounts: React.FC<ListBankAccountsProps> = ({
+  bankAccounts,
+  requireBankAccountsInPayments,
+}) => {
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
 
   return (
     <>
+      <PaymentBankConfigSection
+        requireBankAccountsInPayments={requireBankAccountsInPayments}
+      />
       <CollectionPageLayout
         title="Cuentas bancarias"
         showSearch

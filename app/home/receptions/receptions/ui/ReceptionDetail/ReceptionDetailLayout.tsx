@@ -13,6 +13,7 @@ import {
   RelatedMovementsSection,
   HistorySection,
 } from './sections';
+import { isReceptionLinkedToSettlement } from '@/lib/receptionSettlement';
 
 interface ReceptionDetailLayoutProps {
   data: ReceptionDetailData;
@@ -28,11 +29,21 @@ interface SectionConfig {
 }
 
 export function ReceptionDetailLayout({ data, onClose, onRefresh, refreshing = false }: ReceptionDetailLayoutProps) {
+  const lockedBySettlement = isReceptionLinkedToSettlement(data.summary.settlementStatus);
+
   const sections = useMemo<SectionConfig[]>(() => [
     {
       id: 'summary',
       label: 'Resumen',
-      render: <SummarySection summary={data.summary} totals={data.totals ?? null} documents={data.documents} onRefresh={onRefresh} />,
+      render: (
+        <SummarySection
+          summary={data.summary}
+          totals={data.totals ?? null}
+          documents={data.documents}
+          onRefresh={onRefresh}
+          lockedBySettlement={lockedBySettlement}
+        />
+      ),
     },
     {
       id: 'producer',
@@ -58,6 +69,7 @@ export function ReceptionDetailLayout({ data, onClose, onRefresh, refreshing = f
           packs={data.packs}
           receptionId={data.summary.id}
           onPackDeleted={onRefresh}
+          lockedBySettlement={lockedBySettlement}
         />
       ),
     },
@@ -76,7 +88,7 @@ export function ReceptionDetailLayout({ data, onClose, onRefresh, refreshing = f
       label: 'Historial de cambios',
       render: <HistorySection history={data.history} />,
     },
-  ], [data]);
+  ], [data, lockedBySettlement, onRefresh]);
 
   const [activeSection, setActiveSection] = useState<string>('summary');
 

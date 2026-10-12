@@ -18,7 +18,7 @@ import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import PrintReceptionDialog from '@/app/home/receptions/newRecepcion/ui/PrintReceptionDialog';
 import type { ReceptionDataSnapshot } from '@/app/home/receptions/newRecepcion/ui/TransactionData';
-import { paymentStatusLabel } from '@/lib/receptionPayment';
+import { receptionDisplayStatusFromSources } from '@/lib/receptionDisplayStatus';
 
 type SortDirection = 'ASC' | 'DESC';
 
@@ -185,7 +185,7 @@ export default function ReceptionsGrid({
     {
       field: 'id',
       headerName: 'Folio',
-      flex: 0.3,
+      flex: 0.22,
       sortable: true,
       filterable: true,
       renderCell: ({ value }: { value: string | number }) => (
@@ -220,24 +220,28 @@ export default function ReceptionsGrid({
       ),
     },
     {
-      field: 'varieties',
-      headerName: 'Variedad',
+      field: 'productSummary',
+      headerName: 'Producto',
       flex: 1,
       sortable: false,
       filterable: false,
-      renderCell: ({ value }: { value: string[] }) => (
-        <span className="truncate">{Array.isArray(value) && value.length ? value.join(', ') : '—'}</span>
-      ),
-    },
-    {
-      field: 'formats',
-      headerName: 'Formato',
-      flex: 1,
-      sortable: false,
-      filterable: false,
-      renderCell: ({ value }: { value: string[] }) => (
-        <span className="truncate">{Array.isArray(value) && value.length ? value.join(', ') : '—'}</span>
-      ),
+      align: 'left' as const,
+      renderCell: ({ row }: { row: ReceptionGridRow }) => {
+        const varieties =
+          Array.isArray(row.varieties) && row.varieties.length ? row.varieties.join(', ') : '—';
+        const formats =
+          Array.isArray(row.formats) && row.formats.length ? row.formats.join(', ') : '—';
+        return (
+          <div className="py-1 space-y-0.5 text-xs">
+            <div className="truncate font-medium" title={varieties}>
+              {varieties}
+            </div>
+            <div className="truncate text-gray-600" title={formats}>
+              {formats}
+            </div>
+          </div>
+        );
+      },
     },
     {
       field: 'totalTrays',
@@ -301,19 +305,23 @@ export default function ReceptionsGrid({
       ),
     },
     {
-      field: 'paymentStatus',
+      field: 'displayStatus',
       headerName: 'Estado',
-      flex: 0.8,
+      flex: 1,
       sortable: false,
       filterable: false,
-      renderCell: ({ value }: { value: string }) => {
-        const label = paymentStatusLabel(value);
-        const isPaid = value === 'PAID_ON_RECEPTION';
-        return isPaid ? (
-          <Badge variant="success">{label}</Badge>
-        ) : (
-          <Badge variant="warning">{label}</Badge>
+      renderCell: ({ row }: { row: ReceptionGridRow }) => {
+        const { status, label } = receptionDisplayStatusFromSources(
+          row.paymentStatus,
+          row.settlementStatus,
         );
+        const variant =
+          status === 'PAID' || status === 'SETTLED'
+            ? 'success'
+            : status === 'SETTLED_DRAFT'
+              ? 'info'
+              : 'warning';
+        return <Badge variant={variant}>{label}</Badge>;
       },
     },
     {

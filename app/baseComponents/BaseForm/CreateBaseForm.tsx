@@ -32,7 +32,8 @@ export interface BaseFormField {
 	| "currency"
 	| "image"
 	| "video"
-	| "avatar";
+	| "avatar"
+	| "custom";
 	required?: boolean;
 	autoFocus?: boolean;
 	options?: Option[];
@@ -51,6 +52,8 @@ export interface BaseFormField {
 	maxSize?: number;
 	uploadPath?: string;
 	buttonText?: string;
+	/** Contenido custom (solo type === "custom"). */
+	render?: () => React.ReactNode;
 }
 
 export interface BaseFormFieldGroup {
@@ -108,7 +111,9 @@ const CreateBaseForm: React.FC<CreateBaseFormProps> = ({
 	// Función para renderizar un campo individual
 	const renderField = (field: BaseFormField) => (
 		<div key={field.name} className="mb-0">
-			{field.type === "location" ? (
+			{field.type === "custom" ? (
+				field.render?.()
+			) : field.type === "location" ? (
 				<LocationPickerWrapper
 					onChange={coords => onChange(field.name, coords)}
 				/>

@@ -16,10 +16,12 @@ import { Transaction } from "./entities/Transaction";
 import { ReceptionPack } from "./entities/ReceptionPack";
 import { TransactionRelation } from "./entities/TransactionRelation";
 import { AdminBankAccount } from "./entities/AdminBankAccount";
+import { AppConfig } from "./entities/AppConfig";
 import { Permission } from "./entities/Permission";
 import { AuditSubscriber } from "./subscribers/AuditSubscriber";
 import { getAppConfig } from "../lib/appConfig";
 import { ensureTransactionTypeEnum } from "./ensureTransactionTypeEnum";
+import { ensureAppConfigTable } from "./ensureAppConfigTable";
 
 const appConfig = getAppConfig();
 
@@ -36,6 +38,7 @@ type DbGlobal = {
     initPromise?: Promise<DataSource>;
     shutdownHooked?: boolean;
     transactionTypeEnumReady?: boolean;
+    appConfigTableReady?: boolean;
   };
 };
 
@@ -78,6 +81,7 @@ function createDataSource(): DataSource {
       TransactionRelation,
       ReceptionPack,
       AdminBankAccount,
+      AppConfig,
       Permission,
     ],
     subscribers: [AuditSubscriber],
@@ -177,6 +181,10 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           await ensureTransactionTypeEnum(state.ds);
           state.transactionTypeEnumReady = true;
         }
+        if (!state.appConfigTableReady) {
+          await ensureAppConfigTable(state.ds);
+          state.appConfigTableReady = true;
+        }
         return state.ds;
       }
     }
@@ -200,6 +208,10 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
         if (!state.transactionTypeEnumReady) {
           await ensureTransactionTypeEnum(state.ds);
           state.transactionTypeEnumReady = true;
+        }
+        if (!state.appConfigTableReady) {
+          await ensureAppConfigTable(state.ds);
+          state.appConfigTableReady = true;
         }
 
         return state.ds;

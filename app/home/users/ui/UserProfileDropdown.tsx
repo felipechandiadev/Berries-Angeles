@@ -130,7 +130,7 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
 
       {/* Dropdown Menu */}
       {open && (
-        <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+        <div className="absolute right-0 top-full z-50 -mt-0.5 w-64 rounded-lg border border-gray-200 bg-white shadow-lg">
           {/* User Info */}
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="flex items-center gap-3">

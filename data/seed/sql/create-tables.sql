@@ -220,6 +220,20 @@ CREATE TABLE `admin_bank_accounts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ==========================
+-- 10c. APP CONFIG (Singleton settings)
+-- ==========================
+CREATE TABLE `app_config` (
+  `id` VARCHAR(36) PRIMARY KEY,
+  `requireBankAccountsInPayments` BOOLEAN NOT NULL DEFAULT TRUE,
+  `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `app_config` (`id`, `requireBankAccountsInPayments`)
+VALUES ('1', TRUE)
+ON DUPLICATE KEY UPDATE `id` = `id`;
+
+-- ==========================
 -- 11. PALLETS (Depends on Storage, Tray)
 -- ==========================
 CREATE TABLE `pallets` (
@@ -293,7 +307,8 @@ CREATE TABLE `transactions` (
     'PALLET_TRAY_ASSIGNMENT',
     'PALLET_TRAY_RELEASE',
     'ADVANCE',
-    'SETTLEMENT'
+    'SETTLEMENT',
+    'DISPATCH'
   ) NOT NULL,
   `direction` ENUM('IN', 'OUT') NOT NULL,
   `amount` DECIMAL(12,2) NOT NULL,

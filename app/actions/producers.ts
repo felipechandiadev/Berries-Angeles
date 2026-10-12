@@ -22,8 +22,14 @@ function normalizeString(str: string): string {
   return str
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ñ/g, 'n')
+    .replace(/ü/g, 'u');
 }
+
+/** LOWER first, then strip accents — matches case/accent-insensitive search terms. */
+const normalizeSqlExpression = (expression: string) =>
+  `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(COALESCE(${expression}, '')), 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u'), 'ñ', 'n'), 'ü', 'u')`;
 
 /**
  * Parse column filters from string format
@@ -252,10 +258,10 @@ export async function getProducersGridData(input: GetProducersGridDataInput): Pr
     // Apply search
     if (input.search?.trim()) {
       const searchTerm = normalizeString(input.search.trim());
-      query.andWhere(
-        `(LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(CONCAT(producer.name, producer.dni, producer.mail, producer.phone, productiveUnit.name), 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u'), 'ñ', 'n')) LIKE :search)`,
-        { search: `%${searchTerm}%` }
-      );
+      const haystack = `CONCAT(${normalizeSqlExpression('producer.name')}, ${normalizeSqlExpression('producer.dni')}, ${normalizeSqlExpression('producer.mail')}, ${normalizeSqlExpression('producer.phone')}, ${normalizeSqlExpression('productiveUnit.name')})`;
+      query.andWhere(`(${haystack} LIKE :search)`, {
+        search: `%${searchTerm}%`,
+      });
     }
 
     // Apply column filters
@@ -263,10 +269,9 @@ export async function getProducersGridData(input: GetProducersGridDataInput): Pr
     for (const [field, value] of Object.entries(columnFilters)) {
       if (VALID_FIELDS.includes(field)) {
         const normalizedValue = normalizeString(value);
-        query.andWhere(
-          `LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(producer.${field}, 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u'), 'ñ', 'n')) LIKE :${field}`,
-          { [field]: `%${normalizedValue}%` }
-        );
+        query.andWhere(`${normalizeSqlExpression(`producer.${field}`)} LIKE :${field}`, {
+          [field]: `%${normalizedValue}%`,
+        });
       }
     }
 
@@ -327,10 +332,10 @@ export async function getProducersExportData(input: GetProducersGridDataInput): 
     // Apply search
     if (input.search?.trim()) {
       const searchTerm = normalizeString(input.search.trim());
-      query.andWhere(
-        `(LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(CONCAT(producer.name, producer.dni, producer.mail, producer.phone, productiveUnit.name), 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u'), 'ñ', 'n')) LIKE :search)`,
-        { search: `%${searchTerm}%` }
-      );
+      const haystack = `CONCAT(${normalizeSqlExpression('producer.name')}, ${normalizeSqlExpression('producer.dni')}, ${normalizeSqlExpression('producer.mail')}, ${normalizeSqlExpression('producer.phone')}, ${normalizeSqlExpression('productiveUnit.name')})`;
+      query.andWhere(`(${haystack} LIKE :search)`, {
+        search: `%${searchTerm}%`,
+      });
     }
 
     // Apply column filters
@@ -338,10 +343,9 @@ export async function getProducersExportData(input: GetProducersGridDataInput): 
     for (const [field, value] of Object.entries(columnFilters)) {
       if (VALID_FIELDS.includes(field)) {
         const normalizedValue = normalizeString(value);
-        query.andWhere(
-          `LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(producer.${field}, 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u'), 'ñ', 'n')) LIKE :${field}`,
-          { [field]: `%${normalizedValue}%` }
-        );
+        query.andWhere(`${normalizeSqlExpression(`producer.${field}`)} LIKE :${field}`, {
+          [field]: `%${normalizedValue}%`,
+        });
       }
     }
 
