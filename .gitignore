@@ -1,8 +1,9 @@
 # Dependencies
 node_modules/
 
-# Electron build output (legacy)
-dist/
+# Electron build output (legacy); keep vendor/kai-ui/dist committed
+/dist/
+!vendor/kai-ui/dist/
 
 # Env files
 .env

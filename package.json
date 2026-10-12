@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:reports": "vitest run lib/reports/__tests__/receptions.variants.test.ts",
     "test:watch": "vitest",
-    "eval:reports": "vitest run lib/reports/__tests__/receptions.variants.test.ts"
+    "eval:reports": "vitest run lib/reports/__tests__/receptions.variants.test.ts",
+    "sync:kai-ui": "bash scripts/sync-kai-ui.sh"
   },
   "keywords": [],
   "author": "Felipe",
@@ -39,7 +40,7 @@
     "vitest": "^3.2.7"
   },
   "dependencies": {
-    "@felipechandiadev/ui": "file:../kai-ui",
+    "@felipechandiadev/ui": "file:./vendor/kai-ui",
     "@fontsource/material-symbols-outlined": "^5.2.30",
     "@fontsource/material-symbols-rounded": "^5.2.30",
     "@fontsource/material-symbols-sharp": "^5.2.30",

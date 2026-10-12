@@ -1,0 +1,1 @@
+{"version":3,"file":"LoadingState.d.ts","sourceRoot":"","sources":["../../../src/components/LoadingState/LoadingState.tsx"],"names":[],"mappings":"AAIA,MAAM,MAAM,iBAAiB,GAAG;IAC9B,SAAS,CAAC,EAAE,MAAM,CAAC;IACnB,IAAI,CAAC,EAAE,MAAM,CAAC;IACd,KAAK,CAAC,EAAE,MAAM,CAAC;CAChB,CAAC;AAEF,MAAM,CAAC,OAAO,UAAU,YAAY,CAAC,EACnC,SAAmD,EACnD,IAAI,EACJ,KAAkB,GACnB,EAAE,iBAAiB,+BAMnB"}
