@@ -7,6 +7,7 @@ import {
 } from '@/app/actions/settlements';
 import { getProducersSimpleListWithLabel } from '@/app/actions/producers';
 import { WithNavSearch } from '@/app/ui/WithNavSearch';
+import { buildGridNavSearch } from '@/lib/gridQuery';
 import NewSettlementContent from './ui/NewSettlementContent';
 import SettlementsGrid from './ui/SettlementsGrid';
 import SettlementsTabs from './ui/SettlementsTabs';
@@ -21,6 +22,10 @@ interface SettlementsSearchParams {
   seasonId?: string;
   search?: string;
   settlementId?: string;
+  filtration?: string;
+  filters?: string;
+  sort?: string;
+  sortField?: string;
 }
 
 const parseNumberParam = (value: string | undefined, fallback: number): number => {
@@ -45,6 +50,15 @@ export default async function SettlementsPage({
   const search = params?.search?.trim() ? params.search.trim() : undefined;
   const page = parseNumberParam(params?.page, 1);
   const limit = parseNumberParam(params?.limit, 25);
+  const filters = params?.filters?.trim() ? params.filters.trim() : undefined;
+  const filtration = params?.filtration === 'true';
+  const sortField = params?.sortField?.trim() ? params.sortField.trim() : undefined;
+  const sort =
+    params?.sort === 'asc' || params?.sort === 'ASC'
+      ? 'ASC'
+      : params?.sort === 'desc' || params?.sort === 'DESC'
+        ? 'DESC'
+        : undefined;
   const tab = params?.tab === 'new' ? 'new' : 'list';
   const settlementIdParam = params?.settlementId?.trim() || undefined;
 
@@ -70,6 +84,10 @@ export default async function SettlementsPage({
     if (newTab === 'list' && search) urlParams.set('search', search);
     if (newTab === 'list' && page > 1) urlParams.set('page', page.toString());
     if (newTab === 'list' && limit !== 25) urlParams.set('limit', limit.toString());
+    if (newTab === 'list' && filters) urlParams.set('filters', filters);
+    if (newTab === 'list' && filtration) urlParams.set('filtration', 'true');
+    if (newTab === 'list' && sortField) urlParams.set('sortField', sortField);
+    if (newTab === 'list' && sort) urlParams.set('sort', sort);
     if (newTab === 'new' && settlementIdParam) urlParams.set('settlementId', settlementIdParam);
     urlParams.set('tab', newTab);
     return `?${urlParams.toString()}`;
@@ -85,6 +103,10 @@ export default async function SettlementsPage({
           search,
           page,
           limit,
+          filters,
+          filtration,
+          sortField,
+          sort,
         })
       : null;
 
@@ -124,20 +146,29 @@ export default async function SettlementsPage({
     >
       {tab === 'list' && settlementsList && (
         <WithNavSearch
-          search={(() => {
-            const nav = new URLSearchParams();
-            nav.set('tab', 'list');
-            nav.set('page', String(page));
-            nav.set('limit', String(limit));
-            if (params?.producerId?.trim()) nav.set('producerId', params.producerId.trim());
-            if (seasonId) nav.set('seasonId', seasonId);
-            if (search) nav.set('search', search);
-            return nav.toString();
-          })()}
+          search={buildGridNavSearch({
+            page,
+            limit,
+            search,
+            filtration,
+            filters,
+            sortField,
+            sort,
+            extra: {
+              tab: 'list',
+              ...(params?.producerId?.trim() ? { producerId: params.producerId.trim() } : {}),
+              ...(seasonId ? { seasonId } : {}),
+            },
+          })}
         >
           <SettlementsGrid
             rows={settlementsList.rows.map((row) => ({ ...row }))}
             totalRows={settlementsList.total}
+            currentLimit={limit}
+            currentSearch={search}
+            currentFilters={filters}
+            currentSort={sort}
+            currentSortField={sortField}
           />
         </WithNavSearch>
       )}

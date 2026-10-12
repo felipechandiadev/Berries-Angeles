@@ -10,7 +10,17 @@ import { getDb } from '../../data/db';
 import moment from 'moment-timezone';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUserSession } from './auth.server';
-import { Brackets, EntityManager, IsNull } from 'typeorm';
+import { EntityManager, IsNull } from 'typeorm';
+import {
+  applyTextSearch,
+  normalizeString,
+  normalizeSqlExpr,
+  parseColumnFilters,
+  resolveLimit,
+  resolvePage,
+  resolveSortField,
+  resolveSortOrder,
+} from '@/lib/gridQuery';
 
 const APP_TIMEZONE = 'America/Santiago';
 
@@ -161,34 +171,19 @@ const PALLET_VALID_SORT_FIELDS = [
   'updatedAt',
 ];
 
-function normalizeString(str: string): string {
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[^\p{L}\p{N}\s]/gu, '')
-    .replace(/ñ/g, 'n');
-}
-
-function parseColumnFilters(
-  filtersString: string,
-  allowedFields: string[]
-): Array<{ column: string; value: string }> {
-  return filtersString
-    .split(',')
-    .map((part) => part.trim())
-    .filter((part) => part.includes('-'))
-    .map((part) => {
-      const dashIndex = part.indexOf('-');
-      return {
-        column: part.substring(0, dashIndex).trim(),
-        value: decodeURIComponent(part.substring(dashIndex + 1).trim()),
-      };
-    })
-    .filter((filter) => filter.column && filter.value && allowedFields.includes(filter.column));
-}
-
-function normalizeColumnSql(column: string): string {
-  return `LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${column}, ''), 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u'), 'ñ', 'n'))`;
+function palletDateFilterSql(column: string, value: string, paramName: string): { clause: string; params: Record<string, string> } {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return {
+      clause: `DATE(${column}) = :${paramName}`,
+      params: { [paramName]: trimmed },
+    };
+  }
+  const like = `%${normalizeString(trimmed)}%`;
+  return {
+    clause: `(DATE_FORMAT(${column}, '%d-%m-%Y %H:%i') LIKE :${paramName} OR DATE_FORMAT(${column}, '%d-%m-%Y') LIKE :${paramName} OR DATE_FORMAT(${column}, '%Y-%m-%d') LIKE :${paramName})`,
+    params: { [paramName]: like },
+  };
 }
 
 function applyPalletFilters(query: any, filters?: PalletGridFilters) {
@@ -210,21 +205,27 @@ function applyPalletFilters(query: any, filters?: PalletGridFilters) {
           });
           break;
         case 'storageName':
-          query = query.andWhere(`${normalizeColumnSql('storage.name')} LIKE :${paramName}`, {
+          query = query.andWhere(`${normalizeSqlExpr('storage.name')} LIKE :${paramName}`, {
             [paramName]: `%${normalizedValue}%`,
           });
           break;
         case 'trayName':
-          query = query.andWhere(`${normalizeColumnSql('tray.name')} LIKE :${paramName}`, {
+          query = query.andWhere(`${normalizeSqlExpr('tray.name')} LIKE :${paramName}`, {
             [paramName]: `%${normalizedValue}%`,
           });
           break;
         case 'storageId':
         case 'trayId':
-          query = query.andWhere(`${normalizeColumnSql(`pallet.${filter.column}`)} LIKE :${paramName}`, {
+          query = query.andWhere(`${normalizeSqlExpr(`pallet.${filter.column}`)} LIKE :${paramName}`, {
             [paramName]: `%${normalizedValue}%`,
           });
           break;
+        case 'createdAt':
+        case 'updatedAt': {
+          const { clause, params } = palletDateFilterSql(`pallet.${filter.column}`, filter.value, paramName);
+          query = query.andWhere(clause, params);
+          break;
+        }
         case 'id':
         case 'traysQuantity':
         case 'capacity':
@@ -239,7 +240,7 @@ function applyPalletFilters(query: any, filters?: PalletGridFilters) {
           break;
         }
         default:
-          query = query.andWhere(`${normalizeColumnSql(`pallet.${filter.column}`)} LIKE :${paramName}`, {
+          query = query.andWhere(`${normalizeSqlExpr(`pallet.${filter.column}`)} LIKE :${paramName}`, {
             [paramName]: `%${normalizedValue}%`,
           });
           break;
@@ -248,15 +249,28 @@ function applyPalletFilters(query: any, filters?: PalletGridFilters) {
   }
 
   if (filters.search?.trim()) {
-    const normalizedSearch = normalizeString(filters.search.trim());
-
-    query = query.andWhere(new Brackets((qb) => {
-      qb.where(`${normalizeColumnSql('storage.name')} LIKE :search`, { search: `%${normalizedSearch}%` })
-        .orWhere(`${normalizeColumnSql('tray.name')} LIKE :search`, { search: `%${normalizedSearch}%` })
-        .orWhere(`${normalizeColumnSql('pallet.status')} LIKE :search`, { search: `%${normalizedSearch}%` })
-        .orWhere(`${normalizeColumnSql('pallet.storageId')} LIKE :search`, { search: `%${normalizedSearch}%` })
-        .orWhere(`${normalizeColumnSql('pallet.trayId')} LIKE :search`, { search: `%${normalizedSearch}%` });
-    }));
+    applyTextSearch(query, {
+      columns: [
+        'storage.name',
+        'tray.name',
+        'pallet.status',
+        'pallet.storageId',
+        'pallet.trayId',
+        'CAST(pallet.id AS CHAR)',
+        'CAST(pallet.traysQuantity AS CHAR)',
+        'CAST(pallet.capacity AS CHAR)',
+        'CAST(pallet.weight AS CHAR)',
+        'CAST(pallet.dispatchWeight AS CHAR)',
+        "DATE_FORMAT(pallet.updatedAt, '%d-%m-%Y %H:%i')",
+        "DATE_FORMAT(pallet.updatedAt, '%d-%m-%Y')",
+        "DATE_FORMAT(pallet.updatedAt, '%Y-%m-%d')",
+        "DATE_FORMAT(pallet.createdAt, '%d-%m-%Y %H:%i')",
+        "DATE_FORMAT(pallet.createdAt, '%d-%m-%Y')",
+        "DATE_FORMAT(pallet.createdAt, '%Y-%m-%d')",
+      ],
+      search: filters.search,
+      paramName: 'search',
+    });
   }
 
   return query;
@@ -500,7 +514,7 @@ export async function getPalletById(id: string | number): Promise<PalletResult> 
 export async function getPalletsGridData(
   filters?: PalletGridFilters
 ): Promise<PalletGridResponse> {
-  const safeLimit = Math.min(Math.max(5, filters?.limit || 25), 100);
+  const safeLimit = resolveLimit(filters?.limit, 25);
 
   try {
     const db = await getDb();
@@ -513,11 +527,9 @@ export async function getPalletsGridData(
       requestedFields.push('id');
     }
 
-    const page = Math.max(1, filters?.page || 1);
-    const sortOrder = (filters?.sortOrder || 'DESC').toUpperCase() as 'ASC' | 'DESC';
-    const sortByRaw = filters?.sortBy && PALLET_VALID_SORT_FIELDS.includes(filters.sortBy)
-      ? filters.sortBy
-      : 'createdAt';
+    const page = resolvePage(filters?.page, 1);
+    const sortOrder = resolveSortOrder(filters?.sortOrder, 'DESC');
+    const sortByRaw = resolveSortField(filters?.sortBy, PALLET_VALID_SORT_FIELDS, 'createdAt');
 
     let query = db
       .getRepository(Pallet)
@@ -597,10 +609,8 @@ export async function getPalletsExportData(filters?: PalletGridFilters): Promise
     const db = await getDb();
     const maxRows = 10000;
 
-    const sortOrder = (filters?.sortOrder || 'DESC').toUpperCase() as 'ASC' | 'DESC';
-    const sortByRaw = filters?.sortBy && PALLET_VALID_SORT_FIELDS.includes(filters.sortBy)
-      ? filters.sortBy
-      : 'createdAt';
+    const sortOrder = resolveSortOrder(filters?.sortOrder, 'DESC');
+    const sortByRaw = resolveSortField(filters?.sortBy, PALLET_VALID_SORT_FIELDS, 'createdAt');
 
     let query = db
       .getRepository(Pallet)

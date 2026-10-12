@@ -248,7 +248,7 @@ export default function ReceptionsGrid({
       headerName: 'Bandejas',
       flex: 0.7,
       sortable: true,
-      filterable: false,
+      filterable: true,
       align: 'left' as const,
       renderCell: ({ value }: { value: number }) => (
         <span>{numberFormatter.format(Number(value) || 0)}</span>
@@ -259,7 +259,7 @@ export default function ReceptionsGrid({
       headerName: 'Bruto (kg)',
       flex: 0.7,
       sortable: true,
-      filterable: false,
+      filterable: true,
       align: 'left' as const,
       renderCell: ({ value }: { value: number }) => (
         <span>{numberFormatter.format(Number(value) || 0)}</span>
@@ -270,7 +270,7 @@ export default function ReceptionsGrid({
       headerName: 'Neto (kg)',
       flex: 0.7,
       sortable: true,
-      filterable: false,
+      filterable: true,
       align: 'left' as const,
       renderCell: ({ value }: { value: number }) => (
         <span>{numberFormatter.format(Number(value) || 0)}</span>
@@ -309,7 +309,7 @@ export default function ReceptionsGrid({
       headerName: 'Estado',
       flex: 1,
       sortable: false,
-      filterable: false,
+      filterable: true,
       renderCell: ({ row }: { row: ReceptionGridRow }) => {
         const { status, label } = receptionDisplayStatusFromSources(
           row.paymentStatus,

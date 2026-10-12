@@ -24,6 +24,16 @@ import {
   type PaymentDetails,
   type PaymentMethod,
 } from '@/lib/paymentDetails';
+import {
+  normalizeSqlExpr,
+  normalizeString,
+  parseColumnFilters,
+  resolveLimit,
+  resolvePage,
+  resolveSortField,
+  resolveSortOrder,
+} from '@/lib/gridQuery';
+import { Brackets, SelectQueryBuilder } from 'typeorm';
 
 export interface ListPendingReceptionsInput {
   producerId?: string;
@@ -466,6 +476,202 @@ export interface ListSettlementsFilters {
   search?: string;
   page?: number;
   limit?: number;
+  filtration?: boolean;
+  filters?: string;
+  sortField?: string;
+  sort?: string;
+}
+
+const SETTLEMENT_JSON_STATUS = "JSON_UNQUOTE(JSON_EXTRACT(settlement.metadata, '$.status'))";
+const SETTLEMENT_JSON_PAYMENT = "JSON_UNQUOTE(JSON_EXTRACT(settlement.metadata, '$.paymentMethod'))";
+const SETTLEMENT_JSON_NET = "JSON_EXTRACT(settlement.metadata, '$.netAmountCLP')";
+const SETTLEMENT_STATUS_LABEL = `CASE WHEN ${SETTLEMENT_JSON_STATUS} = 'BORRADOR' THEN 'borrador' ELSE 'completa' END`;
+const SETTLEMENT_PAYMENT_LABEL = `CASE ${SETTLEMENT_JSON_PAYMENT} WHEN 'CASH' THEN 'efectivo' WHEN 'TRANSFER' THEN 'transferencia' WHEN 'CHECK' THEN 'cheque' ELSE '' END`;
+
+const SETTLEMENT_SORT_FIELDS = [
+  'createdAt',
+  'id',
+  'transactionId',
+  'producerName',
+  'seasonName',
+  'amount',
+  'netAmountCLP',
+] as const;
+
+const SETTLEMENT_FILTER_COLUMNS = [
+  'transactionId',
+  'id',
+  'producerName',
+  'seasonName',
+  'status',
+  'operatorName',
+  'createdAt',
+  'paymentMethod',
+  'netAmountCLP',
+] as const;
+
+function shouldApplySettlementColumnFilters(filters: ListSettlementsFilters): boolean {
+  return filters.filtration === true || Boolean(filters.filters?.trim());
+}
+
+function resolveSettlementSortColumn(sortField: string): string {
+  switch (sortField) {
+    case 'id':
+    case 'transactionId':
+      return 'settlement.id';
+    case 'producerName':
+      return 'producer.name';
+    case 'seasonName':
+      return 'season.name';
+    case 'netAmountCLP':
+    case 'amount':
+      return `COALESCE(${SETTLEMENT_JSON_NET}, settlement.amount)`;
+    case 'createdAt':
+    default:
+      return 'settlement.createdAt';
+  }
+}
+
+function applySettlementsGridFilters(
+  qb: SelectQueryBuilder<Transaction>,
+  filters: ListSettlementsFilters,
+): void {
+  if (filters.search?.trim()) {
+    const term = normalizeString(filters.search.trim());
+    const like = `%${term}%`;
+    const searchColumns = [
+      'producer.name',
+      'CAST(settlement.id AS CHAR)',
+      'season.name',
+      'operator.userName',
+      'operatorPerson.name',
+      'CAST(settlement.amount AS CHAR)',
+      `CAST(COALESCE(${SETTLEMENT_JSON_NET}, settlement.amount) AS CHAR)`,
+      "DATE_FORMAT(settlement.createdAt, '%d-%m-%Y')",
+      "DATE_FORMAT(settlement.createdAt, '%Y-%m-%d')",
+      SETTLEMENT_JSON_PAYMENT,
+      SETTLEMENT_PAYMENT_LABEL,
+      SETTLEMENT_STATUS_LABEL,
+    ];
+
+    qb.andWhere(
+      new Brackets((sub) => {
+        searchColumns.forEach((column, index) => {
+          const expr = normalizeSqlExpr(column);
+          const clause = `${expr} LIKE :settlementSearch`;
+          if (index === 0) {
+            sub.where(clause, { settlementSearch: like });
+          } else {
+            sub.orWhere(clause, { settlementSearch: like });
+          }
+        });
+        if (term.includes('borrador')) {
+          sub.orWhere(`${SETTLEMENT_JSON_STATUS} = :settlementStatusBorrador`, {
+            settlementStatusBorrador: 'BORRADOR',
+          });
+        }
+        if (term.includes('completa')) {
+          sub
+            .orWhere(`${SETTLEMENT_JSON_STATUS} IS NULL`)
+            .orWhere(`${SETTLEMENT_JSON_STATUS} <> :settlementStatusNotBorrador`, {
+              settlementStatusNotBorrador: 'BORRADOR',
+            });
+        }
+      }),
+    );
+  }
+
+  if (shouldApplySettlementColumnFilters(filters) && filters.filters) {
+    const columnFilters = parseColumnFilters(filters.filters, SETTLEMENT_FILTER_COLUMNS);
+    columnFilters.forEach((filter, index) => {
+      const paramName = `settlementColFilter${index}`;
+      const normalized = normalizeString(filter.value);
+
+      switch (filter.column) {
+        case 'transactionId':
+        case 'id':
+          qb.andWhere(`CAST(settlement.id AS CHAR) LIKE :${paramName}`, {
+            [paramName]: `%${filter.value.trim()}%`,
+          });
+          break;
+        case 'producerName':
+          qb.andWhere(`${normalizeSqlExpr('producer.name')} LIKE :${paramName}`, {
+            [paramName]: `%${normalized}%`,
+          });
+          break;
+        case 'seasonName':
+          qb.andWhere(`${normalizeSqlExpr('season.name')} LIKE :${paramName}`, {
+            [paramName]: `%${normalized}%`,
+          });
+          break;
+        case 'status': {
+          const wantsDraft =
+            normalized.includes('borrador') || normalized === 'borrador';
+          const wantsComplete =
+            normalized.includes('completa') || normalized === 'completa';
+          if (wantsDraft && !wantsComplete) {
+            qb.andWhere(`${SETTLEMENT_JSON_STATUS} = :${paramName}`, {
+              [paramName]: 'BORRADOR',
+            });
+          } else if (wantsComplete && !wantsDraft) {
+            qb.andWhere(
+              new Brackets((sub) => {
+                sub
+                  .where(`${SETTLEMENT_JSON_STATUS} IS NULL`)
+                  .orWhere(`${SETTLEMENT_JSON_STATUS} <> :${paramName}`, {
+                    [paramName]: 'BORRADOR',
+                  });
+              }),
+            );
+          } else {
+            qb.andWhere(`${normalizeSqlExpr(SETTLEMENT_STATUS_LABEL)} LIKE :${paramName}`, {
+              [paramName]: `%${normalized}%`,
+            });
+          }
+          break;
+        }
+        case 'operatorName':
+          qb.andWhere(
+            new Brackets((sub) => {
+              sub
+                .where(`${normalizeSqlExpr('operator.userName')} LIKE :${paramName}`, {
+                  [paramName]: `%${normalized}%`,
+                })
+                .orWhere(`${normalizeSqlExpr('operatorPerson.name')} LIKE :${paramName}`, {
+                  [paramName]: `%${normalized}%`,
+                });
+            }),
+          );
+          break;
+        case 'createdAt':
+          qb.andWhere('DATE(settlement.createdAt) = :settlementColDate', {
+            settlementColDate: filter.value,
+          });
+          break;
+        case 'paymentMethod':
+          qb.andWhere(
+            new Brackets((sub) => {
+              sub
+                .where(`${normalizeSqlExpr(SETTLEMENT_JSON_PAYMENT)} LIKE :${paramName}`, {
+                  [paramName]: `%${normalized}%`,
+                })
+                .orWhere(`${normalizeSqlExpr(SETTLEMENT_PAYMENT_LABEL)} LIKE :${paramName}`, {
+                  [paramName]: `%${normalized}%`,
+                });
+            }),
+          );
+          break;
+        case 'netAmountCLP':
+          qb.andWhere(
+            `CAST(COALESCE(${SETTLEMENT_JSON_NET}, settlement.amount) AS CHAR) LIKE :${paramName}`,
+            { [paramName]: `%${filter.value.trim()}%` },
+          );
+          break;
+        default:
+          break;
+      }
+    });
+  }
 }
 
 export interface SettlementSummary {
@@ -936,11 +1142,11 @@ export async function deleteSettlement(
 export async function listSettlements(
   filters: ListSettlementsFilters = {},
 ): Promise<ListSettlementsResult> {
-  const page = Number.isFinite(filters.page) ? Math.max(1, Math.floor(filters.page as number)) : 1;
-  const limitCandidate = Number.isFinite(filters.limit)
-    ? Math.max(1, Math.floor(filters.limit as number))
-    : 25;
-  const limit = Math.min(limitCandidate, MAX_LIMIT);
+  const page = resolvePage(filters.page, 1);
+  const limit = resolveLimit(filters.limit, 25, MAX_LIMIT);
+  const sortField = resolveSortField(filters.sortField, SETTLEMENT_SORT_FIELDS, 'createdAt');
+  const sortOrder = resolveSortOrder(filters.sort, 'DESC');
+  const sortColumn = resolveSettlementSortColumn(sortField);
 
   const db = await getDb();
   const qb = db
@@ -949,9 +1155,9 @@ export async function listSettlements(
     .leftJoinAndSelect('settlement.producer', 'producer')
     .leftJoinAndSelect('settlement.season', 'season')
     .leftJoinAndSelect('settlement.user', 'operator')
+    .leftJoin('operator.person', 'operatorPerson')
     .where('settlement.type = :type', { type: TransactionType.SETTLEMENT })
-    .andWhere('settlement.deletedAt IS NULL')
-    .orderBy('settlement.createdAt', 'DESC');
+    .andWhere('settlement.deletedAt IS NULL');
 
   if (filters.producerId?.trim()) {
     qb.andWhere('settlement.producerId = :producerId', {
@@ -973,15 +1179,16 @@ export async function listSettlements(
       qb.andWhere('settlement.createdAt <= :to', { to: toDate });
     }
   }
-  if (filters.search?.trim()) {
-    const search = `%${filters.search.trim()}%`;
-    qb.andWhere('(producer.name LIKE :search OR CAST(settlement.id AS CHAR) LIKE :search)', {
-      search,
-    });
-  }
 
-  qb.skip((page - 1) * limit).take(limit);
-  const [settlements, total] = await qb.getManyAndCount();
+  applySettlementsGridFilters(qb, filters);
+
+  const total = await qb.clone().getCount();
+  const settlements = await qb
+    .clone()
+    .orderBy(sortColumn, sortOrder)
+    .skip((page - 1) * limit)
+    .take(limit)
+    .getMany();
 
   const settlementIds = settlements.map((s) => String(s.id));
   const receptionCounts = new Map<string, { count: number; total: number }>();

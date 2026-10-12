@@ -13,8 +13,18 @@ import { getDb } from '../../data/db';
 import moment from 'moment-timezone';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUserSession } from './auth.server';
-import { EntityManager, Like, IsNull, SelectQueryBuilder } from 'typeorm';
+import { Brackets, EntityManager, In, Like, IsNull, SelectQueryBuilder } from 'typeorm';
 import { getActiveSeason } from './seasons';
+import {
+  applyTextSearch,
+  normalizeSqlExpr,
+  normalizeString,
+  parseColumnFilters,
+  resolveLimit,
+  resolvePage,
+  resolveSortField,
+  resolveSortOrder,
+} from '@/lib/gridQuery';
 
 const APP_TIMEZONE = 'America/Santiago';
 
@@ -996,6 +1006,334 @@ export interface GetTrayTransactionsResult {
   success: boolean;
   data?: TrayTransactionRow[];
   error?: string;
+}
+
+export interface GetTrayMovementsGridDataInput {
+  page?: number;
+  limit?: number;
+  search?: string;
+  filtration?: boolean;
+  filters?: string;
+  sortField?: string;
+  sort?: string;
+}
+
+export interface TrayMovementsGridResponse {
+  success: boolean;
+  data: TrayTransactionRow[];
+  totalRecords: number;
+  page: number;
+  limit: number;
+  error?: string;
+}
+
+const TRAY_MOVEMENT_TYPES = [
+  TransactionType.TRAY_ADJUSTMENT,
+  TransactionType.TRAY_IN_FROM_PRODUCER,
+  TransactionType.TRAY_OUT_TO_PRODUCER,
+  TransactionType.TRAY_OUT_TO_CLIENT,
+  TransactionType.TRAY_IN_FROM_CLIENT,
+  TransactionType.TRAY_RECEPTION_FROM_PRODUCER,
+  TransactionType.TRAY_RECEPTION_FROM_CLIENT,
+  TransactionType.TRAY_DELIVERY_TO_PRODUCER,
+  TransactionType.TRAY_DELIVERY_TO_CLIENT,
+] as const;
+
+const TRAY_TYPE_LABELS: Record<string, string> = {
+  [TransactionType.TRAY_ADJUSTMENT]: 'Ajuste',
+  [TransactionType.TRAY_IN_FROM_PRODUCER]: 'Entrada desde Productor',
+  [TransactionType.TRAY_OUT_TO_PRODUCER]: 'Salida a Productor',
+  [TransactionType.TRAY_OUT_TO_CLIENT]: 'Salida a Cliente',
+  [TransactionType.TRAY_IN_FROM_CLIENT]: 'Entrada desde Cliente',
+  [TransactionType.TRAY_RECEPTION_FROM_PRODUCER]: 'Recepción desde Productor',
+  [TransactionType.TRAY_RECEPTION_FROM_CLIENT]: 'Recepción desde Cliente',
+  [TransactionType.TRAY_DELIVERY_TO_PRODUCER]: 'Entrega a Productor',
+  [TransactionType.TRAY_DELIVERY_TO_CLIENT]: 'Entrega a Cliente',
+};
+
+const TRAY_TYPE_LABEL_SQL = `CASE transaction.type
+  WHEN '${TransactionType.TRAY_ADJUSTMENT}' THEN 'ajuste'
+  WHEN '${TransactionType.TRAY_IN_FROM_PRODUCER}' THEN 'entrada desde productor'
+  WHEN '${TransactionType.TRAY_OUT_TO_PRODUCER}' THEN 'salida a productor'
+  WHEN '${TransactionType.TRAY_OUT_TO_CLIENT}' THEN 'salida a cliente'
+  WHEN '${TransactionType.TRAY_IN_FROM_CLIENT}' THEN 'entrada desde cliente'
+  WHEN '${TransactionType.TRAY_RECEPTION_FROM_PRODUCER}' THEN 'recepcion desde productor'
+  WHEN '${TransactionType.TRAY_RECEPTION_FROM_CLIENT}' THEN 'recepcion desde cliente'
+  WHEN '${TransactionType.TRAY_DELIVERY_TO_PRODUCER}' THEN 'entrega a productor'
+  WHEN '${TransactionType.TRAY_DELIVERY_TO_CLIENT}' THEN 'entrega a cliente'
+  ELSE transaction.type END`;
+
+const TRAY_META_COUNTERPARTY = "JSON_UNQUOTE(JSON_EXTRACT(transaction.metadata, '$.counterpartyName'))";
+const TRAY_META_REASON = "JSON_UNQUOTE(JSON_EXTRACT(transaction.metadata, '$.reason'))";
+const TRAY_META_PERFORMED_BY = "JSON_UNQUOTE(JSON_EXTRACT(transaction.metadata, '$.performedByName'))";
+const TRAY_DIRECTION_LABEL = "CASE WHEN transaction.direction = 'IN' THEN 'entrada' ELSE 'salida' END";
+
+const TRAY_MOVEMENT_SORT_FIELDS = [
+  'createdAt',
+  'id',
+  'type',
+  'direction',
+  'trayName',
+  'counterpartyName',
+  'reason',
+  'performedByName',
+  'amount',
+] as const;
+
+const TRAY_MOVEMENT_FILTER_COLUMNS = [
+  'id',
+  'createdAt',
+  'type',
+  'direction',
+  'trayName',
+  'counterpartyName',
+  'reason',
+  'performedByName',
+  'amount',
+] as const;
+
+function shouldApplyTrayMovementColumnFilters(input: GetTrayMovementsGridDataInput): boolean {
+  return input.filtration === true || Boolean(input.filters?.trim());
+}
+
+function resolveTrayMovementSortColumn(sortField: string): string {
+  switch (sortField) {
+    case 'id':
+      return 'transaction.id';
+    case 'type':
+      return TRAY_TYPE_LABEL_SQL;
+    case 'direction':
+      return 'transaction.direction';
+    case 'trayName':
+      return 'tray.name';
+    case 'counterpartyName':
+      return `COALESCE(${TRAY_META_COUNTERPARTY}, producer.name, clientPerson.name)`;
+    case 'reason':
+      return TRAY_META_REASON;
+    case 'performedByName':
+      return `COALESCE(${TRAY_META_PERFORMED_BY}, user.userName, userPerson.name)`;
+    case 'amount':
+      return 'transaction.amount';
+    case 'createdAt':
+    default:
+      return 'transaction.createdAt';
+  }
+}
+
+function mapTrayTransactionRow(transaction: Transaction, trayName: string): TrayTransactionRow {
+  const metadata = transaction.metadata as Record<string, unknown> | null | undefined;
+  let counterpartyName = '—';
+  if (typeof metadata?.counterpartyName === 'string' && metadata.counterpartyName.trim()) {
+    counterpartyName = metadata.counterpartyName;
+  } else if (transaction.producer?.name) {
+    counterpartyName = transaction.producer.name;
+  } else if (transaction.client?.person?.name) {
+    counterpartyName = transaction.client.person.name;
+  }
+
+  const performedByName =
+    (typeof metadata?.performedByName === 'string' && metadata.performedByName) ||
+    transaction.user?.person?.name ||
+    transaction.user?.userName ||
+    'Usuario desconocido';
+
+  return {
+    id: transaction.id.toString(),
+    createdAt: transaction.createdAt,
+    type: TRAY_TYPE_LABELS[transaction.type] || transaction.type,
+    direction: transaction.direction,
+    amount: Number(transaction.amount),
+    trayName,
+    counterpartyName,
+    reason: typeof metadata?.reason === 'string' ? metadata.reason : undefined,
+    performedByName,
+    stockBefore:
+      metadata?.stockBefore !== undefined ? Number(metadata.stockBefore) : undefined,
+    stockAfter: metadata?.stockAfter !== undefined ? Number(metadata.stockAfter) : undefined,
+  };
+}
+
+function buildTrayMovementsBaseQuery(
+  db: Awaited<ReturnType<typeof getDb>>,
+): SelectQueryBuilder<Transaction> {
+  return db
+    .getRepository(Transaction)
+    .createQueryBuilder('transaction')
+    .leftJoinAndSelect('transaction.producer', 'producer')
+    .leftJoinAndSelect('transaction.client', 'client')
+    .leftJoinAndSelect('client.person', 'clientPerson')
+    .leftJoinAndSelect('transaction.user', 'user')
+    .leftJoinAndSelect('user.person', 'userPerson')
+    .leftJoin(Tray, 'tray', "tray.id = JSON_UNQUOTE(JSON_EXTRACT(transaction.metadata, '$.trayId'))")
+    .where('transaction.deletedAt IS NULL')
+    .andWhere('transaction.type IN (:...trayTypes)', { trayTypes: TRAY_MOVEMENT_TYPES });
+}
+
+function applyTrayMovementsGridFilters(
+  query: SelectQueryBuilder<Transaction>,
+  input: GetTrayMovementsGridDataInput,
+): void {
+  if (input.search?.trim()) {
+    applyTextSearch(query, {
+      columns: [
+        'CAST(transaction.id AS CHAR)',
+        TRAY_TYPE_LABEL_SQL,
+        'transaction.type',
+        TRAY_DIRECTION_LABEL,
+        'tray.name',
+        `COALESCE(${TRAY_META_COUNTERPARTY}, producer.name, clientPerson.name)`,
+        TRAY_META_REASON,
+        `COALESCE(${TRAY_META_PERFORMED_BY}, user.userName, userPerson.name)`,
+        'CAST(transaction.amount AS CHAR)',
+      ],
+      search: input.search,
+      paramName: 'trayMovementSearch',
+    });
+  }
+
+  if (shouldApplyTrayMovementColumnFilters(input) && input.filters) {
+    const columnFilters = parseColumnFilters(input.filters, TRAY_MOVEMENT_FILTER_COLUMNS);
+    columnFilters.forEach((filter, index) => {
+      const paramName = `trayMovementColFilter${index}`;
+      const normalized = normalizeString(filter.value);
+      switch (filter.column) {
+        case 'id':
+          query.andWhere(`CAST(transaction.id AS CHAR) LIKE :${paramName}`, {
+            [paramName]: `%${filter.value.trim()}%`,
+          });
+          break;
+        case 'createdAt':
+          query.andWhere('DATE(transaction.createdAt) = :trayMovementColDate', {
+            trayMovementColDate: filter.value,
+          });
+          break;
+        case 'type':
+          query.andWhere(
+            new Brackets((sub) => {
+              sub
+                .where(`${normalizeSqlExpr(TRAY_TYPE_LABEL_SQL)} LIKE :${paramName}`, {
+                  [paramName]: `%${normalized}%`,
+                })
+                .orWhere(`${normalizeSqlExpr('transaction.type')} LIKE :${paramName}`, {
+                  [paramName]: `%${normalized}%`,
+                });
+            }),
+          );
+          break;
+        case 'direction': {
+          const wantsIn = normalized.includes('entrada') || normalized === 'in';
+          const wantsOut = normalized.includes('salida') || normalized === 'out';
+          if (wantsIn && !wantsOut) {
+            query.andWhere('transaction.direction = :trayDirectionIn', {
+              trayDirectionIn: TransactionDirection.IN,
+            });
+          } else if (wantsOut && !wantsIn) {
+            query.andWhere('transaction.direction = :trayDirectionOut', {
+              trayDirectionOut: TransactionDirection.OUT,
+            });
+          } else {
+            query.andWhere(`${normalizeSqlExpr(TRAY_DIRECTION_LABEL)} LIKE :${paramName}`, {
+              [paramName]: `%${normalized}%`,
+            });
+          }
+          break;
+        }
+        case 'trayName':
+          query.andWhere(`${normalizeSqlExpr('tray.name')} LIKE :${paramName}`, {
+            [paramName]: `%${normalized}%`,
+          });
+          break;
+        case 'counterpartyName':
+          query.andWhere(
+            `${normalizeSqlExpr(`COALESCE(${TRAY_META_COUNTERPARTY}, producer.name, clientPerson.name)`)} LIKE :${paramName}`,
+            { [paramName]: `%${normalized}%` },
+          );
+          break;
+        case 'reason':
+          query.andWhere(`${normalizeSqlExpr(TRAY_META_REASON)} LIKE :${paramName}`, {
+            [paramName]: `%${normalized}%`,
+          });
+          break;
+        case 'performedByName':
+          query.andWhere(
+            `${normalizeSqlExpr(`COALESCE(${TRAY_META_PERFORMED_BY}, user.userName, userPerson.name)`)} LIKE :${paramName}`,
+            { [paramName]: `%${normalized}%` },
+          );
+          break;
+        case 'amount':
+          query.andWhere(`CAST(transaction.amount AS CHAR) LIKE :${paramName}`, {
+            [paramName]: `%${filter.value.trim()}%`,
+          });
+          break;
+        default:
+          break;
+      }
+    });
+  }
+}
+
+export async function getTrayMovementsGridData(
+  input: GetTrayMovementsGridDataInput = {},
+): Promise<TrayMovementsGridResponse> {
+  try {
+    const page = resolvePage(input.page, 1);
+    const limit = resolveLimit(input.limit, 25);
+    const sortField = resolveSortField(input.sortField, TRAY_MOVEMENT_SORT_FIELDS, 'createdAt');
+    const sortOrder = resolveSortOrder(input.sort, 'DESC');
+    const sortColumn = resolveTrayMovementSortColumn(sortField);
+
+    const db = await getDb();
+    const baseQuery = buildTrayMovementsBaseQuery(db);
+    applyTrayMovementsGridFilters(baseQuery, input);
+
+    const totalRecords = await baseQuery.clone().getCount();
+    const transactions = await baseQuery
+      .clone()
+      .orderBy(sortColumn, sortOrder)
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    const trayIds = Array.from(
+      new Set(
+        transactions
+          .map((tx) => {
+            const metadata = tx.metadata as { trayId?: string } | null | undefined;
+            return typeof metadata?.trayId === 'string' ? metadata.trayId : null;
+          })
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const trays = trayIds.length
+      ? await db.getRepository(Tray).find({ where: { id: In(trayIds), deletedAt: IsNull() } })
+      : [];
+    const trayNameById = new Map(trays.map((tray) => [tray.id, tray.name]));
+
+    const data = transactions.map((transaction) => {
+      const metadata = transaction.metadata as { trayId?: string } | null | undefined;
+      const trayName =
+        (metadata?.trayId ? trayNameById.get(metadata.trayId) : undefined) || 'Desconocida';
+      return mapTrayTransactionRow(transaction, trayName);
+    });
+
+    return {
+      success: true,
+      data,
+      totalRecords,
+      page,
+      limit,
+    };
+  } catch (error: any) {
+    console.error('[getTrayMovementsGridData] Error:', error);
+    return {
+      success: false,
+      data: [],
+      totalRecords: 0,
+      page: 1,
+      limit: 25,
+      error: error?.message || 'Error al obtener movimientos de bandejas',
+    };
+  }
 }
 
 /**

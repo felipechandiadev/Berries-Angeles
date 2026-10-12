@@ -62,7 +62,7 @@ const PRINT_PREVIEW_LOGO_STYLE: React.CSSProperties = {
 /** Inline layout — survives print iframe (Tailwind utilities often do not). */
 const TICKET_ROOT_STYLE: React.CSSProperties = {
   width: '76mm',
-  maxWidth: '76mm',
+  maxWidth: 'min(76mm, 100%)',
   padding: 0,
   margin: '0 auto',
   boxSizing: 'border-box',

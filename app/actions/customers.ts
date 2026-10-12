@@ -9,7 +9,17 @@ import { getDb } from '../../data/db';
 import moment from 'moment-timezone';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUserSession } from './auth.server';
-import { EntityManager, IsNull } from 'typeorm';
+import { EntityManager, IsNull, SelectQueryBuilder } from 'typeorm';
+import {
+  applyTextSearch,
+  normalizeSqlExpr,
+  normalizeString,
+  parseColumnFilters,
+  resolveLimit,
+  resolvePage,
+  resolveSortField,
+  resolveSortOrder,
+} from '@/lib/gridQuery';
 
 const APP_TIMEZONE = 'America/Santiago';
 
@@ -70,6 +80,70 @@ export interface CustomerResult {
   message?: string;
   data?: Customer | Customer[] | null;
   error?: string;
+}
+
+export interface GetCustomersGridDataInput {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  search?: string;
+  columnFilters?: string;
+  filtration?: boolean;
+}
+
+export interface CustomerGridRow {
+  id: string;
+  personId: string;
+  name: string;
+  dni: string;
+  mail: string;
+  phone: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CustomersGridResponse {
+  success: boolean;
+  data: CustomerGridRow[];
+  totalRecords: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  error?: string;
+}
+
+const CUSTOMER_COLUMN_FIELDS = ['name', 'dni', 'mail', 'phone'];
+const CUSTOMER_FILTERABLE_FIELDS = [...CUSTOMER_COLUMN_FIELDS];
+const CUSTOMER_SORT_FIELDS = ['name', 'dni', 'mail', 'phone', 'createdAt', 'updatedAt'];
+
+function shouldApplyCustomerColumnFilters(input: GetCustomersGridDataInput): boolean {
+  return input.filtration === true || Boolean(input.columnFilters?.trim());
+}
+
+function applyCustomersGridFilters(
+  query: SelectQueryBuilder<Customer>,
+  input: GetCustomersGridDataInput,
+): void {
+  if (input.search?.trim()) {
+    applyTextSearch(query, {
+      columns: ['person.name', 'person.dni', 'person.mail', 'person.phone'],
+      search: input.search,
+      paramName: 'customerSearch',
+    });
+  }
+
+  if (shouldApplyCustomerColumnFilters(input) && input.columnFilters) {
+    const columnFilters = parseColumnFilters(input.columnFilters, CUSTOMER_FILTERABLE_FIELDS);
+    columnFilters.forEach((filter, index) => {
+      const paramName = `customerColFilter${index}`;
+      if (CUSTOMER_COLUMN_FIELDS.includes(filter.column)) {
+        query.andWhere(`${normalizeSqlExpr(`person.${filter.column}`)} LIKE :${paramName}`, {
+          [paramName]: `%${normalizeString(filter.value)}%`,
+        });
+      }
+    });
+  }
 }
 
 /**
@@ -143,6 +217,70 @@ async function logCustomerAudit(
   } catch (error) {
     console.error('[logCustomerAudit] Error al registrar auditoría:', error);
     // No fallar la operación principal por error de auditoría
+  }
+}
+
+export async function getCustomersGridData(
+  input: GetCustomersGridDataInput = {},
+): Promise<CustomersGridResponse> {
+  try {
+    const page = resolvePage(input.page, 1);
+    const limit = resolveLimit(input.limit, 25);
+    const sortBy = resolveSortField(input.sortBy, CUSTOMER_SORT_FIELDS, 'createdAt');
+    const sortOrder = resolveSortOrder(input.sortOrder, 'DESC');
+    const sortColumn = CUSTOMER_COLUMN_FIELDS.includes(sortBy)
+      ? `person.${sortBy}`
+      : `customer.${sortBy}`;
+
+    const db = await getDb();
+    const query = db
+      .createQueryBuilder(Customer, 'customer')
+      .leftJoinAndSelect('customer.person', 'person')
+      .where('customer.deletedAt IS NULL')
+      .andWhere('person.deletedAt IS NULL');
+
+    applyCustomersGridFilters(query, input);
+
+    const totalRecords = await query.getCount();
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    const customers = await query
+      .clone()
+      .orderBy(sortColumn, sortOrder)
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    const data: CustomerGridRow[] = customers.map((customer) => ({
+      id: customer.id,
+      personId: customer.personId,
+      name: customer.person?.name ?? '',
+      dni: customer.person?.dni ?? '',
+      mail: customer.person?.mail ?? '',
+      phone: customer.person?.phone ?? '',
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+    }));
+
+    return {
+      success: true,
+      data,
+      totalRecords,
+      page,
+      limit,
+      totalPages,
+    };
+  } catch (error: any) {
+    console.error('[getCustomersGridData] Error:', error);
+    return {
+      success: false,
+      data: [],
+      totalRecords: 0,
+      page: 1,
+      limit: 25,
+      totalPages: 0,
+      error: error?.message || 'Error al obtener clientes',
+    };
   }
 }
 

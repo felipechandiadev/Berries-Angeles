@@ -31,6 +31,10 @@ interface AuditDataGridProps {
   currentPage: number;
   limit: number;
   filters?: Record<string, string | number | undefined>;
+  currentSearch?: string;
+  currentFilters?: string;
+  currentSort?: 'asc' | 'desc';
+  currentSortField?: string;
 }
 
 export function AuditDataGrid({
@@ -40,14 +44,18 @@ export function AuditDataGrid({
   currentPage,
   limit,
   filters = {},
+  currentSearch = '',
+  currentFilters = '',
+  currentSort = 'desc',
+  currentSortField = 'createdAt',
 }: AuditDataGridProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showAlert } = useAlert();
   const [isExporting, setIsExporting] = useState(false);
 
-  const sortBy = (filters?.sortBy as string) || 'createdAt';
-  const sortOrder = (filters?.sortOrder as 'asc' | 'desc') || 'desc';
+  const sortBy = currentSortField || (filters?.sortBy as string) || 'createdAt';
+  const sortOrder = currentSort || (filters?.sortOrder as 'asc' | 'desc') || 'desc';
 
   // Mapear datos para DataGrid con formato de fecha
   const rows = data.map((audit) => ({
@@ -59,16 +67,17 @@ export function AuditDataGrid({
   }));
 
   const columns = [
-    { field: 'entityName', headerName: 'Entidad', flex: 1, sortable: true },
-    { field: 'action', headerName: 'Acción', flex: 1, sortable: true },
-    { field: 'description', headerName: 'Descripción', flex: 2, sortable: false },
-    { field: 'userName', headerName: 'Usuario', flex: 1.5, sortable: false },
-    { field: 'createdAt', headerName: 'Fecha', flex: 1.5, sortable: true },
+    { field: 'entityName', headerName: 'Entidad', flex: 1, sortable: true, filterable: true },
+    { field: 'action', headerName: 'Acción', flex: 1, sortable: true, filterable: true },
+    { field: 'description', headerName: 'Descripción', flex: 2, sortable: false, filterable: true },
+    { field: 'userName', headerName: 'Usuario', flex: 1.5, sortable: false, filterable: true },
+    { field: 'createdAt', headerName: 'Fecha', flex: 1.5, sortable: true, filterable: true },
     {
       field: 'actions',
       headerName: '',
       flex: 0.8,
       sortable: false,
+      filterable: false,
       actionComponent: ({ row }: { row: typeof rows[0] }) => {
         const originalAudit = data.find(d => d.id === row.id);
         return originalAudit ? <AuditMoreButton audit={originalAudit} /> : null;
@@ -225,6 +234,8 @@ export function AuditDataGrid({
         totalRows={total}
         sort={sortOrder || 'desc'}
         sortField={sortBy}
+        search={currentSearch}
+        filters={currentFilters}
         onExportExcel={handleExportExcel}
         height={'85vh'}
         data-test-id="audit-data-grid-component"

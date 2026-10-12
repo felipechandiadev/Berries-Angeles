@@ -12,6 +12,11 @@ import DeleteSettlementButton from './DeleteSettlementButton';
 interface SettlementsGridProps {
   rows: SettlementSummary[];
   totalRows: number;
+  currentLimit: number;
+  currentSearch?: string;
+  currentFilters?: string;
+  currentSort?: string;
+  currentSortField?: string;
 }
 
 const clpFormatter = new Intl.NumberFormat('es-CL', {
@@ -27,7 +32,15 @@ function formatCLP(value: number): string {
 const statusLabel = (status: SettlementStatus | unknown): string =>
   status === 'BORRADOR' ? 'Borrador' : 'Completa';
 
-const SettlementsGrid = ({ rows, totalRows }: SettlementsGridProps) => {
+const SettlementsGrid = ({
+  rows,
+  totalRows,
+  currentLimit,
+  currentSearch,
+  currentFilters,
+  currentSort,
+  currentSortField,
+}: SettlementsGridProps) => {
   const router = useRouter();
 
   const columns = useMemo<DataGridColumn[]>(
@@ -186,19 +199,16 @@ const SettlementsGrid = ({ rows, totalRows }: SettlementsGridProps) => {
     [router],
   );
 
-  if (totalRows === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center text-secondary">
-        <p>No hay liquidaciones.</p>
-      </div>
-    );
-  }
-
   return (
     <DataGrid
       columns={columns}
       rows={rows}
       totalRows={totalRows}
+      limit={currentLimit}
+      search={currentSearch}
+      filters={currentFilters}
+      sort={currentSort?.toLowerCase() as 'asc' | 'desc' | undefined}
+      sortField={currentSortField}
       height="85vh"
       showBorder={false}
     />

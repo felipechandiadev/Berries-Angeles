@@ -9,6 +9,16 @@ import moment from 'moment-timezone';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUserSession } from './auth.server';
 import { EntityManager, Like, IsNull } from 'typeorm';
+import {
+  applyTextSearch,
+  normalizeString,
+  normalizeSqlExpr,
+  parseColumnFilters,
+  resolveLimit,
+  resolvePage,
+  resolveSortField,
+  resolveSortOrder,
+} from '@/lib/gridQuery';
 
 const APP_TIMEZONE = 'America/Santiago';
 
@@ -174,38 +184,6 @@ const VALID_FIELDS = ['id', 'name', 'address', 'description', 'createdAt', 'upda
 const VALID_SORT_FIELDS = ['id', 'name', 'address', 'description', 'createdAt', 'updatedAt'];
 
 /**
- * Normaliza string para búsqueda sin acentos
- */
-function normalizeString(str: string): string {
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remueve acentos
-    .replace(/ñ/g, 'n');
-}
-
-/**
- * Parsea filtros por columna desde formato "col1-val1,col2-val2"
- */
-function parseColumnFilters(
-  filtersString: string,
-  allowedFields: string[]
-): Array<{ column: string; value: string }> {
-  return filtersString
-    .split(',')
-    .map(f => f.trim())
-    .filter(f => f.includes('-'))
-    .map(f => {
-      const dashIndex = f.indexOf('-');
-      return {
-        column: f.substring(0, dashIndex).trim(),
-        value: decodeURIComponent(f.substring(dashIndex + 1).trim())
-      };
-    })
-    .filter(f => f.column && f.value && allowedFields.includes(f.column));
-}
-
-/**
  * READ - Obtener unidades productivas con paginación, filtros y ordenamiento para DataGrid
  */
 export async function getProductiveUnitsGridData(
@@ -231,13 +209,10 @@ export async function getProductiveUnitsGridData(
     }
 
     // --- Normalizar parámetros de paginación ---
-    const page = Math.max(1, filters?.page || 1);
-    const limit = Math.min(Math.max(5, filters?.limit || 25), 100);
-    const sortBy = filters?.sortBy || 'name';
-    const sortOrder = (filters?.sortOrder || 'ASC').toUpperCase() as 'ASC' | 'DESC';
-
-    // --- Validar sortBy para evitar SQL injection ---
-    const safeSortBy = VALID_SORT_FIELDS.includes(sortBy) ? sortBy : 'name';
+    const page = resolvePage(filters?.page, 1);
+    const limit = resolveLimit(filters?.limit, 25);
+    const safeSortBy = resolveSortField(filters?.sortBy, VALID_SORT_FIELDS, 'name');
+    const sortOrder = resolveSortOrder(filters?.sortOrder, 'ASC');
 
     // --- Construir query base ---
     let query = dataSource
@@ -253,27 +228,21 @@ export async function getProductiveUnitsGridData(
       columnFilters.forEach((filter, index) => {
         const normalizedValue = normalizeString(filter.value);
         const paramName = `colFilter${index}`;
-        
-        // Usar REPLACE anidado para normalizar en SQL
+
         query = query.andWhere(
-          `LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(unit.${filter.column}, ''), 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u')) LIKE :${paramName}`,
-          { [paramName]: `%${normalizedValue}%` }
+          `${normalizeSqlExpr(`unit.${filter.column}`)} LIKE :${paramName}`,
+          { [paramName]: `%${normalizedValue}%` },
         );
       });
     }
 
     // --- Aplicar búsqueda global ---
     if (filters?.search?.trim()) {
-      const normalizedSearch = normalizeString(filters.search.trim());
-      
-      query = query.andWhere(
-        `(
-          LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(unit.name, ''), 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u')) LIKE :search OR
-          LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(unit.address, ''), 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u')) LIKE :search OR
-          LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(unit.description, ''), 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u')) LIKE :search
-        )`,
-        { search: `%${normalizedSearch}%` }
-      );
+      applyTextSearch(query, {
+        columns: ['unit.name', 'unit.address', 'unit.description'],
+        search: filters.search,
+        paramName: 'search',
+      });
     }
 
     // --- Ejecutar count y data en paralelo usando clone() ---
@@ -687,11 +656,8 @@ export async function getProductiveUnitsExportData(filters?: ProductiveUnitsGrid
     const maxRows = 10000;
 
     // Normalizar parámetros (sin paginación)
-    const sortBy = filters?.sortBy || 'name';
-    const sortOrder = (filters?.sortOrder || 'ASC').toUpperCase() as 'ASC' | 'DESC';
-
-    // Validar sortBy
-    const safeSortBy = VALID_SORT_FIELDS.includes(sortBy) ? sortBy : 'name';
+    const safeSortBy = resolveSortField(filters?.sortBy, VALID_SORT_FIELDS, 'name');
+    const sortOrder = resolveSortOrder(filters?.sortOrder, 'ASC');
 
     // Construir query base
     let query = dataSource
@@ -711,29 +677,24 @@ export async function getProductiveUnitsExportData(filters?: ProductiveUnitsGrid
     if (filters?.filtration && filters?.filters) {
       const columnFilters = parseColumnFilters(filters.filters, VALID_FIELDS);
 
-      columnFilters.forEach(({ column, value }) => {
+      columnFilters.forEach(({ column, value }, index) => {
         const normalizedValue = normalizeString(value);
+        const paramName = `exportColFilter${index}`;
 
-        // Usar REPLACE para normalizar y comparar sin acentos
         query = query.andWhere(
-          `LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(unit.${column}, 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u')) LIKE :${column}Value`,
-          { [`${column}Value`]: `%${normalizedValue}%` }
+          `${normalizeSqlExpr(`unit.${column}`)} LIKE :${paramName}`,
+          { [paramName]: `%${normalizedValue}%` },
         );
       });
     }
 
     // Aplicar búsqueda global
-    if (filters?.search && filters.search.trim() !== '') {
-      const normalizedSearch = normalizeString(filters.search);
-
-      query = query.andWhere(
-        `(
-          LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(unit.name, 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u')) LIKE :globalSearch OR
-          LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(unit.address, 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u')) LIKE :globalSearch OR
-          LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(unit.description, 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u')) LIKE :globalSearch
-        )`,
-        { globalSearch: `%${normalizedSearch}%` }
-      );
+    if (filters?.search?.trim()) {
+      applyTextSearch(query, {
+        columns: ['unit.name', 'unit.address', 'unit.description'],
+        search: filters.search,
+        paramName: 'globalSearch',
+      });
     }
 
     // Obtener todos los registros (limitado a maxRows)

@@ -10,6 +10,11 @@ import DispatchDetailDialog from './DispatchDetailDialog';
 interface DispatchesGridProps {
   rows: DispatchSummaryRow[];
   totalRows: number;
+  currentLimit: number;
+  currentSearch?: string;
+  currentFilters?: string;
+  currentSort?: string;
+  currentSortField?: string;
 }
 
 const kgFmt = new Intl.NumberFormat('es-CL', {
@@ -17,7 +22,15 @@ const kgFmt = new Intl.NumberFormat('es-CL', {
   maximumFractionDigits: 3,
 });
 
-export default function DispatchesGrid({ rows, totalRows }: DispatchesGridProps) {
+export default function DispatchesGrid({
+  rows,
+  totalRows,
+  currentLimit,
+  currentSearch,
+  currentFilters,
+  currentSort,
+  currentSortField,
+}: DispatchesGridProps) {
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const columns = useMemo<DataGridColumn[]>(
@@ -109,8 +122,12 @@ export default function DispatchesGrid({ rows, totalRows }: DispatchesGridProps)
         title="Despachos"
         columns={columns}
         rows={rows}
-        limit={25}
+        limit={currentLimit}
         totalRows={totalRows}
+        search={currentSearch}
+        filters={currentFilters}
+        sort={currentSort?.toLowerCase() as 'asc' | 'desc' | undefined}
+        sortField={currentSortField}
         height="75vh"
         showBorder={false}
       />

@@ -40,15 +40,25 @@ async function AuditContent({ params }: { params: Record<string, string | string
 
   const auditData = await getAuditGridData(filters);
   const search = new URLSearchParams();
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      search.set(key, String(value));
-    }
-  });
+  search.set('page', String(filters.page));
+  search.set('limit', String(filters.limit));
+  if (filters.search) search.set('search', filters.search);
+  if (filters.action) search.set('action', String(filters.action));
+  if (filters.entityName) search.set('entityName', filters.entityName);
+  if (filters.filters) search.set('filters', filters.filters);
+  if (filters.sortBy) search.set('sortField', filters.sortBy);
+  if (filters.sortOrder) search.set('sort', filters.sortOrder);
 
   return (
     <WithNavSearch search={search.toString()}>
-      <AuditDataGrid {...auditData} filters={filters} />
+      <AuditDataGrid
+        {...auditData}
+        filters={filters}
+        currentSearch={filters.search || ''}
+        currentFilters={filters.filters || ''}
+        currentSort={filters.sortOrder}
+        currentSortField={filters.sortBy}
+      />
     </WithNavSearch>
   );
 }

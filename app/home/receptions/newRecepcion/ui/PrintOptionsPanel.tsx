@@ -29,14 +29,14 @@ const PrintOptionsPanel: React.FC<PrintOptionsPanelProps> = ({ options, onChange
 
   return (
     <div
-      className="mb-4 rounded-md border border-border bg-muted/30 p-3 text-sm"
+      className="max-h-[36vh] overflow-y-auto rounded-md border border-border bg-muted/30 p-2.5 text-sm sm:max-h-none sm:overflow-visible sm:p-3"
       data-test-id="print-options-panel"
     >
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Configurar impresión
       </p>
 
-      <div className="mb-3 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap gap-1.5 sm:gap-2">
         {PROFILES.map((profile) => {
           const active = options.profile === profile;
           return (
@@ -45,7 +45,7 @@ const PrintOptionsPanel: React.FC<PrintOptionsPanelProps> = ({ options, onChange
               type="button"
               onClick={() => setProfile(profile)}
               aria-pressed={active}
-              className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3 sm:py-1.5 ${
                 active
                   ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/30'
                   : 'border-border bg-white text-foreground hover:border-emerald-500/50 hover:bg-emerald-50'

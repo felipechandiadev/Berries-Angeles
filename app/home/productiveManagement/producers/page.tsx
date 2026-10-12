@@ -48,6 +48,7 @@ export default async function ProducersPage({ searchParams }: ProducersPageProps
         : undefined;
   const search = typeof params?.search === 'string' ? params.search : '';
   const filters = typeof params?.filters === 'string' ? params.filters : '';
+  const filtration = params?.filtration === 'true';
 
   const gridData = await getProducersGridData({
     page,
@@ -56,6 +57,7 @@ export default async function ProducersPage({ searchParams }: ProducersPageProps
     sortOrder,
     search,
     columnFilters: filters,
+    filtration,
   });
 
   const navSearch = new URLSearchParams();
@@ -65,7 +67,7 @@ export default async function ProducersPage({ searchParams }: ProducersPageProps
   if (sortOrder) navSearch.set('sort', sortOrder);
   if (search) navSearch.set('search', search);
   if (filters) navSearch.set('filters', filters);
-  if (params?.filtration) navSearch.set('filtration', params.filtration);
+  if (filtration) navSearch.set('filtration', 'true');
 
   return (
     <div data-test-id="producers-page">

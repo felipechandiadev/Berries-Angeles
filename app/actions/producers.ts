@@ -9,45 +9,79 @@ import { getDb } from '../../data/db';
 import moment from 'moment-timezone';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUserSession } from './auth.server';
-import { EntityManager, IsNull } from 'typeorm';
+import { EntityManager, IsNull, SelectQueryBuilder } from 'typeorm';
+import {
+  applyTextSearch,
+  normalizeString,
+  normalizeSqlExpr,
+  parseColumnFilters,
+  resolveLimit,
+  resolvePage,
+  resolveSortField,
+  resolveSortOrder,
+} from '@/lib/gridQuery';
 
 const APP_TIMEZONE = 'America/Santiago';
-const VALID_FIELDS = ['name', 'dni', 'mail', 'phone', 'productiveUnitId'];
+const PRODUCER_COLUMN_FIELDS = ['name', 'dni', 'mail', 'phone', 'productiveUnitId'];
+const PRODUCER_FILTERABLE_FIELDS = [...PRODUCER_COLUMN_FIELDS, 'productiveUnitName'];
 const VALID_SORT_FIELDS = ['name', 'dni', 'mail', 'phone', 'createdAt', 'updatedAt'];
 
-/**
- * Normalize string for search (remove accents, convert to lowercase)
- */
-function normalizeString(str: string): string {
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ñ/g, 'n')
-    .replace(/ü/g, 'u');
+export interface GetProducersGridDataInput {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  search?: string;
+  columnFilters?: string;
+  filtration?: boolean;
+  productiveUnitId?: string;
 }
 
-/** LOWER first, then strip accents — matches case/accent-insensitive search terms. */
-const normalizeSqlExpression = (expression: string) =>
-  `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(COALESCE(${expression}, '')), 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u'), 'ñ', 'n'), 'ü', 'u')`;
+function shouldApplyProducerColumnFilters(input: GetProducersGridDataInput): boolean {
+  return input.filtration === true || Boolean(input.columnFilters?.trim());
+}
 
-/**
- * Parse column filters from string format
- */
-function parseColumnFilters(filterStr?: string): Record<string, string> {
-  if (!filterStr) return {};
-  
-  const filters: Record<string, string> = {};
-  const parts = filterStr.split(',');
-  
-  for (const part of parts) {
-    const [key, ...valueParts] = part.split('-');
-    if (key && valueParts.length > 0) {
-      filters[key.trim()] = decodeURIComponent(valueParts.join('-').trim());
-    }
+function applyProducersGridFilters(
+  query: SelectQueryBuilder<Producer>,
+  input: GetProducersGridDataInput,
+): void {
+  if (input.search?.trim()) {
+    applyTextSearch(query, {
+      columns: [
+        'producer.name',
+        'producer.dni',
+        'producer.mail',
+        'producer.phone',
+        'productiveUnit.name',
+      ],
+      search: input.search,
+      paramName: 'producerSearch',
+    });
   }
-  
-  return filters;
+
+  if (shouldApplyProducerColumnFilters(input) && input.columnFilters) {
+    const columnFilters = parseColumnFilters(input.columnFilters, PRODUCER_FILTERABLE_FIELDS);
+    columnFilters.forEach((filter, index) => {
+      const paramName = `producerColFilter${index}`;
+      if (filter.column === 'productiveUnitName') {
+        query.andWhere(`${normalizeSqlExpr('productiveUnit.name')} LIKE :${paramName}`, {
+          [paramName]: `%${normalizeString(filter.value)}%`,
+        });
+        return;
+      }
+      if (PRODUCER_COLUMN_FIELDS.includes(filter.column)) {
+        query.andWhere(`${normalizeSqlExpr(`producer.${filter.column}`)} LIKE :${paramName}`, {
+          [paramName]: `%${normalizeString(filter.value)}%`,
+        });
+      }
+    });
+  }
+
+  if (input.productiveUnitId?.trim()) {
+    query.andWhere('producer.productiveUnitId = :productiveUnitId', {
+      productiveUnitId: input.productiveUnitId.trim(),
+    });
+  }
 }
 
 /**
@@ -144,16 +178,6 @@ export interface UpdateProducerInput {
   productiveUnitId?: string;
 }
 
-export interface GetProducersGridDataInput {
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: 'ASC' | 'DESC';
-  search?: string;
-  columnFilters?: string;
-  productiveUnitId?: string;
-}
-
 export interface ProducerGridData {
   id: string;
   name: string;
@@ -245,42 +269,17 @@ async function logProducerAudit(
  */
 export async function getProducersGridData(input: GetProducersGridDataInput): Promise<GridResponse> {
   try {
-    const page = Math.max(1, input.page || 1);
-    const limit = Math.min(100, Math.max(1, input.limit || 25));
-    const sortBy = VALID_SORT_FIELDS.includes(input.sortBy || '') ? input.sortBy : 'createdAt';
-    const sortOrder = input.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    const page = resolvePage(input.page, 1);
+    const limit = resolveLimit(input.limit, 25);
+    const sortBy = resolveSortField(input.sortBy, VALID_SORT_FIELDS, 'createdAt');
+    const sortOrder = resolveSortOrder(input.sortOrder, 'DESC');
 
     const db = await getDb();
     const query = db.createQueryBuilder(Producer, 'producer')
       .leftJoinAndSelect('producer.productiveUnit', 'productiveUnit', 'productiveUnit.deletedAt IS NULL')
       .where('producer.deletedAt IS NULL');
 
-    // Apply search
-    if (input.search?.trim()) {
-      const searchTerm = normalizeString(input.search.trim());
-      const haystack = `CONCAT(${normalizeSqlExpression('producer.name')}, ${normalizeSqlExpression('producer.dni')}, ${normalizeSqlExpression('producer.mail')}, ${normalizeSqlExpression('producer.phone')}, ${normalizeSqlExpression('productiveUnit.name')})`;
-      query.andWhere(`(${haystack} LIKE :search)`, {
-        search: `%${searchTerm}%`,
-      });
-    }
-
-    // Apply column filters
-    const columnFilters = parseColumnFilters(input.columnFilters);
-    for (const [field, value] of Object.entries(columnFilters)) {
-      if (VALID_FIELDS.includes(field)) {
-        const normalizedValue = normalizeString(value);
-        query.andWhere(`${normalizeSqlExpression(`producer.${field}`)} LIKE :${field}`, {
-          [field]: `%${normalizedValue}%`,
-        });
-      }
-    }
-
-    // Apply productive unit filter
-    if (input.productiveUnitId?.trim()) {
-      query.andWhere('producer.productiveUnitId = :productiveUnitId', {
-        productiveUnitId: input.productiveUnitId.trim()
-      });
-    }
+    applyProducersGridFilters(query, input);
 
     // Count total
     const totalRecords = await query.getCount();
@@ -321,33 +320,15 @@ export async function getProducersGridData(input: GetProducersGridDataInput): Pr
 export async function getProducersExportData(input: GetProducersGridDataInput): Promise<GridResponse> {
   try {
     const limit = 10000;
-    const sortBy = VALID_SORT_FIELDS.includes(input.sortBy || '') ? input.sortBy : 'createdAt';
-    const sortOrder = input.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    const sortBy = resolveSortField(input.sortBy, VALID_SORT_FIELDS, 'createdAt');
+    const sortOrder = resolveSortOrder(input.sortOrder, 'DESC');
 
     const db = await getDb();
     const query = db.createQueryBuilder(Producer, 'producer')
       .leftJoinAndSelect('producer.productiveUnit', 'productiveUnit', 'productiveUnit.deletedAt IS NULL')
       .where('producer.deletedAt IS NULL');
 
-    // Apply search
-    if (input.search?.trim()) {
-      const searchTerm = normalizeString(input.search.trim());
-      const haystack = `CONCAT(${normalizeSqlExpression('producer.name')}, ${normalizeSqlExpression('producer.dni')}, ${normalizeSqlExpression('producer.mail')}, ${normalizeSqlExpression('producer.phone')}, ${normalizeSqlExpression('productiveUnit.name')})`;
-      query.andWhere(`(${haystack} LIKE :search)`, {
-        search: `%${searchTerm}%`,
-      });
-    }
-
-    // Apply column filters
-    const columnFilters = parseColumnFilters(input.columnFilters);
-    for (const [field, value] of Object.entries(columnFilters)) {
-      if (VALID_FIELDS.includes(field)) {
-        const normalizedValue = normalizeString(value);
-        query.andWhere(`${normalizeSqlExpression(`producer.${field}`)} LIKE :${field}`, {
-          [field]: `%${normalizedValue}%`,
-        });
-      }
-    }
+    applyProducersGridFilters(query, input);
 
     const totalRecords = await query.getCount();
 

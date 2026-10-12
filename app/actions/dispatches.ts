@@ -15,8 +15,18 @@ import { Customer } from '@/data/entities/Customer';
 import { Storage } from '@/data/entities/Storage';
 import { Season } from '@/data/entities/Season';
 import { User } from '@/data/entities/User';
-import { IsNull } from 'typeorm';
+import { Brackets, IsNull, SelectQueryBuilder } from 'typeorm';
 import { revalidatePath } from 'next/cache';
+import {
+  applyTextSearch,
+  normalizeSqlExpr,
+  normalizeString,
+  parseColumnFilters,
+  resolveLimit,
+  resolvePage,
+  resolveSortField,
+  resolveSortOrder,
+} from '@/lib/gridQuery';
 import type { TrayDeliveryMetadata } from '@/data/entities/Transaction';
 
 export type CreateDispatchPalletInput = {
@@ -299,12 +309,149 @@ export async function createDispatch(
   }
 }
 
-export async function listDispatches(input?: {
+const DISPATCH_META_CUSTOMER = "JSON_UNQUOTE(JSON_EXTRACT(tx.metadata, '$.customerName'))";
+const DISPATCH_META_TRAY = "JSON_UNQUOTE(JSON_EXTRACT(tx.metadata, '$.trayName'))";
+const DISPATCH_META_PALLETS = "JSON_EXTRACT(tx.metadata, '$.palletsCount')";
+const DISPATCH_META_TRAYS = "JSON_EXTRACT(tx.metadata, '$.traysTotal')";
+const DISPATCH_META_FRUIT = "JSON_EXTRACT(tx.metadata, '$.fruitKgTotal')";
+
+const DISPATCH_SORT_FIELDS = [
+  'createdAt',
+  'id',
+  'customerName',
+  'trayName',
+  'fruitKgTotal',
+  'traysTotal',
+  'palletsCount',
+] as const;
+
+const DISPATCH_FILTER_COLUMNS = [
+  'id',
+  'createdAt',
+  'customerName',
+  'trayName',
+  'palletsCount',
+  'traysTotal',
+  'fruitKgTotal',
+] as const;
+
+export type ListDispatchesInput = {
   page?: number;
   limit?: number;
-}): Promise<{ rows: DispatchSummaryRow[]; total: number; page: number; limit: number }> {
-  const page = Math.max(1, Math.floor(input?.page ?? 1));
-  const limit = Math.min(100, Math.max(5, Math.floor(input?.limit ?? 25)));
+  search?: string;
+  filtration?: boolean;
+  filters?: string;
+  sortField?: string;
+  sort?: string;
+};
+
+function shouldApplyDispatchColumnFilters(input: ListDispatchesInput): boolean {
+  return input.filtration === true || Boolean(input.filters?.trim());
+}
+
+function resolveDispatchSortColumn(sortField: string): string {
+  switch (sortField) {
+    case 'id':
+      return 'tx.id';
+    case 'customerName':
+      return DISPATCH_META_CUSTOMER;
+    case 'trayName':
+      return DISPATCH_META_TRAY;
+    case 'fruitKgTotal':
+      return `COALESCE(${DISPATCH_META_FRUIT}, tx.amount)`;
+    case 'traysTotal':
+      return DISPATCH_META_TRAYS;
+    case 'palletsCount':
+      return DISPATCH_META_PALLETS;
+    case 'createdAt':
+    default:
+      return 'tx.createdAt';
+  }
+}
+
+function applyDispatchesGridFilters(
+  qb: SelectQueryBuilder<Transaction>,
+  input: ListDispatchesInput,
+): void {
+  if (input.search?.trim()) {
+    applyTextSearch(qb, {
+      columns: [
+        'CAST(tx.id AS CHAR)',
+        DISPATCH_META_CUSTOMER,
+        DISPATCH_META_TRAY,
+        "DATE_FORMAT(tx.createdAt, '%d-%m-%Y')",
+        "DATE_FORMAT(tx.createdAt, '%Y-%m-%d')",
+        `CAST(COALESCE(${DISPATCH_META_FRUIT}, tx.amount) AS CHAR)`,
+        `CAST(${DISPATCH_META_TRAYS} AS CHAR)`,
+        `CAST(${DISPATCH_META_PALLETS} AS CHAR)`,
+      ],
+      search: input.search,
+      paramName: 'dispatchSearch',
+    });
+  }
+
+  if (shouldApplyDispatchColumnFilters(input) && input.filters) {
+    const columnFilters = parseColumnFilters(input.filters, DISPATCH_FILTER_COLUMNS);
+    columnFilters.forEach((filter, index) => {
+      const paramName = `dispatchColFilter${index}`;
+      const normalized = normalizeString(filter.value);
+      switch (filter.column) {
+        case 'id':
+          qb.andWhere(`CAST(tx.id AS CHAR) LIKE :${paramName}`, {
+            [paramName]: `%${filter.value.trim()}%`,
+          });
+          break;
+        case 'createdAt':
+          qb.andWhere('DATE(tx.createdAt) = :dispatchColDate', { dispatchColDate: filter.value });
+          break;
+        case 'customerName':
+          qb.andWhere(`${normalizeSqlExpr(DISPATCH_META_CUSTOMER)} LIKE :${paramName}`, {
+            [paramName]: `%${normalized}%`,
+          });
+          break;
+        case 'trayName':
+          qb.andWhere(`${normalizeSqlExpr(DISPATCH_META_TRAY)} LIKE :${paramName}`, {
+            [paramName]: `%${normalized}%`,
+          });
+          break;
+        case 'palletsCount':
+          qb.andWhere(`CAST(${DISPATCH_META_PALLETS} AS CHAR) LIKE :${paramName}`, {
+            [paramName]: `%${filter.value.trim()}%`,
+          });
+          break;
+        case 'traysTotal':
+          qb.andWhere(`CAST(${DISPATCH_META_TRAYS} AS CHAR) LIKE :${paramName}`, {
+            [paramName]: `%${filter.value.trim()}%`,
+          });
+          break;
+        case 'fruitKgTotal':
+          qb.andWhere(
+            new Brackets((sub) => {
+              sub
+                .where(`CAST(${DISPATCH_META_FRUIT} AS CHAR) LIKE :${paramName}`, {
+                  [paramName]: `%${filter.value.trim()}%`,
+                })
+                .orWhere(`CAST(tx.amount AS CHAR) LIKE :${paramName}`, {
+                  [paramName]: `%${filter.value.trim()}%`,
+                });
+            }),
+          );
+          break;
+        default:
+          break;
+      }
+    });
+  }
+}
+
+export async function listDispatches(
+  input: ListDispatchesInput = {},
+): Promise<{ rows: DispatchSummaryRow[]; total: number; page: number; limit: number }> {
+  const page = resolvePage(input.page, 1);
+  const limit = resolveLimit(input.limit, 25);
+  const sortField = resolveSortField(input.sortField, DISPATCH_SORT_FIELDS, 'createdAt');
+  const sortOrder = resolveSortOrder(input.sort, 'DESC');
+  const sortColumn = resolveDispatchSortColumn(sortField);
 
   try {
     const db = await getDb();
@@ -312,11 +459,14 @@ export async function listDispatches(input?: {
       .getRepository(Transaction)
       .createQueryBuilder('tx')
       .where('tx.type = :type', { type: TransactionType.DISPATCH })
-      .andWhere('tx.deletedAt IS NULL')
-      .orderBy('tx.createdAt', 'DESC');
+      .andWhere('tx.deletedAt IS NULL');
+
+    applyDispatchesGridFilters(qb, input);
 
     const total = await qb.clone().getCount();
     const rowsRaw = await qb
+      .clone()
+      .orderBy(sortColumn, sortOrder)
       .skip((page - 1) * limit)
       .take(limit)
       .getMany();

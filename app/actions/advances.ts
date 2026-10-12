@@ -1,7 +1,7 @@
 'use server';
 
-import type { DataSource, EntityManager } from 'typeorm';
-import { In, IsNull } from 'typeorm';
+import type { DataSource, EntityManager, SelectQueryBuilder } from 'typeorm';
+import { Brackets, In, IsNull } from 'typeorm';
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/data/db';
 import {
@@ -27,6 +27,16 @@ import {
   type PaymentDetails,
   type PaymentMethod,
 } from '@/lib/paymentDetails';
+import {
+  applyTextSearch,
+  normalizeSqlExpr,
+  normalizeString,
+  parseColumnFilters,
+  resolveLimit,
+  resolvePage,
+  resolveSortField,
+  resolveSortOrder,
+} from '@/lib/gridQuery';
 
 export type AdvancePaymentMethod = PaymentMethod;
 
@@ -86,6 +96,171 @@ export interface ListAdvancesFilters {
   status?: AdvanceStatus;
   from?: string; // ISO date string inclusive
   to?: string;   // ISO date string inclusive
+  page?: number;
+  limit?: number;
+  filtration?: boolean;
+  filters?: string;
+  sortField?: string;
+  sort?: string;
+}
+
+export interface ListAdvancesResult {
+  rows: AdvanceSummary[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+const ADVANCE_JSON_PAYMENT = "JSON_UNQUOTE(JSON_EXTRACT(transaction.metadata, '$.paymentMethod'))";
+const ADVANCE_JSON_NOTES = "JSON_UNQUOTE(JSON_EXTRACT(transaction.metadata, '$.notes'))";
+const ADVANCE_PAYMENT_LABEL = `CASE ${ADVANCE_JSON_PAYMENT} WHEN 'CASH' THEN 'efectivo' WHEN 'TRANSFER' THEN 'transferencia' WHEN 'CHECK' THEN 'cheque' ELSE '' END`;
+
+const ADVANCE_SORT_FIELDS = ['createdAt', 'id', 'amount', 'producerName', 'seasonName'] as const;
+const ADVANCE_FILTER_COLUMNS = [
+  'transactionId',
+  'createdAt',
+  'producerName',
+  'seasonName',
+  'paymentMethod',
+  'amount',
+] as const;
+
+function shouldApplyAdvanceColumnFilters(filters: ListAdvancesFilters): boolean {
+  return filters.filtration === true || Boolean(filters.filters?.trim());
+}
+
+function resolveAdvanceSortColumn(sortField: string): string {
+  switch (sortField) {
+    case 'id':
+    case 'transactionId':
+      return 'transaction.id';
+    case 'amount':
+      return 'transaction.amount';
+    case 'producerName':
+      return 'producer.name';
+    case 'seasonName':
+      return 'season.name';
+    case 'createdAt':
+    default:
+      return 'transaction.createdAt';
+  }
+}
+
+function applyAdvanceStatusJoin(qb: SelectQueryBuilder<Transaction>): void {
+  qb.leftJoin(
+    (subQuery) =>
+      subQuery
+        .select('rel.parentTransactionId', 'advanceId')
+        .addSelect(
+          "COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(rel.context, '$.amount')) AS DECIMAL(18,2))), 0)",
+          'applied',
+        )
+        .from(TransactionRelation, 'rel')
+        .where('rel.relationType = :advanceRelationType', {
+          advanceRelationType: TransactionRelationType.ADVANCE_TO_SETTLEMENT,
+        })
+        .groupBy('rel.parentTransactionId'),
+    'advanceApps',
+    'advanceApps.advanceId = CAST(transaction.id AS CHAR)',
+  );
+}
+
+function applyAdvancesGridFilters(
+  qb: SelectQueryBuilder<Transaction>,
+  filters: ListAdvancesFilters,
+  options: { includeStatusJoin: boolean },
+): void {
+  if (options.includeStatusJoin) {
+    applyAdvanceStatusJoin(qb);
+  }
+
+  if (filters.search?.trim()) {
+    applyTextSearch(qb, {
+      columns: [
+        'producer.name',
+        'season.name',
+        'CAST(transaction.id AS CHAR)',
+        'user.userName',
+        ADVANCE_JSON_NOTES,
+        ADVANCE_JSON_PAYMENT,
+        ADVANCE_PAYMENT_LABEL,
+      ],
+      search: filters.search,
+      paramName: 'advanceSearch',
+    });
+  }
+
+  if (shouldApplyAdvanceColumnFilters(filters) && filters.filters) {
+    const columnFilters = parseColumnFilters(filters.filters, ADVANCE_FILTER_COLUMNS);
+    columnFilters.forEach((filter, index) => {
+      const paramName = `advanceColFilter${index}`;
+      const normalized = normalizeString(filter.value);
+      switch (filter.column) {
+        case 'transactionId':
+          qb.andWhere(`CAST(transaction.id AS CHAR) LIKE :${paramName}`, {
+            [paramName]: `%${filter.value.trim()}%`,
+          });
+          break;
+        case 'createdAt':
+          qb.andWhere('DATE(transaction.createdAt) = :advanceColDate', {
+            advanceColDate: filter.value,
+          });
+          break;
+        case 'producerName':
+          qb.andWhere(`${normalizeSqlExpr('producer.name')} LIKE :${paramName}`, {
+            [paramName]: `%${normalized}%`,
+          });
+          break;
+        case 'seasonName':
+          qb.andWhere(`${normalizeSqlExpr('season.name')} LIKE :${paramName}`, {
+            [paramName]: `%${normalized}%`,
+          });
+          break;
+        case 'paymentMethod':
+          qb.andWhere(
+            new Brackets((sub) => {
+              sub
+                .where(`${normalizeSqlExpr(ADVANCE_JSON_PAYMENT)} LIKE :${paramName}`, {
+                  [paramName]: `%${normalized}%`,
+                })
+                .orWhere(`${normalizeSqlExpr(ADVANCE_PAYMENT_LABEL)} LIKE :${paramName}`, {
+                  [paramName]: `%${normalized}%`,
+                });
+            }),
+          );
+          break;
+        case 'amount':
+          qb.andWhere(`CAST(transaction.amount AS CHAR) LIKE :${paramName}`, {
+            [paramName]: `%${filter.value.trim()}%`,
+          });
+          break;
+        default:
+          break;
+      }
+    });
+  }
+
+  if (filters.paymentMethod) {
+    qb.andWhere(`${ADVANCE_JSON_PAYMENT} = :advancePaymentMethod`, {
+      advancePaymentMethod: filters.paymentMethod,
+    });
+  }
+
+  if (filters.status) {
+    if (!options.includeStatusJoin) {
+      applyAdvanceStatusJoin(qb);
+    }
+    if (filters.status === 'CANCELLED') {
+      qb.andWhere('transaction.deletedAt IS NOT NULL');
+    } else {
+      qb.andWhere('transaction.deletedAt IS NULL');
+      if (filters.status === 'APPLIED') {
+        qb.andWhere('COALESCE(advanceApps.applied, 0) >= transaction.amount');
+      } else if (filters.status === 'ACTIVE') {
+        qb.andWhere('COALESCE(advanceApps.applied, 0) < transaction.amount');
+      }
+    }
+  }
 }
 
 export interface DeleteAdvanceInput {
@@ -445,7 +620,16 @@ export async function createAdvance(input: CreateAdvanceInput): Promise<AdvanceD
   return loadAdvanceDetail(db, String(transaction.id));
 }
 
-export async function listAdvances(filters: ListAdvancesFilters = {}): Promise<AdvanceSummary[]> {
+export async function listAdvances(
+  filters: ListAdvancesFilters = {},
+): Promise<ListAdvancesResult> {
+  const page = resolvePage(filters.page, 1);
+  const limit = resolveLimit(filters.limit, 25);
+  const sortField = resolveSortField(filters.sortField, ADVANCE_SORT_FIELDS, 'createdAt');
+  const sortOrder = resolveSortOrder(filters.sort, 'DESC');
+  const sortColumn = resolveAdvanceSortColumn(sortField);
+  const includeStatusJoin = Boolean(filters.status);
+
   const db = await getDb();
   const transactionRepo = db.getRepository(Transaction);
 
@@ -455,7 +639,6 @@ export async function listAdvances(filters: ListAdvancesFilters = {}): Promise<A
     .leftJoinAndSelect('transaction.producer', 'producer')
     .leftJoinAndSelect('transaction.user', 'user')
     .where('transaction.type = :type', { type: TransactionType.ADVANCE })
-    .orderBy('transaction.createdAt', 'DESC')
     .withDeleted();
 
   if (filters.seasonId) {
@@ -480,7 +663,15 @@ export async function listAdvances(filters: ListAdvancesFilters = {}): Promise<A
     }
   }
 
-  const transactions = await qb.getMany();
+  applyAdvancesGridFilters(qb, filters, { includeStatusJoin });
+
+  const total = await qb.clone().getCount();
+  const transactions = await qb
+    .clone()
+    .orderBy(sortColumn, sortOrder)
+    .skip((page - 1) * limit)
+    .take(limit)
+    .getMany();
 
   const bankAccountIds = Array.from(
     new Set(
@@ -521,7 +712,7 @@ export async function listAdvances(filters: ListAdvancesFilters = {}): Promise<A
     applicationsMap.set(relation.parentTransactionId, list);
   });
 
-  const summaries = transactions.map((transaction: Transaction) => {
+  const rows = transactions.map((transaction: Transaction) => {
     const metadata = (transaction.metadata as AdvanceMetadata | null) ?? undefined;
     const bankAccountId = metadata?.paymentDetails.bankAccountId;
     const bankAccountName = bankAccountId ? bankAccountMap.get(bankAccountId) : undefined;
@@ -529,38 +720,7 @@ export async function listAdvances(filters: ListAdvancesFilters = {}): Promise<A
     return buildAdvanceSummary(transaction, { bankAccountName, applications });
   });
 
-  return summaries.filter((summary) => {
-    if (filters.paymentMethod && summary.paymentMethod !== filters.paymentMethod) {
-      return false;
-    }
-
-    if (filters.status && summary.status !== filters.status) {
-      return false;
-    }
-
-    if (filters.search) {
-      const needle = filters.search.trim().toLowerCase();
-      if (needle) {
-        const haystack = [
-          summary.producerName,
-          summary.seasonName,
-          summary.paymentReference,
-          summary.bankAccountName,
-          summary.operatorName,
-          summary.notes,
-        ]
-          .filter(Boolean)
-          .map((value) => String(value).toLowerCase())
-          .join(' ');
-
-        if (!haystack.includes(needle)) {
-          return false;
-        }
-      }
-    }
-
-    return true;
-  });
+  return { rows, total, page, limit };
 }
 
 export async function deleteAdvance(input: DeleteAdvanceInput): Promise<void> {

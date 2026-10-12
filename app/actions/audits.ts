@@ -6,6 +6,16 @@ import { User } from '../../data/entities/User';
 import { AuditActionType } from '../../data/entities/audit.types';
 import { getDb } from '../../data/db';
 import { DataSource, SelectQueryBuilder } from 'typeorm';
+import {
+  applyTextSearch,
+  normalizeSqlExpr,
+  normalizeString,
+  parseColumnFilters,
+  resolveLimit,
+  resolvePage,
+  resolveSortField,
+  resolveSortOrder,
+} from '@/lib/gridQuery';
 
 export interface AuditGridFilters {
   page?: number;
@@ -15,6 +25,7 @@ export interface AuditGridFilters {
   entityName?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  filtration?: boolean;
   filters?: string; // Column filters in format: "column1-value1,column2-value2"
 }
 
@@ -40,6 +51,7 @@ const AUDIT_COLUMN_MAP: Record<string, string> = {
   action: 'audit.action',
   description: 'audit.description',
   userId: 'audit.userId',
+  userName: 'user.userName',
   createdAt: 'audit.createdAt',
 };
 
@@ -54,92 +66,75 @@ const VALID_SORT_FIELDS = ['entityName', 'action', 'description', 'userId', 'cre
 const VALID_FILTER_COLUMNS = Object.keys(AUDIT_COLUMN_MAP);
 
 /**
- * Parsea filtros de columnas desde formato URL: "column1-value1,column2-value2"
- * @param filtersStr String con filtros codificados
- * @returns Objeto con columnas y valores
- */
-function parseColumnFilters(filtersStr: string): Record<string, string> {
-  if (!filtersStr) return {};
-  
-  const columnFilters: Record<string, string> = {};
-  const pairs = filtersStr.split(',');
-  
-  pairs.forEach(pair => {
-    const [column, ...valueParts] = pair.split('-');
-    // Solo permitir columnas validadas
-    if (column && VALID_FILTER_COLUMNS.includes(column) && valueParts.length > 0) {
-      columnFilters[column] = decodeURIComponent(valueParts.join('-'));
-    }
-  });
-  
-  return columnFilters;
-}
-
-/**
  * Construye un QueryBuilder base con filtros aplicados
  * Reutilizable en getAuditGridData y getAuditExportData
- * 
- * IMPORTANTE: Retorna un QueryBuilder cloneado para permitir múltiples usos
  */
 function buildAuditQuery(
   dataSource: DataSource,
   filters: AuditGridFilters
 ): SelectQueryBuilder<Audit> {
-  // Normalizar parámetros
   const search = filters?.search?.trim() || '';
   const action = filters?.action || '';
   const entityName = filters?.entityName || '';
   const filtersParam = filters?.filters || '';
+  const applyColumnFilters = filters?.filtration !== false;
 
-  // Parse column filters con validación
-  const columnFilters = parseColumnFilters(filtersParam);
+  const columnFilters = applyColumnFilters
+    ? parseColumnFilters(filtersParam, VALID_FILTER_COLUMNS)
+    : [];
 
-  // Crear QueryBuilder con join a user
-  let query = dataSource.getRepository(Audit).createQueryBuilder('audit')
+  let query = dataSource
+    .getRepository(Audit)
+    .createQueryBuilder('audit')
     .leftJoinAndSelect('audit.user', 'user', 'user.id = audit.userId');
 
-  // Aplicar filtro de búsqueda
   if (search) {
-    query = query.where('LOWER(audit.description) LIKE LOWER(:search)', {
-      search: `%${search}%`,
+    applyTextSearch(query, {
+      columns: [
+        'audit.description',
+        'audit.entityName',
+        'audit.action',
+        'audit.userId',
+        'user.userName',
+      ],
+      search,
+      paramName: 'auditSearch',
     });
   }
 
-  // Aplicar filtro de action
   if (action) {
-    const whereMethod = search ? 'andWhere' : 'where';
-    query = query[whereMethod]('audit.action = :action', { action });
+    query = query.andWhere('audit.action = :action', { action });
   }
 
-  // Aplicar filtro de entityName
   if (entityName) {
-    const whereMethod = search || action ? 'andWhere' : 'where';
-    query = query[whereMethod]('audit.entityName = :entityName', { entityName });
+    query = query.andWhere('audit.entityName = :entityName', { entityName });
   }
 
-  // Aplicar filtros dinámicos por columna (con validación estricta)
-  let filterIndex = 0;
-  Object.entries(columnFilters).forEach(([column, value]) => {
-    if (!AUDIT_COLUMN_MAP[column] || !value.trim()) {
-      return; // Skip si columna no validada o valor vacío
-    }
+  columnFilters.forEach((filter, filterIndex) => {
+    if (!AUDIT_COLUMN_MAP[filter.column] || !filter.value.trim()) return;
 
     const paramKey = `filter${filterIndex}`;
-    const whereMethod = search || action || entityName || filterIndex > 0 ? 'andWhere' : 'where';
-    const columnPath = AUDIT_COLUMN_MAP[column];
+    const columnPath = AUDIT_COLUMN_MAP[filter.column];
 
-    // Manejo especial para fechas
-    if (column === 'createdAt') {
-      query = query[whereMethod](`DATE(${columnPath}) = :${paramKey}`, { 
-        [paramKey]: value 
+    if (filter.column === 'createdAt') {
+      query = query.andWhere(`DATE(${columnPath}) = :${paramKey}`, {
+        [paramKey]: filter.value,
       });
-    } else {
-      query = query[whereMethod](`LOWER(${columnPath}) LIKE LOWER(:${paramKey})`, {
-        [paramKey]: `%${value}%`,
-      });
+      return;
     }
 
-    filterIndex++;
+    if (filter.column === 'userId' || filter.column === 'userName') {
+      const normalized = normalizeString(filter.value);
+      query = query.andWhere(
+        `(${normalizeSqlExpr('audit.userId')} LIKE :${paramKey} OR ${normalizeSqlExpr('user.userName')} LIKE :${paramKey})`,
+        { [paramKey]: `%${normalized}%` },
+      );
+      return;
+    }
+
+    query = query.andWhere(`${normalizeSqlExpr(columnPath)} LIKE :${paramKey}`, {
+      [paramKey]: `%${normalizeString(filter.value)}%`,
+    });
   });
 
   return query;
@@ -152,15 +147,10 @@ export async function getAuditGridData(
     const startTime = Date.now();
     const dataSource = await getDb();
 
-    // Normalizar parámetros de paginación
-    const page = Math.max(1, filters?.page || 1);
-    const limit = Math.min(Math.max(5, filters?.limit || 10), 100);
-    const sortBy = filters?.sortBy || 'createdAt';
-    // Por defecto ordenar por fecha más nueva arriba (DESC)
-    const sortOrder = (filters?.sortOrder || 'DESC').toUpperCase() as 'ASC' | 'DESC';
-
-    // Validar sortBy para evitar SQL injection
-    const safeSortBy = VALID_SORT_FIELDS.includes(sortBy) ? sortBy : 'createdAt';
+    const page = resolvePage(filters?.page, 1);
+    const limit = resolveLimit(filters?.limit, 25);
+    const safeSortBy = resolveSortField(filters?.sortBy, VALID_SORT_FIELDS, 'createdAt');
+    const sortOrder = resolveSortOrder(filters?.sortOrder, 'DESC');
 
     // Construir QueryBuilder base (una sola vez)
     const baseQuery = buildAuditQuery(dataSource, filters || {});

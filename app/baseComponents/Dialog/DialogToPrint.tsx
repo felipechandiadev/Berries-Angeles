@@ -329,68 +329,83 @@ ${inlinePrintStyles}
       hideActions
       scroll={scroll}
       zIndex={zIndex}
+      className="!mx-0"
+      contentStyle={{
+        width: 'min(40rem, calc(100vw - 1.5rem))',
+        maxWidth: 'calc(100vw - 1.5rem)',
+        maxHeight: 'min(92dvh, 92vh)',
+        marginLeft: 'auto',
+        marginRight: 'auto',
+        boxSizing: 'border-box',
+      }}
     >
-      {controls ? <div data-test-id="print-dialog-controls">{controls}</div> : null}
-      <div
-        ref={printableRef}
-        className={`print-dialog-content flex w-full justify-center ${contentClassName}`.trim()}
-        data-test-id="print-dialog-content"
-      >
-        {children}
-      </div>
-
-      {showTicketActions && ticketError ? (
-        <div
-          className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-          data-test-id="print-ticket-error"
-        >
-          {ticketError}
-        </div>
-      ) : null}
-
-      {showTicketActions && !ticketTransportAvailable ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          Ticket térmico requiere Chrome o Edge en HTTPS o localhost (USB, Bluetooth LE o Serial).
-          Emparejá la impresora desde la barra superior.
-        </p>
-      ) : null}
-
-      {showTicketActions && ticketTransportAvailable && !printerPaired ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          Sin impresora emparejada. Usá el botón Impresora en la barra superior (busca USB,
-          Bluetooth o Serial).
-        </p>
-      ) : null}
-
-      <div
-        className="mt-6 flex flex-wrap items-center justify-end gap-2"
-        data-test-id="print-dialog-actions"
-      >
-        <Button variant="outlined" onClick={onClose} disabled={ticketBusy}>
-          {closeLabel}
-        </Button>
-        <IconButton
-          icon="print"
-          variant={showTicketActions ? 'outlined' : 'containedPrimary'}
-          size="md"
-          onClick={handlePrint}
-          disabled={ticketBusy}
-          ariaLabel={printLabel}
-          title={printLabel}
-          data-test-id="print-dialog-browser-print"
-        />
-        {showTicketActions ? (
-          <IconButton
-            icon="receipt_long"
-            variant="containedPrimary"
-            size="md"
-            onClick={handlePrintTicket}
-            disabled={!ticketTransportAvailable || ticketBusy}
-            ariaLabel={ticketLabel}
-            title={ticketLabel}
-            data-test-id="print-dialog-ticket-usb"
-          />
+      <div className="flex min-h-0 w-full max-w-full flex-col gap-3 overflow-x-hidden">
+        {controls ? (
+          <div className="min-w-0 shrink-0" data-test-id="print-dialog-controls">
+            {controls}
+          </div>
         ) : null}
+        <div
+          ref={printableRef}
+          className={`print-dialog-content flex w-full max-w-full justify-center overflow-x-auto ${contentClassName}`.trim()}
+          data-test-id="print-dialog-content"
+        >
+          {children}
+        </div>
+
+        {showTicketActions && ticketError ? (
+          <div
+            className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            data-test-id="print-ticket-error"
+          >
+            {ticketError}
+          </div>
+        ) : null}
+
+        {showTicketActions && !ticketTransportAvailable ? (
+          <p className="text-xs text-muted-foreground">
+            Ticket térmico requiere Chrome o Edge en HTTPS o localhost (USB, Bluetooth LE o Serial).
+            Emparejá la impresora desde la barra superior.
+          </p>
+        ) : null}
+
+        {showTicketActions && ticketTransportAvailable && !printerPaired ? (
+          <p className="text-xs text-muted-foreground">
+            Sin impresora emparejada. Usá el botón Impresora en la barra superior (busca USB,
+            Bluetooth o Serial).
+          </p>
+        ) : null}
+
+        <div
+          className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-end gap-2 border-t border-border/70 bg-background/95 px-1 pt-3 pb-1 backdrop-blur-sm"
+          data-test-id="print-dialog-actions"
+        >
+          <Button variant="outlined" onClick={onClose} disabled={ticketBusy}>
+            {closeLabel}
+          </Button>
+          <IconButton
+            icon="print"
+            variant={showTicketActions ? 'outlined' : 'containedPrimary'}
+            size="md"
+            onClick={handlePrint}
+            disabled={ticketBusy}
+            ariaLabel={printLabel}
+            title={printLabel}
+            data-test-id="print-dialog-browser-print"
+          />
+          {showTicketActions ? (
+            <IconButton
+              icon="FileText"
+              variant="containedPrimary"
+              size="md"
+              onClick={handlePrintTicket}
+              disabled={!ticketTransportAvailable || ticketBusy}
+              ariaLabel={ticketLabel}
+              title={ticketLabel}
+              data-test-id="print-dialog-ticket-usb"
+            />
+          ) : null}
+        </div>
       </div>
     </Dialog>
   );

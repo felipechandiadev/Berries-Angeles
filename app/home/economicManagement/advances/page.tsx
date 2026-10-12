@@ -8,6 +8,7 @@ import {
 } from '@/app/actions/advances';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import { WithNavSearch } from '@/app/ui/WithNavSearch';
+import { buildGridNavSearch } from '@/lib/gridQuery';
 import AdvancesGrid from './ui/AdvancesGrid';
 
 export const dynamic = 'force-dynamic';
@@ -33,10 +34,44 @@ interface PageProps {
   searchParams?: Promise<PageSearchParams>;
 }
 
-async function AdvancesContent({ filters }: { filters: ListAdvancesFilters }) {
-  const rows = await listAdvances(filters);
-  const plainRows = rows.map((row) => ({ ...row }));
-  return <AdvancesGrid rows={plainRows} />;
+async function AdvancesContent({
+  filters,
+  page,
+  limit,
+  sortField,
+  sort,
+  filtersParam,
+  filtration,
+}: {
+  filters: ListAdvancesFilters;
+  page: number;
+  limit: number;
+  sortField?: string;
+  sort?: string;
+  filtersParam?: string;
+  filtration: boolean;
+}) {
+  const result = await listAdvances({
+    ...filters,
+    page,
+    limit,
+    sortField,
+    sort,
+    filters: filtersParam,
+    filtration,
+  });
+  const plainRows = result.rows.map((row) => ({ ...row }));
+  return (
+    <AdvancesGrid
+      rows={plainRows}
+      totalRows={result.total}
+      currentLimit={limit}
+      currentSearch={filters.search}
+      currentFilters={filtersParam}
+      currentSort={sort}
+      currentSortField={sortField}
+    />
+  );
 }
 
 export default async function Page({ searchParams }: PageProps) {
@@ -92,29 +127,50 @@ export default async function Page({ searchParams }: PageProps) {
     filters.to = params.to.trim();
   }
 
-  const page = params?.page || '1';
-  const limit = params?.limit || '25';
-  const navSearch = new URLSearchParams();
-  navSearch.set('page', page);
-  navSearch.set('limit', limit);
-  if (filters.search) navSearch.set('search', filters.search);
-  if (filters.seasonId) navSearch.set('seasonId', filters.seasonId);
-  if (filters.producerId) navSearch.set('producerId', filters.producerId);
-  if (filters.paymentMethod) navSearch.set('paymentMethod', filters.paymentMethod);
-  if (filters.status) navSearch.set('status', filters.status);
-  if (filters.from) navSearch.set('from', filters.from);
-  if (filters.to) navSearch.set('to', filters.to);
-  if (params?.sort) navSearch.set('sort', params.sort);
-  if (params?.sortField) navSearch.set('sortField', params.sortField);
-  if (params?.filtration) navSearch.set('filtration', params.filtration);
-  if (params?.filters) navSearch.set('filters', params.filters);
-  if (params?.fields) navSearch.set('fields', params.fields);
+  const page = parseInt(params?.page || '1', 10) || 1;
+  const limit = parseInt(params?.limit || '25', 10) || 25;
+  const sortField = typeof params?.sortField === 'string' ? params.sortField : undefined;
+  const sort =
+    params?.sort === 'asc' || params?.sort === 'ASC'
+      ? 'ASC'
+      : params?.sort === 'desc' || params?.sort === 'DESC'
+        ? 'DESC'
+        : undefined;
+  const filtersParam = typeof params?.filters === 'string' ? params.filters : undefined;
+  const filtration = params?.filtration === 'true';
+
+  const navSearch = buildGridNavSearch({
+    page,
+    limit,
+    search: filters.search,
+    filtration,
+    filters: filtersParam,
+    sortField,
+    sort,
+    extra: {
+      ...(filters.seasonId ? { seasonId: filters.seasonId } : {}),
+      ...(filters.producerId ? { producerId: filters.producerId } : {}),
+      ...(filters.paymentMethod ? { paymentMethod: filters.paymentMethod } : {}),
+      ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.from ? { from: filters.from } : {}),
+      ...(filters.to ? { to: filters.to } : {}),
+      ...(params?.fields ? { fields: params.fields } : {}),
+    },
+  });
 
   return (
     <div data-test-id="advances-page">
       <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><DotProgress /></div>}>
-        <WithNavSearch search={navSearch.toString()}>
-          <AdvancesContent filters={filters} />
+        <WithNavSearch search={navSearch}>
+          <AdvancesContent
+            filters={filters}
+            page={page}
+            limit={limit}
+            sortField={sortField}
+            sort={sort}
+            filtersParam={filtersParam}
+            filtration={filtration}
+          />
         </WithNavSearch>
       </Suspense>
     </div>

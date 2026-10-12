@@ -16,10 +16,31 @@ interface CustomerRow {
 }
 
 interface CustomersGridProps {
-  customers: CustomerRow[];
+  initialData: {
+    success: boolean;
+    data: CustomerRow[];
+    totalRecords: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    error?: string;
+  };
+  currentLimit: number;
+  currentSort?: 'ASC' | 'DESC';
+  currentSortField?: string;
+  currentSearch?: string;
+  currentFilters?: string;
 }
 
-export default function CustomersGrid({ customers }: CustomersGridProps) {
+export default function CustomersGrid({
+  initialData,
+  currentLimit,
+  currentSort,
+  currentSortField,
+  currentSearch,
+  currentFilters,
+}: CustomersGridProps) {
+  const customers = initialData.data;
   const router = useRouter();
 
   const handleRefresh = () => {
@@ -71,8 +92,12 @@ export default function CustomersGrid({ customers }: CustomersGridProps) {
       title="Clientes"
       columns={columns}
       rows={customers}
-      limit={25}
-      totalRows={customers.length}
+      limit={currentLimit}
+      totalRows={initialData.totalRecords}
+      search={currentSearch}
+      filters={currentFilters}
+      sort={currentSort?.toLowerCase() as 'asc' | 'desc' | undefined}
+      sortField={currentSortField}
       createForm={<CreateCustomerButton onSuccess={handleRefresh} />}
       createFormTitle="Crear cliente"
       height="85vh"

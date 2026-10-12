@@ -146,6 +146,7 @@ export default function ProductiveUnitsGrid({
       headerName: '',
       flex: 0.6,
       sortable: false,
+      filterable: false,
       actionComponent: ({ row }: { row: ProductiveUnit }) => (
         <div className="flex gap-1">
           <UpdateUnitButton unit={row} onSuccess={handleRefresh} />

@@ -71,6 +71,8 @@ export default function ProducersGrid({
       showAlert({ message: 'Preparando exportación...', type: 'info', duration: 3000 });
 
       const search = searchParams.get('search') || undefined;
+      const columnFilters = searchParams.get('filters') || undefined;
+      const filtration = searchParams.get('filtration') === 'true';
       const sortBy = searchParams.get('sortField') || searchParams.get('sortBy') || 'createdAt';
       const sortOrder = (
         searchParams.get('sort') ||
@@ -80,6 +82,8 @@ export default function ProducersGrid({
 
       const exportInput: GetProducersGridDataInput = {
         search,
+        columnFilters,
+        filtration,
         sortBy,
         sortOrder,
       };
@@ -161,6 +165,7 @@ export default function ProducersGrid({
       headerName: 'Unidad Productiva',
       flex: 1.3,
       sortable: false,
+      filterable: true,
       renderCell: ({ row }: { row: any }) => row.productiveUnit?.name || '-',
     },
     {

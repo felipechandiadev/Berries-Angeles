@@ -204,6 +204,7 @@ export default function PalletsGrid({
         headerName: '',
         flex: 0.7,
         sortable: false,
+        filterable: false,
         actionComponent: ({ row }: { row: PalletRow }) => (
           <div className="flex gap-1">
             <UpdatePalletButton pallet={row} onSuccess={handleRefresh} />

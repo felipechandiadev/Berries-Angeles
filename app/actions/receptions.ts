@@ -24,6 +24,15 @@ import { getCurrentUserSession } from './auth.server';
 import { revalidatePath } from 'next/cache';
 import { formatAuditDate } from '../../lib/dateTimeUtils';
 import {
+  normalizeString,
+  normalizeSqlExpr,
+  parseColumnFilters,
+  resolveLimit,
+  resolvePage,
+  resolveSortField,
+  resolveSortOrder,
+} from '@/lib/gridQuery';
+import {
   type ReceptionDetailData,
   type ReceptionDetailHistoryItem,
   type ReceptionDetailPack,
@@ -1315,6 +1324,8 @@ const RECEPTION_FILTERABLE_FIELDS = [
   'payableUSD',
   'exchangeRate',
   'totalCLP',
+  'createdAt',
+  'displayStatus',
 ];
 
 const JSON_PRODUCER = "JSON_UNQUOTE(JSON_EXTRACT(tx.metadata, '$.producerName'))";
@@ -1326,6 +1337,7 @@ const JSON_PAYABLE_CLP = "JSON_EXTRACT(tx.metadata, '$.totals.payableCLP')";
 const JSON_PAYABLE_USD = "JSON_EXTRACT(tx.metadata, '$.totals.payableUSD')";
 const JSON_EXCHANGE_RATE = "JSON_EXTRACT(tx.metadata, '$.exchangeRate')";
 const JSON_TOTAL_CLP = "JSON_EXTRACT(tx.metadata, '$.totals.totalCLPToPay')";
+const JSON_PAYMENT_STATUS = "JSON_UNQUOTE(JSON_EXTRACT(tx.metadata, '$.paymentStatus'))";
 
 const NUMERIC_COLUMN_SQL_MAP: Record<string, string> = {
   totalTrays: `COALESCE(${JSON_TOTAL_TRAYS}, 0)`,
@@ -1336,6 +1348,114 @@ const NUMERIC_COLUMN_SQL_MAP: Record<string, string> = {
   exchangeRate: `COALESCE(${JSON_EXCHANGE_RATE}, 0)`,
   totalCLP: `COALESCE(${JSON_TOTAL_CLP}, 0)`,
 };
+
+/** EXISTS reception→settlement with status COMPLETA (non-BORRADOR metadata). */
+const SQL_HAS_SETTLEMENT_COMPLETA = `EXISTS (
+  SELECT 1
+  FROM transaction_relations tr_search
+  INNER JOIN transactions st_search
+    ON st_search.id = tr_search.childTransactionId
+    AND st_search.type = 'SETTLEMENT'
+    AND st_search.deletedAt IS NULL
+  WHERE tr_search.parentTransactionId = tx.id
+    AND tr_search.relationType = 'RECEPTION_TO_SETTLEMENT'
+    AND (
+      JSON_UNQUOTE(JSON_EXTRACT(st_search.metadata, '$.status')) IS NULL
+      OR JSON_UNQUOTE(JSON_EXTRACT(st_search.metadata, '$.status')) <> 'BORRADOR'
+    )
+)`;
+
+/** EXISTS reception→settlement with status BORRADOR. */
+const SQL_HAS_SETTLEMENT_BORRADOR = `EXISTS (
+  SELECT 1
+  FROM transaction_relations tr_search
+  INNER JOIN transactions st_search
+    ON st_search.id = tr_search.childTransactionId
+    AND st_search.type = 'SETTLEMENT'
+    AND st_search.deletedAt IS NULL
+  WHERE tr_search.parentTransactionId = tx.id
+    AND tr_search.relationType = 'RECEPTION_TO_SETTLEMENT'
+    AND JSON_UNQUOTE(JSON_EXTRACT(st_search.metadata, '$.status')) = 'BORRADOR'
+)`;
+
+const SQL_IS_PAID_ON_RECEPTION = `(${JSON_PAYMENT_STATUS} = 'PAID_ON_RECEPTION')`;
+const SQL_IS_NOT_PAID_ON_RECEPTION = `(${JSON_PAYMENT_STATUS} IS NULL OR ${JSON_PAYMENT_STATUS} <> 'PAID_ON_RECEPTION')`;
+
+type ReceptionSearchDisplayStatus = 'PAID' | 'SETTLED' | 'SETTLED_DRAFT' | 'PENDING';
+
+function matchReceptionDisplayStatusesFromSearch(
+  normalizedTerm: string,
+): ReceptionSearchDisplayStatus[] {
+  if (!normalizedTerm || normalizedTerm.length < 2) {
+    return [];
+  }
+
+  const labels: Array<{ status: ReceptionSearchDisplayStatus; label: string }> = [
+    { status: 'PAID', label: 'pagada' },
+    { status: 'SETTLED', label: 'liquidada' },
+    { status: 'SETTLED_DRAFT', label: 'liq. borrador' },
+    { status: 'SETTLED_DRAFT', label: 'liq borrador' },
+    { status: 'SETTLED_DRAFT', label: 'borrador' },
+    { status: 'PENDING', label: 'pendiente' },
+  ];
+
+  const matched = new Set<ReceptionSearchDisplayStatus>();
+  for (const { status, label } of labels) {
+    const compactLabel = label.replace(/\./g, '');
+    if (label.includes(normalizedTerm) || compactLabel.includes(normalizedTerm)) {
+      matched.add(status);
+    }
+  }
+
+  return Array.from(matched);
+}
+
+function applyReceptionGridSearch(
+  query: ReturnType<typeof buildReceptionsBaseQuery>,
+  rawSearch: string,
+): void {
+  const term = normalizeString(rawSearch.trim());
+  if (!term) return;
+
+  const like = `%${term}%`;
+  const orParts: string[] = [
+    `${normalizeSqlExpr(JSON_PRODUCER)} LIKE :receptionSearch`,
+    `${normalizeSqlExpr(JSON_GUIDE)} LIKE :receptionSearch`,
+    `CAST(tx.id AS CHAR) LIKE :receptionSearch`,
+    `${normalizeSqlExpr('CAST(tx.metadata AS CHAR)')} LIKE :receptionSearch`,
+    `DATE_FORMAT(tx.createdAt, '%d-%m-%Y %H:%i') LIKE :receptionSearch`,
+    `DATE_FORMAT(tx.createdAt, '%d-%m-%Y') LIKE :receptionSearch`,
+    `DATE_FORMAT(tx.createdAt, '%Y-%m-%d') LIKE :receptionSearch`,
+    `CAST(COALESCE(${JSON_TOTAL_TRAYS}, 0) AS CHAR) LIKE :receptionSearch`,
+    `CAST(COALESCE(${JSON_GROSS_WEIGHT}, 0) AS CHAR) LIKE :receptionSearch`,
+    `CAST(COALESCE(${JSON_NET_WEIGHT}, 0) AS CHAR) LIKE :receptionSearch`,
+    `CAST(COALESCE(${JSON_PAYABLE_CLP}, 0) AS CHAR) LIKE :receptionSearch`,
+    `CAST(COALESCE(${JSON_PAYABLE_USD}, 0) AS CHAR) LIKE :receptionSearch`,
+    `CAST(COALESCE(${JSON_EXCHANGE_RATE}, 0) AS CHAR) LIKE :receptionSearch`,
+    `CAST(COALESCE(${JSON_TOTAL_CLP}, 0) AS CHAR) LIKE :receptionSearch`,
+  ];
+
+  const statusMatches = matchReceptionDisplayStatusesFromSearch(term);
+  for (const status of statusMatches) {
+    if (status === 'PAID') {
+      orParts.push(SQL_IS_PAID_ON_RECEPTION);
+    } else if (status === 'SETTLED') {
+      orParts.push(
+        `(${SQL_IS_NOT_PAID_ON_RECEPTION} AND ${SQL_HAS_SETTLEMENT_COMPLETA})`,
+      );
+    } else if (status === 'SETTLED_DRAFT') {
+      orParts.push(
+        `(${SQL_IS_NOT_PAID_ON_RECEPTION} AND NOT ${SQL_HAS_SETTLEMENT_COMPLETA} AND ${SQL_HAS_SETTLEMENT_BORRADOR})`,
+      );
+    } else if (status === 'PENDING') {
+      orParts.push(
+        `(${SQL_IS_NOT_PAID_ON_RECEPTION} AND NOT ${SQL_HAS_SETTLEMENT_COMPLETA} AND NOT ${SQL_HAS_SETTLEMENT_BORRADOR})`,
+      );
+    }
+  }
+
+  query.andWhere(`(${orParts.join(' OR ')})`, { receptionSearch: like });
+}
 
 const SORT_SQL_MAP: Record<string, string> = {
   id: 'tx.id',
@@ -1351,35 +1471,83 @@ const SORT_SQL_MAP: Record<string, string> = {
   createdAt: 'tx.createdAt',
 };
 
-function normalizeString(str: string): string {
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ñ/g, 'n')
-    .replace(/ü/g, 'u');
+function sqlForReceptionDisplayStatus(status: ReceptionSearchDisplayStatus): string {
+  if (status === 'PAID') {
+    return SQL_IS_PAID_ON_RECEPTION;
+  }
+  if (status === 'SETTLED') {
+    return `(${SQL_IS_NOT_PAID_ON_RECEPTION} AND ${SQL_HAS_SETTLEMENT_COMPLETA})`;
+  }
+  if (status === 'SETTLED_DRAFT') {
+    return `(${SQL_IS_NOT_PAID_ON_RECEPTION} AND NOT ${SQL_HAS_SETTLEMENT_COMPLETA} AND ${SQL_HAS_SETTLEMENT_BORRADOR})`;
+  }
+  return `(${SQL_IS_NOT_PAID_ON_RECEPTION} AND NOT ${SQL_HAS_SETTLEMENT_COMPLETA} AND NOT ${SQL_HAS_SETTLEMENT_BORRADOR})`;
 }
 
-function parseColumnFilters(
+function applyReceptionGridColumnFilters(
+  query: ReturnType<typeof buildReceptionsBaseQuery>,
   filtersString: string,
-  allowedFields: string[]
-): Array<{ column: string; value: string }> {
-  return filtersString
-    .split(',')
-    .map((filter) => filter.trim())
-    .filter((filter) => filter.includes('-'))
-    .map((filter) => {
-      const dashIndex = filter.indexOf('-');
-      return {
-        column: filter.substring(0, dashIndex).trim(),
-        value: decodeURIComponent(filter.substring(dashIndex + 1).trim()),
-      };
-    })
-    .filter((item) => item.column && item.value && allowedFields.includes(item.column));
-}
+  paramPrefix: string,
+): void {
+  const columnFilters = parseColumnFilters(filtersString, RECEPTION_FILTERABLE_FIELDS);
 
-const normalizeSqlExpression = (expression: string) =>
-  `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(COALESCE(${expression}, '')), 'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u'), 'ñ', 'n'), 'ü', 'u')`;
+  columnFilters.forEach((filter, index) => {
+    const paramName = `${paramPrefix}${index}`;
+    if (filter.column === 'id') {
+      query.andWhere(`CAST(tx.id AS CHAR) LIKE :${paramName}`, {
+        [paramName]: `%${filter.value}%`,
+      });
+      return;
+    }
+
+    if (NUMERIC_COLUMN_SQL_MAP[filter.column]) {
+      const numericValue = Number(filter.value);
+      if (!Number.isNaN(numericValue)) {
+        query.andWhere(`${NUMERIC_COLUMN_SQL_MAP[filter.column]} = :${paramName}`, {
+          [paramName]: numericValue,
+        });
+      }
+      return;
+    }
+
+    if (filter.column === 'producerName') {
+      query.andWhere(`${normalizeSqlExpr(JSON_PRODUCER)} LIKE :${paramName}`, {
+        [paramName]: `%${normalizeString(filter.value)}%`,
+      });
+      return;
+    }
+
+    if (filter.column === 'guideNumber') {
+      query.andWhere(`${normalizeSqlExpr(JSON_GUIDE)} LIKE :${paramName}`, {
+        [paramName]: `%${normalizeString(filter.value)}%`,
+      });
+      return;
+    }
+
+    if (filter.column === 'createdAt') {
+      const trimmed = filter.value.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        query.andWhere(`DATE(tx.createdAt) = :${paramName}`, { [paramName]: trimmed });
+      } else {
+        const like = `%${normalizeString(trimmed)}%`;
+        query.andWhere(
+          `(DATE_FORMAT(tx.createdAt, '%d-%m-%Y %H:%i') LIKE :${paramName} OR DATE_FORMAT(tx.createdAt, '%d-%m-%Y') LIKE :${paramName} OR DATE_FORMAT(tx.createdAt, '%Y-%m-%d') LIKE :${paramName})`,
+          { [paramName]: like },
+        );
+      }
+      return;
+    }
+
+    if (filter.column === 'displayStatus') {
+      const statuses = matchReceptionDisplayStatusesFromSearch(normalizeString(filter.value));
+      if (statuses.length === 0) {
+        return;
+      }
+      const statusSql = statuses.map((status) => sqlForReceptionDisplayStatus(status)).join(' OR ');
+      query.andWhere(`(${statusSql})`);
+    }
+  });
+}
 
 const toReceptionMetadata = (value: unknown) => {
   if (!value) {
@@ -1535,58 +1703,19 @@ export async function getReceptionsGridData(
   try {
     const dataSource = await getDb();
 
-    const page = Math.max(1, filters?.page || 1);
-    const limit = Math.min(Math.max(5, filters?.limit || 25), 100);
-    const sortBy = filters?.sortBy && RECEPTION_GRID_SORT_FIELDS.includes(filters.sortBy)
-      ? filters.sortBy
-      : 'createdAt';
-    const sortOrder = (filters?.sortOrder || 'DESC').toString().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const page = resolvePage(filters?.page, 1);
+    const limit = resolveLimit(filters?.limit, 25);
+    const sortBy = resolveSortField(filters?.sortBy, RECEPTION_GRID_SORT_FIELDS, 'createdAt');
+    const sortOrder = resolveSortOrder(filters?.sortOrder, 'DESC');
 
     const query = buildReceptionsBaseQuery(dataSource);
 
     if (filters?.filtration && filters.filters) {
-      const columnFilters = parseColumnFilters(filters.filters, RECEPTION_FILTERABLE_FIELDS);
-
-      columnFilters.forEach((filter, index) => {
-        const paramName = `colFilter${index}`;
-        if (filter.column === 'id') {
-          query.andWhere(`CAST(tx.id AS CHAR) LIKE :${paramName}`, {
-            [paramName]: `%${filter.value}%`,
-          });
-          return;
-        }
-
-        if (NUMERIC_COLUMN_SQL_MAP[filter.column]) {
-          const numericValue = Number(filter.value);
-          if (!Number.isNaN(numericValue)) {
-            query.andWhere(`${NUMERIC_COLUMN_SQL_MAP[filter.column]} = :${paramName}`, {
-              [paramName]: numericValue,
-            });
-          }
-          return;
-        }
-
-        if (filter.column === 'producerName') {
-          query.andWhere(`${normalizeSqlExpression(JSON_PRODUCER)} LIKE :${paramName}`, {
-            [paramName]: `%${normalizeString(filter.value)}%`,
-          });
-          return;
-        }
-
-        if (filter.column === 'guideNumber') {
-          query.andWhere(`${normalizeSqlExpression(JSON_GUIDE)} LIKE :${paramName}`, {
-            [paramName]: `%${normalizeString(filter.value)}%`,
-          });
-        }
-      });
+      applyReceptionGridColumnFilters(query, filters.filters, 'colFilter');
     }
 
     if (filters?.search?.trim()) {
-      const normalizedSearch = `%${normalizeString(filters.search.trim())}%`;
-      query.andWhere(
-        `(${normalizeSqlExpression(JSON_PRODUCER)} LIKE :search OR ${normalizeSqlExpression(JSON_GUIDE)} LIKE :search OR CAST(tx.id AS CHAR) LIKE :search)`,
-        { search: normalizedSearch }
-      );
+      applyReceptionGridSearch(query, filters.search);
     }
 
     const countResult = await query.clone().select('COUNT(*)', 'count').getRawOne<{ count: string | number }>();
@@ -1633,56 +1762,17 @@ export async function getReceptionsExportData(filters?: ReceptionsGridFilters): 
     const dataSource = await getDb();
     const maxRows = 10000;
 
-    const sortBy = filters?.sortBy && RECEPTION_GRID_SORT_FIELDS.includes(filters.sortBy)
-      ? filters.sortBy
-      : 'createdAt';
-    const sortOrder = (filters?.sortOrder || 'DESC').toString().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const sortBy = resolveSortField(filters?.sortBy, RECEPTION_GRID_SORT_FIELDS, 'createdAt');
+    const sortOrder = resolveSortOrder(filters?.sortOrder, 'DESC');
 
     const query = buildReceptionsBaseQuery(dataSource);
 
     if (filters?.filtration && filters.filters) {
-      const columnFilters = parseColumnFilters(filters.filters, RECEPTION_FILTERABLE_FIELDS);
-      columnFilters.forEach((filter, index) => {
-        const paramName = `exportFilter${index}`;
-
-        if (filter.column === 'id') {
-          query.andWhere(`CAST(tx.id AS CHAR) LIKE :${paramName}`, {
-            [paramName]: `%${filter.value}%`,
-          });
-          return;
-        }
-
-        if (NUMERIC_COLUMN_SQL_MAP[filter.column]) {
-          const numericValue = Number(filter.value);
-          if (!Number.isNaN(numericValue)) {
-            query.andWhere(`${NUMERIC_COLUMN_SQL_MAP[filter.column]} = :${paramName}`, {
-              [paramName]: numericValue,
-            });
-          }
-          return;
-        }
-
-        if (filter.column === 'producerName') {
-          query.andWhere(`${normalizeSqlExpression(JSON_PRODUCER)} LIKE :${paramName}`, {
-            [paramName]: `%${normalizeString(filter.value)}%`,
-          });
-          return;
-        }
-
-        if (filter.column === 'guideNumber') {
-          query.andWhere(`${normalizeSqlExpression(JSON_GUIDE)} LIKE :${paramName}`, {
-            [paramName]: `%${normalizeString(filter.value)}%`,
-          });
-        }
-      });
+      applyReceptionGridColumnFilters(query, filters.filters, 'exportFilter');
     }
 
     if (filters?.search?.trim()) {
-      const normalizedSearch = `%${normalizeString(filters.search.trim())}%`;
-      query.andWhere(
-        `(${normalizeSqlExpression(JSON_PRODUCER)} LIKE :search OR ${normalizeSqlExpression(JSON_GUIDE)} LIKE :search OR CAST(tx.id AS CHAR) LIKE :search)`,
-        { search: normalizedSearch }
-      );
+      applyReceptionGridSearch(query, filters.search);
     }
 
     const sortExpression = SORT_SQL_MAP[sortBy] || 'tx.createdAt';

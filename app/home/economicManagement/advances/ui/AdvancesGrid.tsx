@@ -11,6 +11,12 @@ import DeleteAdvanceButton from './DeleteAdvanceButton';
 
 interface AdvancesGridProps {
   rows: AdvanceSummary[];
+  totalRows: number;
+  currentLimit: number;
+  currentSearch?: string;
+  currentFilters?: string;
+  currentSort?: string;
+  currentSortField?: string;
   onRefresh?: () => void;
 }
 
@@ -30,7 +36,16 @@ function formatCLP(value: number): string {
   return clpFormatter.format(Number.isFinite(value) ? value : 0);
 }
 
-const AdvancesGrid = ({ rows, onRefresh }: AdvancesGridProps) => {
+const AdvancesGrid = ({
+  rows,
+  totalRows,
+  currentLimit,
+  currentSearch,
+  currentFilters,
+  currentSort,
+  currentSortField,
+  onRefresh,
+}: AdvancesGridProps) => {
   const handleRefresh = useCallback(() => {
     if (onRefresh) {
       onRefresh();
@@ -116,7 +131,12 @@ const AdvancesGrid = ({ rows, onRefresh }: AdvancesGridProps) => {
         title="Anticipos"
         columns={columns}
         rows={rows}
-        totalRows={rows.length}
+        totalRows={totalRows}
+        limit={currentLimit}
+        search={currentSearch}
+        filters={currentFilters}
+        sort={currentSort?.toLowerCase() as 'asc' | 'desc' | undefined}
+        sortField={currentSortField}
         height="85vh"
         showBorder={false}
         createForm={<CreateAdvanceButton onSuccess={handleRefresh} />}
