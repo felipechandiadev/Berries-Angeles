@@ -25,6 +25,7 @@ import { ensureAppConfigTable } from "./ensureAppConfigTable";
 import { ensurePalletsWithoutStorage } from "./ensurePalletsWithoutStorage";
 import { ensureVarietyQualityPrices } from "./ensureVarietyQualityPrices";
 import { ensureVarietyPriceHistoryTable } from "./ensureVarietyPriceHistoryTable";
+import { ensureAuditActionColumn } from "./ensureAuditActionColumn";
 
 const appConfig = getAppConfig();
 
@@ -45,6 +46,7 @@ type DbGlobal = {
     palletsWithoutStorageReady?: boolean;
     varietyQualityPricesReady?: boolean;
     varietyPriceHistoryReady?: boolean;
+    auditActionColumnReady?: boolean;
   };
 };
 
@@ -203,6 +205,10 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           await ensureVarietyPriceHistoryTable(state.ds);
           state.varietyPriceHistoryReady = true;
         }
+        if (!state.auditActionColumnReady) {
+          await ensureAuditActionColumn(state.ds);
+          state.auditActionColumnReady = true;
+        }
         return state.ds;
       }
     }
@@ -242,6 +248,10 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
         if (!state.varietyPriceHistoryReady) {
           await ensureVarietyPriceHistoryTable(state.ds);
           state.varietyPriceHistoryReady = true;
+        }
+        if (!state.auditActionColumnReady) {
+          await ensureAuditActionColumn(state.ds);
+          state.auditActionColumnReady = true;
         }
 
         return state.ds;

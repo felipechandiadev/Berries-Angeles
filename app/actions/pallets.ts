@@ -737,6 +737,14 @@ export async function updatePallet(data: UpdatePalletInput, auditUserId?: string
       return { success: false, error: 'Pallet no encontrado' };
     }
 
+    if (existingPallet.status === PalletStatus.DISPATCHED) {
+      return {
+        success: false,
+        error:
+          'No se puede editar un pallet despachado. Modificalo desde el despacho asociado.',
+      };
+    }
+
     // Validaciones y actualizaciones
     const updates: Partial<Pallet> = {};
 
@@ -892,6 +900,14 @@ export async function deletePallet(id: string | number, auditUserId?: string): P
 
     if (!existingPallet) {
       return { success: false, error: 'Pallet no encontrado' };
+    }
+
+    if (existingPallet.status === PalletStatus.DISPATCHED) {
+      return {
+        success: false,
+        error:
+          'No se puede eliminar un pallet despachado. Anulalo desde el despacho asociado.',
+      };
     }
 
     // Obtener userId para auditoría si no se proporcionó

@@ -7,7 +7,6 @@ import { useAlert } from '@/app/state/contexts/AlertContext';
 import { getPalletsExportData, type PalletGridFilters } from '@/app/actions/pallets';
 import { exportPalletsToExcel } from '@/lib/excelExport';
 import { formatAuditDateLocaleES } from '@/lib/dateTimeUtils';
-import CreatePalletButton from './CreatePalletButton';
 import UpdatePalletButton from './UpdatePalletButton';
 import DeletePalletButton from './DeletePalletButton';
 import PrintPalletButton from './PrintPalletButton';
@@ -198,20 +197,26 @@ export default function PalletsGrid({
         flex: 0.7,
         sortable: false,
         filterable: false,
-        actionComponent: ({ row }: { row: PalletRow }) => (
-          <div className="flex gap-1">
-            <PrintPalletButton pallet={row} />
-            <UpdatePalletButton pallet={row} onSuccess={handleRefresh} />
-            <DeletePalletButton pallet={row} onSuccess={handleRefresh} />
-          </div>
-        ),
+        actionComponent: ({ row }: { row: PalletRow }) => {
+          const isDispatched = row.status === PalletStatus.DISPATCHED;
+          return (
+            <div className="flex gap-1">
+              <PrintPalletButton pallet={row} />
+              {!isDispatched && (
+                <>
+                  <UpdatePalletButton pallet={row} onSuccess={handleRefresh} />
+                  <DeletePalletButton pallet={row} onSuccess={handleRefresh} />
+                </>
+              )}
+            </div>
+          );
+        },
       },
     ],
     [handleRefresh]
   );
 
   return (
-  
       <DataGridTable
         columns={columns}
         rows={initialData}
@@ -222,10 +227,8 @@ export default function PalletsGrid({
         search={currentSearch}
         filters={currentFilters}
         fillViewport
-        createForm={<CreatePalletButton onSuccess={handleRefresh} />}
         onExportExcel={handleExportExcel}
         showBorder={false}
       />
-
   );
 }

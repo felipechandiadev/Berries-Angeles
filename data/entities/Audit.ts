@@ -20,7 +20,7 @@ export class Audit {
   @JoinColumn({ name: 'userId' })
   user?: User;
 
-  @Column('enum', { enum: AuditActionType })
+  @Column({ type: 'varchar', length: 32 })
   action!: AuditActionType;
 
   @Column('json', { nullable: true })

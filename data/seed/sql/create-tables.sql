@@ -271,7 +271,7 @@ CREATE TABLE `audits` (
   `entityName` VARCHAR(255) NOT NULL,
   `entityId` VARCHAR(255) NOT NULL,
   `userId` VARCHAR(36) NULL,
-  `action` ENUM('CREATE', 'READ', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'EXPORT') NOT NULL,
+  `action` VARCHAR(32) NOT NULL,
   `changes` JSON NULL,
   `oldValues` JSON NULL,
   `newValues` JSON NULL,
