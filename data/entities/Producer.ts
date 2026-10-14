@@ -1,5 +1,4 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from "typeorm";
-import { ProductiveUnit } from "./ProductiveUnit";
 import { Person } from "./Person";
 
 @Entity("producers")
@@ -20,14 +19,7 @@ export class Producer {
     mail!: string;
 
     @Column({ type: 'varchar', length: 36 })
-    productiveUnitId!: string;
-
-    @Column({ type: 'varchar', length: 36 })
     personId!: string;
-
-    @ManyToOne(() => ProductiveUnit)
-    @JoinColumn({ name: 'productiveUnitId' })
-    productiveUnit!: ProductiveUnit;
 
     @ManyToOne(() => Person)
     @JoinColumn({ name: 'personId' })

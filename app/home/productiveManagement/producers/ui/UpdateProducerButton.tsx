@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import UpdateBaseForm from '@/app/baseComponents/BaseForm/UpdateBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { updateProducer } from '@/app/actions/producers';
 import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
-import { getProductiveUnitsSimpleList } from '@/app/actions/productiveUnits';
 
 interface Producer {
   id: string;
@@ -15,8 +14,6 @@ interface Producer {
   dni: string;
   mail: string;
   phone: string;
-  productiveUnitId: string;
-  productiveUnit?: any;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,26 +27,8 @@ export default function UpdateProducerButton({ producer, onSuccess }: UpdateProd
   const { showAlert } = useAlert();
   const [open, setOpen] = useState(false);
   const { isSubmitting, run } = useSubmitLock();
-  const [productiveUnitOptions, setProductiveUnitOptions] = useState<{ id: string; label: string }[]>([]);
-
-  useEffect(() => {
-    const loadProductiveUnits = async () => {
-      try {
-        const result = await getProductiveUnitsSimpleList();
-        if (result) {
-          setProductiveUnitOptions(result.map(unit => ({ id: unit.id, label: unit.name })));
-        }
-      } catch (error) {
-        console.error('Error loading productive units:', error);
-      }
-    };
-    if (open) {
-      loadProductiveUnits();
-    }
-  }, [open]);
 
   const handleSubmit = async (values: Record<string, any>) => {
-    // Validate required fields
     if (!values.name?.trim()) {
       showAlert({
         message: 'Name is required',
@@ -68,15 +47,6 @@ export default function UpdateProducerButton({ producer, onSuccess }: UpdateProd
       return;
     }
 
-    if (values.productiveUnitId !== undefined && !values.productiveUnitId?.trim()) {
-      showAlert({
-        message: 'Productive unit is required',
-        type: 'error',
-        duration: 4000,
-      });
-      return;
-    }
-
     const result = await run(async () => {
       try {
         const updateResult = await updateProducer({
@@ -85,7 +55,6 @@ export default function UpdateProducerButton({ producer, onSuccess }: UpdateProd
           dni: values.dni,
           mail: values.mail,
           phone: values.phone,
-          productiveUnitId: values.productiveUnitId,
         });
 
         if (updateResult.success) {
@@ -125,13 +94,6 @@ export default function UpdateProducerButton({ producer, onSuccess }: UpdateProd
     { name: 'dni', label: 'RUT', type: 'dni' as const, required: true },
     { name: 'mail', label: 'Email', type: 'email' as const, required: false },
     { name: 'phone', label: 'Phone', type: 'text' as const, required: false },
-    {
-      name: 'productiveUnitId',
-      label: 'Productive Unit',
-      type: 'autocomplete' as const,
-      required: true,
-      options: productiveUnitOptions,
-    },
   ];
 
   return (

@@ -52,8 +52,6 @@ export interface ReceptionDetailProducerInfo {
   mail?: string | null;
   personName?: string | null;
   personDni?: string | null;
-  productiveUnitName?: string | null;
-  productiveUnitAddress?: string | null;
 }
 
 export interface ReceptionDetailDocumentInfo {

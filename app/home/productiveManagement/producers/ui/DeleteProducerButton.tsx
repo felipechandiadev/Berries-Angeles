@@ -14,8 +14,6 @@ interface Producer {
   dni: string;
   mail: string;
   phone: string;
-  productiveUnitId: string;
-  productiveUnit?: any;
   createdAt: Date;
   updatedAt: Date;
 }

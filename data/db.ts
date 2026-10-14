@@ -7,7 +7,6 @@ import { Variety } from "./entities/Variety";
 import { VarietyPriceHistory } from "./entities/VarietyPriceHistory";
 import { Format } from "./entities/Format";
 import { Season } from "./entities/Season";
-import { ProductiveUnit } from "./entities/ProductiveUnit";
 import { Producer } from "./entities/Producer";
 import { Customer } from "./entities/Customer";
 import { Tray } from "./entities/Tray";
@@ -26,6 +25,7 @@ import { ensurePalletsWithoutStorage } from "./ensurePalletsWithoutStorage";
 import { ensureVarietyQualityPrices } from "./ensureVarietyQualityPrices";
 import { ensureVarietyPriceHistoryTable } from "./ensureVarietyPriceHistoryTable";
 import { ensureAuditActionColumn } from "./ensureAuditActionColumn";
+import { ensureProducersWithoutUnits } from "./ensureProducersWithoutUnits";
 
 const appConfig = getAppConfig();
 
@@ -47,6 +47,7 @@ type DbGlobal = {
     varietyQualityPricesReady?: boolean;
     varietyPriceHistoryReady?: boolean;
     auditActionColumnReady?: boolean;
+    producersWithoutUnitsReady?: boolean;
   };
 };
 
@@ -80,7 +81,6 @@ function createDataSource(): DataSource {
       VarietyPriceHistory,
       Format,
       Season,
-      ProductiveUnit,
       Producer,
       Customer,
       Tray,
@@ -209,6 +209,10 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           await ensureAuditActionColumn(state.ds);
           state.auditActionColumnReady = true;
         }
+        if (!state.producersWithoutUnitsReady) {
+          await ensureProducersWithoutUnits(state.ds);
+          state.producersWithoutUnitsReady = true;
+        }
         return state.ds;
       }
     }
@@ -252,6 +256,10 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
         if (!state.auditActionColumnReady) {
           await ensureAuditActionColumn(state.ds);
           state.auditActionColumnReady = true;
+        }
+        if (!state.producersWithoutUnitsReady) {
+          await ensureProducersWithoutUnits(state.ds);
+          state.producersWithoutUnitsReady = true;
         }
 
         return state.ds;

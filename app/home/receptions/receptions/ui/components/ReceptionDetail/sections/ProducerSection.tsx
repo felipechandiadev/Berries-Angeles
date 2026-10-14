@@ -31,8 +31,6 @@ export function ProducerSection({ summary, producer, documents }: ProducerSectio
           {infoRow('RUT / DNI', producer?.dni ?? producer?.personDni)}
           {infoRow('Teléfono', producer?.phone)}
           {infoRow('Correo', producer?.mail)}
-          {infoRow('Unidad productiva', producer?.productiveUnitName)}
-          {infoRow('Dirección unidad', producer?.productiveUnitAddress)}
         </div>
       </div>
       <div className="space-y-3">

@@ -11,6 +11,9 @@ import {
   Zap,
   PlusSquare,
   Leaf,
+  Truck,
+  LayoutGrid,
+  Contact,
 } from 'lucide-react';
 import type { DashboardStats as DashboardStatsData } from '@/app/actions/dashboard';
 
@@ -35,31 +38,9 @@ const QUICK_LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/home/audit', label: 'Auditoría', icon: History },
 ];
 
-const ACTION_LABELS: Record<string, string> = {
-  CREATE: 'Creación',
-  UPDATE: 'Actualización',
-  DELETE: 'Eliminación',
-  LOGIN_SUCCESS: 'Inicio de sesión',
-  LOGIN_FAILED: 'Login fallido',
-  LOGOUT: 'Cierre de sesión',
-};
-
 /** Node y el browser usan NBSP/narrow-NBSP distintos en es-CL; unificar evita hydration mismatch. */
 function normalizeLocaleSpaces(value: string) {
   return value.replace(/[\u00a0\u202f\u2009]/g, ' ');
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return normalizeLocaleSpaces(
-    new Intl.DateTimeFormat('es-CL', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date)
-  );
 }
 
 function StatCard({ label, value, icon: Icon, accent = 'var(--color-accent)' }: StatCardProps) {
@@ -107,7 +88,7 @@ export default function DashboardStats({ stats, userName }: DashboardStatsProps)
               Hola, {greetingName}
             </h2>
             <p className="mt-2 max-w-xl text-sm text-white/85 md:text-base">
-              Resumen operativo de Berries Maugro: recepciones, productores, bodega y movimientos recientes.
+              Resumen operativo de Berries Maugro: recepciones, despachos, productores y bodega.
             </p>
           </div>
           {stats.activeSeasonName && (
@@ -151,50 +132,20 @@ export default function DashboardStats({ stats, userName }: DashboardStatsProps)
         </div>
 
         <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-6 xl:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-neutral-900">Actividad reciente</h3>
-            <Link
-              href="/home/audit"
-              className="text-sm font-medium"
-              style={{ color: 'var(--color-accent)' }}
-            >
-              Ver todo
-            </Link>
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-neutral-900">Indicadores</h3>
           </div>
-
-          {stats.recentActivity.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
-              Aún no hay actividad registrada en auditoría.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {stats.recentActivity.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-start gap-3 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3"
-                >
-                  <div
-                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                    style={{ backgroundColor: '#17321D14', color: 'var(--color-accent)' }}
-                  >
-                    <History size={18} aria-hidden />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-neutral-900">
-                        {ACTION_LABELS[item.action] ?? item.action}
-                      </span>
-                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-neutral-500">
-                        {item.entityName}
-                      </span>
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-sm text-neutral-600">{item.description}</p>
-                    <p className="mt-1 text-xs text-neutral-400">{formatDate(item.createdAt)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <StatCard label="Clientes" value={stats.totalCustomers} icon={Contact} accent="#0f766e" />
+            <StatCard label="Despachos" value={stats.totalDispatches} icon={Truck} accent="#b45309" />
+            <StatCard
+              label="Liquidaciones"
+              value={stats.totalSettlements}
+              icon={Wallet}
+              accent="#7c3aed"
+            />
+            <StatCard label="Bandejas" value={stats.totalTrays} icon={LayoutGrid} accent="#0369a1" />
+          </div>
         </div>
       </section>
     </div>

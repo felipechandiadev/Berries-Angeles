@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import CreateBaseForm from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import { useAlert } from '@/app/state/contexts/AlertContext';
 import { createProducer } from '@/app/actions/producers';
-import { getProductiveUnitsSimpleList } from '@/app/actions/productiveUnits';
 import type { AccountTypeName, BankName, PersonBankAccount } from '@/data/entities/Person';
 import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 
@@ -48,7 +47,6 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
     dni: '',
     mail: '',
     phone: '',
-    productiveUnitId: '',
     bankAccountType: '',
     bankName: '',
     bankAccountNumber: '',
@@ -56,22 +54,6 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
     bankAccountIsPrimary: false,
   });
   const { isSubmitting, run } = useSubmitLock();
-  const [productiveUnitOptions, setProductiveUnitOptions] = useState<{ id: string; label: string }[]>([]);
-
-
-  useEffect(() => {
-    const loadProductiveUnits = async () => {
-      try {
-        const result = await getProductiveUnitsSimpleList();
-        if (result) {
-          setProductiveUnitOptions(result.map(unit => ({ id: unit.id, label: unit.name })));
-        }
-      } catch (error) {
-        console.error('Error loading productive units:', error);
-      }
-    };
-    loadProductiveUnits();
-  }, []);
 
   const handleChange = (field: string, value: any) => {
     setValues(prev => ({ ...prev, [field]: value }));
@@ -86,10 +68,6 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
 
     if (!values.dni?.trim()) {
       errors.push('RUT is required');
-    }
-
-    if (!values.productiveUnitId?.trim()) {
-      errors.push('Productive unit is required');
     }
 
     const hasBankAccountInput = values.bankAccountType || values.bankName || values.bankAccountNumber;
@@ -138,7 +116,6 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
           dni: values.dni,
           mail: values.mail || undefined,
           phone: values.phone || undefined,
-          productiveUnitId: values.productiveUnitId,
           bankAccounts,
         };
 
@@ -176,7 +153,6 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
         dni: '',
         mail: '',
         phone: '',
-        productiveUnitId: '',
         bankAccountType: '',
         bankName: '',
         bankAccountNumber: '',
@@ -193,13 +169,6 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
     { name: 'dni', label: 'RUT', type: 'dni' as const, required: true },
     { name: 'mail', label: 'Email', type: 'email' as const, required: false },
     { name: 'phone', label: 'Phone', type: 'text' as const, required: false },
-    {
-      name: 'productiveUnitId',
-      label: 'Productive Unit',
-      type: 'autocomplete' as const,
-      required: true,
-      options: productiveUnitOptions,
-    },
     {
       name: 'bankAccountType',
       label: 'Account Type',
@@ -235,4 +204,3 @@ export default function CreateProducerButton({ onSuccess, onClose }: CreateProdu
     />
   );
 }
-

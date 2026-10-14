@@ -60,21 +60,7 @@ CREATE TABLE `permissions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ==========================
--- 3. PRODUCTIVE_UNITS (Independent)
--- ==========================
-CREATE TABLE `productive_units` (
-  `id` VARCHAR(36) PRIMARY KEY,
-  `name` VARCHAR(255) NOT NULL,
-  `address` VARCHAR(255) NULL,
-  `description` VARCHAR(255) NULL,
-  `deletedAt` DATETIME NULL,
-  `createdAt` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updatedAt` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX `idx_deletedAt` (`deletedAt`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ==========================
--- 4. VARIETIES (Independent)
+-- 3. VARIETIES (Independent)
 -- ==========================
 CREATE TABLE `varieties` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -173,15 +159,12 @@ CREATE TABLE `producers` (
   `dni` VARCHAR(12) UNIQUE,
   `phone` VARCHAR(20) NULL,
   `mail` VARCHAR(255) NULL,
-  `productiveUnitId` VARCHAR(36) NOT NULL,
   `personId` VARCHAR(36) NOT NULL,
   `deletedAt` DATETIME NULL,
   `createdAt` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `updatedAt` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (`productiveUnitId`) REFERENCES `productive_units`(`id`),
   FOREIGN KEY (`personId`) REFERENCES `persons`(`id`),
   INDEX `idx_dni` (`dni`),
-  INDEX `idx_productiveUnitId` (`productiveUnitId`),
   INDEX `idx_personId` (`personId`),
   INDEX `idx_deletedAt` (`deletedAt`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

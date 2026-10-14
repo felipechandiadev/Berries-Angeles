@@ -77,8 +77,6 @@ export default function ProducerDetailPage({ data: initialData }: Props) {
     dni: data.producer.dni,
     mail: data.producer.mail || '',
     phone: data.producer.phone || '',
-    productiveUnitId: data.producer.productiveUnitId,
-    productiveUnit: data.producer.productiveUnit,
     createdAt: data.producer.createdAt as Date,
     updatedAt: data.producer.updatedAt as Date,
   };

@@ -252,30 +252,6 @@ const definitions: PermissionDefinition[] = [
     category: 'productive',
   },
   {
-    ability: 'UNITS_VIEW',
-    label: 'Ver unidades productivas',
-    description: 'Ver unidades productivas.',
-    category: 'productive',
-  },
-  {
-    ability: 'UNITS_CREATE',
-    label: 'Crear unidades productivas',
-    description: 'Crear unidades productivas.',
-    category: 'productive',
-  },
-  {
-    ability: 'UNITS_UPDATE',
-    label: 'Editar unidades productivas',
-    description: 'Modificar unidades productivas.',
-    category: 'productive',
-  },
-  {
-    ability: 'UNITS_DELETE',
-    label: 'Eliminar unidades productivas',
-    description: 'Eliminar unidades productivas.',
-    category: 'productive',
-  },
-  {
     ability: 'SEASONS_VIEW',
     label: 'Ver temporadas',
     description: 'Ver temporadas.',

@@ -2,22 +2,17 @@
 
 import { getDb } from '../../data/db';
 
-export type DashboardRecentActivity = {
-  id: string;
-  action: string;
-  entityName: string;
-  description: string;
-  createdAt: string;
-};
-
 export type DashboardStats = {
   totalUsers: number;
   totalProducers: number;
   totalReceptions: number;
   totalAdvances: number;
   availablePallets: number;
+  totalCustomers: number;
+  totalDispatches: number;
+  totalSettlements: number;
+  totalTrays: number;
   activeSeasonName: string | null;
-  recentActivity: DashboardRecentActivity[];
 };
 
 const EMPTY_STATS: DashboardStats = {
@@ -26,8 +21,11 @@ const EMPTY_STATS: DashboardStats = {
   totalReceptions: 0,
   totalAdvances: 0,
   availablePallets: 0,
+  totalCustomers: 0,
+  totalDispatches: 0,
+  totalSettlements: 0,
+  totalTrays: 0,
   activeSeasonName: null,
-  recentActivity: [],
 };
 
 export async function getDashboardStats(): Promise<DashboardStats> {
@@ -41,25 +39,14 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         (SELECT COUNT(*) FROM transactions WHERE type = 'RECEPTION' AND deletedAt IS NULL) AS totalReceptions,
         (SELECT COUNT(*) FROM transactions WHERE type = 'ADVANCE' AND deletedAt IS NULL) AS totalAdvances,
         (SELECT COUNT(*) FROM pallets WHERE status = 'AVAILABLE' AND deletedAt IS NULL) AS availablePallets,
+        (SELECT COUNT(*) FROM customers WHERE deletedAt IS NULL) AS totalCustomers,
+        (SELECT COUNT(*) FROM transactions WHERE type = 'DISPATCH' AND deletedAt IS NULL) AS totalDispatches,
+        (SELECT COUNT(*) FROM transactions WHERE type = 'SETTLEMENT' AND deletedAt IS NULL) AS totalSettlements,
+        (SELECT COUNT(*) FROM trays WHERE deletedAt IS NULL) AS totalTrays,
         (SELECT name FROM seasons WHERE active = 1 AND deletedAt IS NULL LIMIT 1) AS activeSeasonName
     `);
 
     const row = (Array.isArray(counts) ? counts[0] : counts) as Record<string, unknown>;
-
-    const recentRows = await db.query(`
-      SELECT id, action, entityName, description, createdAt
-      FROM audits
-      ORDER BY createdAt DESC
-      LIMIT 8
-    `);
-
-    const activityList = (Array.isArray(recentRows[0]) ? recentRows[0] : recentRows) as Array<{
-      id: string;
-      action: string;
-      entityName: string;
-      description: string | null;
-      createdAt: Date | string;
-    }>;
 
     return {
       totalUsers: Number(row?.totalUsers ?? 0),
@@ -67,17 +54,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       totalReceptions: Number(row?.totalReceptions ?? 0),
       totalAdvances: Number(row?.totalAdvances ?? 0),
       availablePallets: Number(row?.availablePallets ?? 0),
+      totalCustomers: Number(row?.totalCustomers ?? 0),
+      totalDispatches: Number(row?.totalDispatches ?? 0),
+      totalSettlements: Number(row?.totalSettlements ?? 0),
+      totalTrays: Number(row?.totalTrays ?? 0),
       activeSeasonName: row?.activeSeasonName ? String(row.activeSeasonName) : null,
-      recentActivity: activityList.map((item) => ({
-        id: item.id,
-        action: item.action,
-        entityName: item.entityName,
-        description: item.description ?? `${item.action} en ${item.entityName}`,
-        createdAt:
-          item.createdAt instanceof Date
-            ? item.createdAt.toISOString()
-            : String(item.createdAt),
-      })),
     };
   } catch (error) {
     console.error('[getDashboardStats] Error:', error);

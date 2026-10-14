@@ -1903,7 +1903,7 @@ export async function getReceptionDetail(receptionId: string): Promise<Reception
         deletedAt: IsNull(),
       },
       relations: {
-        producer: { person: true, productiveUnit: true },
+        producer: { person: true },
         user: { person: true },
         season: true,
       },
@@ -2127,8 +2127,6 @@ export async function getReceptionDetail(receptionId: string): Promise<Reception
           mail: reception.producer.mail ?? null,
           personName: reception.producer.person?.name ?? null,
           personDni: reception.producer.person?.dni ?? null,
-          productiveUnitName: reception.producer.productiveUnit?.name ?? null,
-          productiveUnitAddress: reception.producer.productiveUnit?.address ?? null,
         }
       : null;
 

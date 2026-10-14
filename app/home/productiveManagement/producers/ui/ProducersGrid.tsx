@@ -17,8 +17,6 @@ interface Producer {
   dni: string;
   mail: string;
   phone: string;
-  productiveUnitId: string;
-  productiveUnit?: any;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -159,14 +157,6 @@ export default function ProducersGrid({
       headerName: 'Teléfono',
       flex: 1,
       sortable: true,
-    },
-    {
-      field: 'productiveUnitName',
-      headerName: 'Unidad Productiva',
-      flex: 1.3,
-      sortable: false,
-      filterable: true,
-      renderCell: ({ row }: { row: any }) => row.productiveUnit?.name || '-',
     },
     {
       field: 'actions',

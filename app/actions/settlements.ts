@@ -50,7 +50,6 @@ export interface PendingReceptionRow {
   guideNumber: string | null;
   seasonName: string | null;
   producerName: string | null;
-  productiveUnitName: string | null;
   varieties: string[];
   packCount: number;
   netWeightKg: number;
@@ -158,7 +157,6 @@ export async function listPendingReceptions(
   const qb = receptionRepo
     .createQueryBuilder('reception')
     .leftJoinAndSelect('reception.producer', 'producer')
-    .leftJoinAndSelect('producer.productiveUnit', 'unit')
     .leftJoinAndSelect('reception.season', 'season')
     .leftJoin(
       TransactionRelation,
@@ -266,7 +264,6 @@ export async function listPendingReceptions(
       guideNumber: guideNumberRaw ? String(guideNumberRaw) : null,
       seasonName: reception.season?.name ?? null,
       producerName: reception.producer?.name ?? null,
-      productiveUnitName: reception.producer?.productiveUnit?.name ?? null,
       varieties: varietiesMap.get(transactionId) || [],
       packCount: Number(packCount),
       netWeightKg: Number(netWeightKg),

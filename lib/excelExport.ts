@@ -205,146 +205,6 @@ export function exportAuditToExcel(
 
 /**
  * ============================================================
- * FUNCIONES PARA EXPORTAR UNIDADES PRODUCTIVAS A EXCEL
- * ============================================================
- */
-
-export interface ProductiveUnitExcelRow {
-  id: string;
-  name: string;
-  address: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * Formatea datos de unidades productivas para exportar a Excel
- */
-export function formatProductiveUnitsDataForExcel(unitsData: any[]): ProductiveUnitExcelRow[] {
-  return unitsData.map((unit) => ({
-    id: unit.id,
-    name: unit.name || '-',
-    address: unit.address || '-',
-    description: unit.description || '-',
-    createdAt: typeof unit.createdAt === 'string' 
-      ? formatAuditDate(unit.createdAt)
-      : formatAuditDate(unit.createdAt),
-    updatedAt: typeof unit.updatedAt === 'string' 
-      ? formatAuditDate(unit.updatedAt)
-      : formatAuditDate(unit.updatedAt),
-  }));
-}
-
-/**
- * Crea un workbook de Excel para unidades productivas con estilos
- */
-export function createProductiveUnitsWorkbook(data: ProductiveUnitExcelRow[], options: ExcelExportOptions = {}) {
-  const {
-    sheetName = 'Unidades Productivas',
-    maxRows = 10000,
-  } = options;
-
-  // Validar límite de filas
-  if (data.length > maxRows) {
-    console.warn(`Se limitaron los registros a ${maxRows} (total: ${data.length})`);
-    data = data.slice(0, maxRows);
-  }
-
-  // Crear workbook
-  const workbook = XLSX.utils.book_new();
-
-  // Crear hoja de datos con encabezados en español
-  const dataWithHeaders = data.map(row => ({
-    'ID': row.id,
-    'Nombre': row.name,
-    'Dirección': row.address,
-    'Descripción': row.description,
-    'Creado': row.createdAt,
-    'Actualizado': row.updatedAt,
-  }));
-
-  const dataSheet = XLSX.utils.json_to_sheet(dataWithHeaders);
-
-  // Aplicar estilos a los encabezados
-  const headerStyle = {
-    fill: { fgColor: { rgb: 'FF1F4E78' } }, // Azul oscuro
-    font: { bold: true, color: { rgb: 'FFFFFFFF' } }, // Blanco
-    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-    border: {
-      top: { style: 'thin' },
-      bottom: { style: 'thin' },
-      left: { style: 'thin' },
-      right: { style: 'thin' },
-    },
-  };
-
-  // Aplicar estilos a todas las celdas de encabezado
-  const range = XLSX.utils.decode_range(dataSheet['!ref'] || 'A1');
-  for (let C = range.s.c; C <= range.e.c; ++C) {
-    const address = XLSX.utils.encode_col(C) + '1';
-    if (!dataSheet[address]) continue;
-    dataSheet[address].s = headerStyle;
-  }
-
-  // Establecer anchos de columna
-  const colWidths = [
-    { wch: 36 }, // ID
-    { wch: 25 }, // Nombre
-    { wch: 30 }, // Dirección
-    { wch: 40 }, // Descripción
-    { wch: 18 }, // Creado
-    { wch: 18 }, // Actualizado
-  ];
-  dataSheet['!cols'] = colWidths;
-
-  // Agregar filtros automáticos
-  dataSheet['!autofilter'] = { ref: XLSX.utils.encode_range(range) };
-
-  // Agregar hoja al workbook
-  XLSX.utils.book_append_sheet(workbook, dataSheet, sheetName);
-
-  // Crear hoja de resumen
-  const summaryData = [
-    { Métrica: 'Total de Registros', Valor: data.length },
-  ];
-
-  const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-  summarySheet['!cols'] = [{ wch: 25 }, { wch: 15 }];
-  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen');
-
-  return workbook;
-}
-
-/**
- * Función principal para exportar unidades productivas a Excel
- */
-export function exportProductiveUnitsToExcel(
-  unitsData: any[],
-  options: ExcelExportOptions = {}
-) {
-  try {
-    // Formatear datos
-    const formattedData = formatProductiveUnitsDataForExcel(unitsData);
-
-    // Crear workbook
-    const workbook = createProductiveUnitsWorkbook(formattedData, options);
-
-    // Generar nombre de archivo
-    const fileName = options.fileName || generateExcelFileName('unidades_productivas');
-
-    // Descargar
-    downloadExcelFile(workbook, fileName);
-
-    return { success: true, fileName, recordCount: formattedData.length };
-  } catch (error) {
-    console.error('Error exporting to Excel:', error);
-    return { success: false, error: String(error) };
-  }
-}
-
-/**
- * ============================================================
  * FUNCIONES PARA EXPORTAR PALLETS A EXCEL
  * ============================================================
  */
@@ -493,7 +353,6 @@ export interface ProducerExcelRow {
   dni: string;
   mail: string;
   phone: string;
-  productiveUnit: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -508,7 +367,6 @@ export function formatProducersDataForExcel(producersData: any[]): ProducerExcel
     dni: producer.dni || '-',
     mail: producer.mail || '-',
     phone: producer.phone || '-',
-    productiveUnit: producer.productiveUnit?.name || '-',
     createdAt: typeof producer.createdAt === 'string' 
       ? formatAuditDate(producer.createdAt)
       : formatAuditDate(producer.createdAt),
@@ -540,7 +398,6 @@ export function createProducersWorkbook(data: ProducerExcelRow[], options: Excel
     'RUT': row.dni,
     'Email': row.mail,
     'Phone': row.phone,
-    'Productive Unit': row.productiveUnit,
     'Created': row.createdAt,
     'Updated': row.updatedAt,
   }));

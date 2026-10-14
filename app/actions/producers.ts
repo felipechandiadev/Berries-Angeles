@@ -2,7 +2,6 @@
 
 import { Producer } from '../../data/entities/Producer';
 import { Person, AccountTypeName, BankName, type PersonBankAccount } from '../../data/entities/Person';
-import { ProductiveUnit } from '../../data/entities/ProductiveUnit';
 import { Audit } from '../../data/entities/Audit';
 import { AuditActionType } from '../../data/entities/audit.types';
 import { getDb } from '../../data/db';
@@ -22,8 +21,8 @@ import {
 } from '@/lib/gridQuery';
 
 const APP_TIMEZONE = 'America/Santiago';
-const PRODUCER_COLUMN_FIELDS = ['name', 'dni', 'mail', 'phone', 'productiveUnitId'];
-const PRODUCER_FILTERABLE_FIELDS = [...PRODUCER_COLUMN_FIELDS, 'productiveUnitName'];
+const PRODUCER_COLUMN_FIELDS = ['name', 'dni', 'mail', 'phone'];
+const PRODUCER_FILTERABLE_FIELDS = [...PRODUCER_COLUMN_FIELDS];
 const VALID_SORT_FIELDS = ['name', 'dni', 'mail', 'phone', 'createdAt', 'updatedAt'];
 
 export interface GetProducersGridDataInput {
@@ -34,7 +33,6 @@ export interface GetProducersGridDataInput {
   search?: string;
   columnFilters?: string;
   filtration?: boolean;
-  productiveUnitId?: string;
 }
 
 function shouldApplyProducerColumnFilters(input: GetProducersGridDataInput): boolean {
@@ -52,7 +50,6 @@ function applyProducersGridFilters(
         'producer.dni',
         'producer.mail',
         'producer.phone',
-        'productiveUnit.name',
       ],
       search: input.search,
       paramName: 'producerSearch',
@@ -63,12 +60,6 @@ function applyProducersGridFilters(
     const columnFilters = parseColumnFilters(input.columnFilters, PRODUCER_FILTERABLE_FIELDS);
     columnFilters.forEach((filter, index) => {
       const paramName = `producerColFilter${index}`;
-      if (filter.column === 'productiveUnitName') {
-        query.andWhere(`${normalizeSqlExpr('productiveUnit.name')} LIKE :${paramName}`, {
-          [paramName]: `%${normalizeString(filter.value)}%`,
-        });
-        return;
-      }
       if (PRODUCER_COLUMN_FIELDS.includes(filter.column)) {
         query.andWhere(`${normalizeSqlExpr(`producer.${filter.column}`)} LIKE :${paramName}`, {
           [paramName]: `%${normalizeString(filter.value)}%`,
@@ -77,11 +68,6 @@ function applyProducersGridFilters(
     });
   }
 
-  if (input.productiveUnitId?.trim()) {
-    query.andWhere('producer.productiveUnitId = :productiveUnitId', {
-      productiveUnitId: input.productiveUnitId.trim(),
-    });
-  }
 }
 
 /**
@@ -94,8 +80,6 @@ function serializeProducer(producer: Producer): any {
     dni: producer.dni,
     mail: producer.mail,
     phone: producer.phone,
-    productiveUnitId: producer.productiveUnitId,
-    productiveUnit: producer.productiveUnit,
     person: producer.person,
     createdAt: producer.createdAt,
     updatedAt: producer.updatedAt,
@@ -165,7 +149,6 @@ export interface CreateProducerInput {
   dni: string;
   mail?: string;
   phone?: string;
-  productiveUnitId: string;
   bankAccounts?: PersonBankAccount[];
 }
 
@@ -175,7 +158,6 @@ export interface UpdateProducerInput {
   dni?: string;
   mail?: string;
   phone?: string;
-  productiveUnitId?: string;
 }
 
 export interface ProducerGridData {
@@ -184,8 +166,6 @@ export interface ProducerGridData {
   dni: string;
   mail: string;
   phone: string;
-  productiveUnitId: string;
-  productiveUnit?: any;
   person?: any;
   createdAt: Date;
   updatedAt: Date;
@@ -276,7 +256,6 @@ export async function getProducersGridData(input: GetProducersGridDataInput): Pr
 
     const db = await getDb();
     const query = db.createQueryBuilder(Producer, 'producer')
-      .leftJoinAndSelect('producer.productiveUnit', 'productiveUnit', 'productiveUnit.deletedAt IS NULL')
       .where('producer.deletedAt IS NULL');
 
     applyProducersGridFilters(query, input);
@@ -325,7 +304,6 @@ export async function getProducersExportData(input: GetProducersGridDataInput): 
 
     const db = await getDb();
     const query = db.createQueryBuilder(Producer, 'producer')
-      .leftJoinAndSelect('producer.productiveUnit', 'productiveUnit', 'productiveUnit.deletedAt IS NULL')
       .where('producer.deletedAt IS NULL');
 
     applyProducersGridFilters(query, input);
@@ -403,20 +381,7 @@ export async function createProducer(input: CreateProducerInput, auditUserId?: s
     if (!input.dni?.trim()) {
       return { success: false, error: 'DNI is required' };
     }
-    if (!input.productiveUnitId?.trim()) {
-      return { success: false, error: 'Productive unit is required' };
-    }
-
     const db = await getDb();
-
-    // Verify productive unit exists
-    const unitExists = await db.getRepository(ProductiveUnit).findOne({
-      where: { id: input.productiveUnitId, deletedAt: IsNull() }
-    });
-
-    if (!unitExists) {
-      return { success: false, error: 'Productive unit not found' };
-    }
 
     // Check duplicate DNI in Producer table
     const existingProducer = await db.getRepository(Producer).findOne({
@@ -458,7 +423,6 @@ export async function createProducer(input: CreateProducerInput, auditUserId?: s
         dni: input.dni.trim(),
         mail: input.mail?.trim() || undefined,
         phone: input.phone?.trim() || undefined,
-        productiveUnitId: input.productiveUnitId.trim(),
         personId: savedPerson.id,
         person: savedPerson,
       };
@@ -474,7 +438,6 @@ export async function createProducer(input: CreateProducerInput, auditUserId?: s
         dni: input.dni.trim(),
         mail: input.mail?.trim() || undefined,
         phone: input.phone?.trim() || undefined,
-        productiveUnitId: input.productiveUnitId.trim(),
         bankAccounts: sanitizedBankAccounts ?? null,
       };
 
@@ -519,7 +482,7 @@ export async function updateProducer(input: UpdateProducerInput, auditUserId?: s
 
     const existingProducer = await db.getRepository(Producer).findOne({
       where: { id: input.id, deletedAt: IsNull() },
-      relations: ['productiveUnit']
+      relations: ['person']
     });
 
     if (!existingProducer) {
@@ -560,18 +523,6 @@ export async function updateProducer(input: UpdateProducerInput, auditUserId?: s
       producerUpdates.phone = input.phone?.trim() || undefined;
     }
 
-    if (input.productiveUnitId !== undefined) {
-      if (!input.productiveUnitId.trim()) {
-        return { success: false, error: 'Productive unit is required' };
-      }
-      const unitExists = await db.getRepository(ProductiveUnit).findOne({
-        where: { id: input.productiveUnitId, deletedAt: IsNull() }
-      });
-      if (!unitExists) {
-        return { success: false, error: 'Productive unit not found' };
-      }
-      producerUpdates.productiveUnitId = input.productiveUnitId.trim();
-    }
 
     if (Object.keys(producerUpdates).length === 0) {
       return { success: false, error: 'No changes detected' };
@@ -592,7 +543,6 @@ export async function updateProducer(input: UpdateProducerInput, auditUserId?: s
       dni: existingProducer.dni,
       mail: existingProducer.mail,
       phone: existingProducer.phone,
-      productiveUnitId: existingProducer.productiveUnitId,
     };
 
     const newValues = {
@@ -600,7 +550,6 @@ export async function updateProducer(input: UpdateProducerInput, auditUserId?: s
       dni: producerUpdates.dni || existingProducer.dni,
       mail: producerUpdates.mail || existingProducer.mail,
       phone: producerUpdates.phone || existingProducer.phone,
-      productiveUnitId: producerUpdates.productiveUnitId || existingProducer.productiveUnitId,
     };
 
     const result = await db.transaction(async (manager) => {
@@ -609,7 +558,7 @@ export async function updateProducer(input: UpdateProducerInput, auditUserId?: s
 
       const updatedProducer = await manager.findOne(Producer, {
         where: { id: input.id },
-        relations: ['productiveUnit']
+        relations: ['person']
       });
 
       await logProducerAudit(
@@ -653,7 +602,7 @@ export async function deleteProducer(id: string, auditUserId?: string): Promise<
 
     const existingProducer = await db.getRepository(Producer).findOne({
       where: { id, deletedAt: IsNull() },
-      relations: ['productiveUnit']
+      relations: ['person']
     });
 
     if (!existingProducer) {
@@ -665,7 +614,6 @@ export async function deleteProducer(id: string, auditUserId?: string): Promise<
       dni: existingProducer.dni,
       mail: existingProducer.mail,
       phone: existingProducer.phone,
-      productiveUnitId: existingProducer.productiveUnitId,
     };
 
     let userId = auditUserId;

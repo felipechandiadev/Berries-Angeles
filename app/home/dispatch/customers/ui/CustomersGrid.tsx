@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import CreateCustomerButton from './CreateCustomerButton';
 import UpdateCustomerButton from './UpdateCustomerButton';
 import DeleteCustomerButton from './DeleteCustomerButton';
+import DetailCustomerButton from './DetailCustomerButton';
 
 interface CustomerRow {
   id: string;
@@ -80,6 +81,7 @@ export default function CustomersGrid({
       filterable: false,
       actionComponent: ({ row }: { row: CustomerRow }) => (
         <div className="flex items-center gap-1">
+          <DetailCustomerButton customer={row} onSuccess={handleRefresh} />
           <UpdateCustomerButton customer={row} onSuccess={handleRefresh} />
           <DeleteCustomerButton customer={row} onSuccess={handleRefresh} />
         </div>

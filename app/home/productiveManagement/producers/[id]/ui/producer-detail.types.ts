@@ -43,9 +43,7 @@ export interface ProducerDetailProducer {
   dni: string;
   phone?: string;
   mail?: string;
-  productiveUnitId: string;
   personId: string;
-  productiveUnit?: { id: string; name: string } | null;
   person?: ProducerDetailPerson | null;
   createdAt: string | Date;
   updatedAt: string | Date;

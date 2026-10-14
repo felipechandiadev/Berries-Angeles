@@ -13,8 +13,6 @@ import {
 
 export interface TicketProducer {
   label?: string | null;
-  productiveUnitId?: string | null;
-  productiveUnitName?: string | null;
 }
 
 export interface TicketPalletAssignment {
@@ -118,9 +116,7 @@ function splitProducer(label?: string | null): { name: string; dni: string } {
 }
 
 /**
- * Cabecera de ticket cuando el productor pertenece a una unidad productiva:
- * - Productor = unidad
- * - Entregada por = productor [, driver]
+ * Cabecera de ticket: productor + opcional conductor como "Entregada por".
  */
 export function resolveTicketHeaderParties(data: {
   producer?: TicketProducer | null;
@@ -129,27 +125,14 @@ export function resolveTicketHeaderParties(data: {
   displayProducerName: string;
   displayProducerDni: string;
   deliveredBy: string | null;
-  hasProductiveUnit: boolean;
 } {
   const person = splitProducer(data.producer?.label);
-  const unitName = String(data.producer?.productiveUnitName ?? '').trim();
   const driver = String(data.driver ?? '').trim();
-
-  if (unitName) {
-    const deliveredBy = driver ? `${person.name} · ${driver}` : person.name;
-    return {
-      displayProducerName: unitName,
-      displayProducerDni: person.dni,
-      deliveredBy: deliveredBy && deliveredBy !== '—' ? deliveredBy : null,
-      hasProductiveUnit: true,
-    };
-  }
 
   return {
     displayProducerName: person.name,
     displayProducerDni: person.dni,
     deliveredBy: driver || null,
-    hasProductiveUnit: false,
   };
 }
 
@@ -419,9 +402,7 @@ export async function buildReceptionTicketEscPos(
   if (options.showGuideDriver) {
     kvLeft(enc, 'Guia', String(data.guide ?? '').trim() || '—');
   }
-  if (parties.hasProductiveUnit && parties.deliveredBy) {
-    kvLeft(enc, 'Entregada por', parties.deliveredBy);
-  } else if (options.showGuideDriver && parties.deliveredBy) {
+  if (options.showGuideDriver && parties.deliveredBy) {
     kvLeft(enc, 'Entregada por', parties.deliveredBy);
   }
   enc.separator();
@@ -532,9 +513,7 @@ export async function buildMultipackReceptionTicketEscPos(
   if (options.showGuideDriver) {
     kvLeft(enc, 'Guia', String(data.guide ?? '').trim() || '—');
   }
-  if (parties.hasProductiveUnit && parties.deliveredBy) {
-    kvLeft(enc, 'Entregada por', parties.deliveredBy);
-  } else if (options.showGuideDriver && parties.deliveredBy) {
+  if (options.showGuideDriver && parties.deliveredBy) {
     kvLeft(enc, 'Entregada por', parties.deliveredBy);
   }
   enc.separator();

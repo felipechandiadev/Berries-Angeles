@@ -27,7 +27,7 @@ export async function getProducerDetailData(
 
     const producer = await db.getRepository(Producer).findOne({
       where: { id: producerId },
-      relations: ['person', 'productiveUnit'],
+      relations: ['person'],
     });
 
     if (!producer) {

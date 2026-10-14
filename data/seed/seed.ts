@@ -59,17 +59,10 @@ type PermissionSeedRow = {
   description?: string;
 };
 
-type ProductiveUnitSeedRow = {
-  name: string;
-  address?: string;
-  description?: string | null;
-};
-
 type ProducerSeedRow = {
   Nombre: string;
   Rut?: string;
   Dirección?: string;
-  UnidadProductiva?: string;
 };
 
 type TraySeedRow = {
@@ -357,63 +350,17 @@ const seedPersons = async (connection: mysql.Connection) => {
   console.log(`   ✓ Inserted ${inserted} persons`);
 };
 
-const seedProductiveUnitsAndProducers = async (connection: mysql.Connection) => {
-  const productiveUnits = loadSeedJson<ProductiveUnitSeedRow[]>("productiveUnits.json");
-
+const seedProducers = async (connection: mysql.Connection) => {
   const producers = loadSeedJson<ProducerSeedRow[]>("producers.json");
 
   await connection.execute("DELETE FROM producers");
-  await connection.execute("DELETE FROM productive_units");
-
-  const unitIdByName = new Map<string, string>();
-  let insertedUnits = 0;
-
-  for (const unit of productiveUnits) {
-    const name = (unit.name || "").trim();
-    if (!name) {
-      continue;
-    }
-
-    const nameKey = name.toLowerCase();
-    if (unitIdByName.has(nameKey)) {
-      continue;
-    }
-
-    const unitId = randomUUID();
-    const address = (unit.address || "").trim();
-    const description = typeof unit.description === "string" ? unit.description.trim() : null;
-
-    await connection.execute(
-      `INSERT INTO productive_units (id, name, address, description, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, NOW(), NOW())`,
-      [unitId, name, address || null, description || null]
-    );
-
-    unitIdByName.set(nameKey, unitId);
-    insertedUnits++;
-  }
-
-  console.log(`   ✓ Inserted ${insertedUnits} productive units`);
 
   let insertedProducers = 0;
-  const missingUnits = new Set<string>();
   const missingPersons = new Set<string>();
 
   for (const producer of producers) {
     const name = (producer.Nombre || "").trim();
     if (!name) {
-      continue;
-    }
-
-    const unitName = (producer.UnidadProductiva || "").trim();
-    if (!unitName) {
-      missingUnits.add(`(sin unidad) → ${name}`);
-      continue;
-    }
-
-    const unitId = unitIdByName.get(unitName.toLowerCase());
-    if (!unitId) {
-      missingUnits.add(unitName.trim());
       continue;
     }
 
@@ -434,30 +381,18 @@ const seedProductiveUnitsAndProducers = async (connection: mysql.Connection) => 
     }
 
     const personId = personRows[0].id;
-    const producerPhone = null;
-    const producerMail = null;
-
     const producerId = randomUUID();
 
     await connection.execute(
-      `INSERT INTO producers (id, name, dni, phone, mail, productiveUnitId, personId, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [producerId, name, dni, producerPhone, producerMail, unitId, personId]
+      `INSERT INTO producers (id, name, dni, phone, mail, personId, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [producerId, name, dni, null, null, personId]
     );
 
     insertedProducers++;
   }
 
   console.log(`   ✓ Inserted ${insertedProducers} producers`);
-
-  if (missingUnits.size > 0) {
-    const missingList = Array.from(missingUnits);
-    const preview = missingList.slice(0, 5).join(", ");
-    const suffix = missingList.length > 5 ? ` (+${missingList.length - 5} more)` : "";
-    console.warn(
-      `   ⚠️  Producers skipped due to missing productive unit reference: ${preview}${suffix}`
-    );
-  }
 
   if (missingPersons.size > 0) {
     const missingList = Array.from(missingPersons);
@@ -1677,7 +1612,7 @@ const runSeed = async (environment: "test" | "production" = "test") => {
     await seedCustomers(connection);
     await seedAdminBankAccounts(connection);
     await seedAudits(connection);
-    await seedProductiveUnitsAndProducers(connection);
+    await seedProducers(connection);
 
     if (profile === "full") {
       await seedFullHistory(connection);

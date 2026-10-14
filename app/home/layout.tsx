@@ -29,7 +29,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       label: 'Gestión Productiva',
       children: [
         { id: 'productores', label: 'Productores', url: '/home/productiveManagement/producers' },
-        { id: 'unidades-productivas', label: 'Unidades Productivas', url: '/home/productiveManagement/units' },
         { id: 'temporadas', label: 'Temporadas', url: '/home/productiveManagement/seasons' },
       ],
     },

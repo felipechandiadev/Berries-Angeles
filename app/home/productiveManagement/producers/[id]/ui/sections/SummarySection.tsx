@@ -91,7 +91,6 @@ export function SummarySection({ data }: SectionProps) {
         <InfoRow label="RUT" value={producer.dni || '—'} />
         <InfoRow label="Correo" value={producer.mail || '—'} />
         <InfoRow label="Teléfono" value={producer.phone || '—'} />
-        <InfoRow label="Unidad productiva" value={producer.productiveUnit?.name || '—'} />
         <InfoRow
           label="Cuentas bancarias"
           value={
