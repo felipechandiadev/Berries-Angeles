@@ -39,6 +39,35 @@ export function formatReportSummaryLabel(key: string): string {
     varietyCount: 'Variedades',
     avgNetWeightKg: 'Kg neto promedio',
     paidPct: '% pagadas',
+    avgAgeDays: 'Días promedio',
+    settlementCount: 'Liquidaciones',
+    completaCount: 'Completas',
+    borradorCount: 'Borradores',
+    receptionsTotalCLP: 'Bruto recepciones',
+    advancesAppliedCLP: 'Anticipos aplicados',
+    netAmountCLP: 'Neto liquidado',
+    advanceCount: 'Anticipos',
+    activeCount: 'Activos',
+    appliedCount: 'Aplicados',
+    amount: 'Monto anticipos',
+    appliedAmount: 'Aplicado',
+    availableAmount: 'Disponible',
+    dispatchCount: 'Despachos',
+    customerCount: 'Clientes',
+    fruitKg: 'Kg fruta',
+    palletsCount: 'Pallets',
+    traysTotal: 'Bandejas',
+    saleTotalCLP: 'Venta CLP',
+    recibidosKg: 'Kg recibidos',
+    despachadosKg: 'Kg despachados',
+    mermaKg: 'Merma kg',
+    mermaPct: 'Merma %',
+    movementCount: 'Movimientos',
+    inCount: 'Entradas',
+    outCount: 'Salidas',
+    traysIn: 'Bandejas entrada',
+    traysOut: 'Bandejas salida',
+    netTrays: 'Neto bandejas',
   };
   return map[key] ?? key;
 }
@@ -47,7 +76,9 @@ export function formatReportSummaryValue(key: string, value: number | string): s
   if (typeof value === 'string') return value;
   if (/pct|percent/i.test(key)) return formatReportPercent(value);
   if (/kg|weight/i.test(key)) return formatReportKg(value);
-  if (/clp|usd|pay|totalCLP|payable/i.test(key)) return formatReportMoney(value);
+  if (/clp|usd|pay|amount|venta|bruto|neto|aplicado|disponible|monto/i.test(key)) {
+    return formatReportMoney(value);
+  }
   return formatReportCount(value);
 }
 

@@ -9,7 +9,9 @@ export type SeedValidationReport = {
   advanceCount: number;
   settledReceptionRelations: number;
   settledAdvanceRelations: number;
+  dispatchCount: number;
   palletCount: number;
+  linkedPalletCount: number;
   trayMoveCount: number;
   bySeason: Record<string, number>;
   errors: string[];
@@ -48,10 +50,23 @@ export async function validateFullSeed(
   );
   const settledAdvanceRelations = Number(relAdv[0]?.total ?? 0);
 
+  const [dispatchRows] = await connection.execute<(RowDataPacket & { total: number })[]>(
+    "SELECT COUNT(*) AS total FROM transactions WHERE type = 'DISPATCH' AND deletedAt IS NULL",
+  );
+  const dispatchCount = Number(dispatchRows[0]?.total ?? 0);
+
   const [palletRows] = await connection.execute<(RowDataPacket & { total: number })[]>(
     'SELECT COUNT(*) AS total FROM pallets WHERE deletedAt IS NULL'
   );
   const palletCount = Number(palletRows[0]?.total ?? 0);
+
+  const [linkedPalletRows] = await connection.execute<(RowDataPacket & { total: number })[]>(
+    `SELECT COUNT(*) AS total FROM pallets
+     WHERE deletedAt IS NULL
+       AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.dispatchTransactionId')) IS NOT NULL
+       AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.dispatchTransactionId')) <> ''`,
+  );
+  const linkedPalletCount = Number(linkedPalletRows[0]?.total ?? 0);
 
   const [trayMoveRows] = await connection.execute<(RowDataPacket & { total: number })[]>(
     `SELECT COUNT(*) AS total FROM transactions
@@ -87,8 +102,16 @@ export async function validateFullSeed(
   if (settledReceptionRelations < 10) {
     errors.push(`Expected settlement relations on receptions, got ${settledReceptionRelations}`);
   }
-  if (palletCount !== 0) {
-    errors.push(`Expected 0 pallets, got ${palletCount}`);
+  if (dispatchCount < 10) {
+    errors.push(`Expected >= 10 dispatches, got ${dispatchCount}`);
+  }
+  if (palletCount < 10) {
+    errors.push(`Expected >= 10 pallets from dispatches, got ${palletCount}`);
+  }
+  if (linkedPalletCount !== palletCount) {
+    errors.push(
+      `Expected all pallets linked to a dispatch, linked=${linkedPalletCount} total=${palletCount}`,
+    );
   }
 
   // Spot-check: pack totals vs metadata for a sample
@@ -122,7 +145,9 @@ export async function validateFullSeed(
     advanceCount,
     settledReceptionRelations,
     settledAdvanceRelations,
+    dispatchCount,
     palletCount,
+    linkedPalletCount,
     trayMoveCount,
     bySeason,
     errors,

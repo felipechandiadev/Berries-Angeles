@@ -54,7 +54,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     },
     { id: 'bandejas', label: 'Bandejas', url: '/home/trays' },
     { id: 'variedades', label: 'Variedades', url: '/home/varieties' },
-    { id: 'reportes', label: 'Reportes', url: '/home/reports' },
+    { id: 'reportes', label: 'Reportes', url: '/home/reports/receptions' },
     { id: 'usuarios', label: 'Usuarios', url: '/home/users' },
     { id: 'auditoria', label: 'Auditoría', url: '/home/audit' },
   ];

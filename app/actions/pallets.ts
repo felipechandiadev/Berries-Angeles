@@ -34,6 +34,7 @@ function serializePallet(pallet: Pallet): any {
     id: pallet.id,
     trayId: pallet.trayId,
     trayName: pallet.tray ? pallet.tray.name : null,
+    trayWeight: pallet.tray ? Number(pallet.tray.weight ?? 0) : null,
     traysQuantity: typeof pallet.traysQuantity === 'number' ? pallet.traysQuantity : 0,
     capacity: pallet.capacity,
     weight,

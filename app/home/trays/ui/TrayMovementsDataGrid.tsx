@@ -163,7 +163,8 @@ export default function TrayMovementsDataGrid({
       filters={currentFilters}
       sort={currentSort?.toLowerCase() as 'asc' | 'desc' | undefined}
       sortField={currentSortField}
-      height="70vh"
+      fillViewport
+      fillViewportInTabLayout
       showBorder={false}
     />
   );

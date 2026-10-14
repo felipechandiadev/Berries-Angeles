@@ -8,8 +8,10 @@ import {
   generateAdvances,
   planSettlements,
   planClientTrayMoves,
+  planDispatches,
   validateFullSeed,
   type GeneratedReception,
+  type PlannedDispatch,
 } from './generators';
 
 type LookupMaps = {
@@ -19,6 +21,8 @@ type LookupMaps = {
   formatsByName: Map<string, { id: number; name: string }>;
   traysByName: Map<string, { id: string; name: string; weight: number }>;
   seasonIds: string[];
+  customers: Array<{ id: string; name: string }>;
+  /** @deprecated prefer customers[0]; kept for tray-move fallback */
   customerId: string | null;
   activeSeasonId: string | null;
 };
@@ -98,10 +102,20 @@ async function loadLookups(connection: mysql.Connection): Promise<LookupMaps> {
       ? String(seasons.find((s) => s.active === 1 || s.active === true)!.id)
       : seasonIds[0] ?? null;
 
-  const [customers] = await connection.execute<(RowDataPacket & { id: string })[]>(
-    'SELECT id FROM customers LIMIT 1'
+  const [customerRows] = await connection.execute<
+    (RowDataPacket & { id: string; personName: string | null })[]
+  >(
+    `SELECT c.id, p.name AS personName
+     FROM customers c
+     LEFT JOIN persons p ON p.id = c.personId
+     WHERE c.deletedAt IS NULL
+     ORDER BY c.id`,
   );
-  const customerId = customers[0] ? String(customers[0].id) : null;
+  const customers = customerRows.map((c) => ({
+    id: String(c.id),
+    name: (c.personName || 'Cliente').trim() || 'Cliente',
+  }));
+  const customerId = customers[0]?.id ?? null;
 
   return {
     producersByRut,
@@ -110,6 +124,7 @@ async function loadLookups(connection: mysql.Connection): Promise<LookupMaps> {
     formatsByName,
     traysByName,
     seasonIds,
+    customers,
     customerId,
     activeSeasonId,
   };
@@ -387,7 +402,7 @@ export async function seedFullHistory(connection: mysql.Connection): Promise<voi
     `   Planned: ${receptions.length} receptions, ${advances.length} advances (target ~${Object.values(FULL_PROFILE.receptionsBySeason).reduce((a, b) => a + b, 0)})`
   );
 
-  console.log('   ℹ️  Skipping pallet seed (pallets left empty by design)');
+  console.log('   ℹ️  Pallets will be created via seeded dispatches (not standalone)');
 
   const guideToTxId = new Map<string, string>();
   const palletIdByTray = new Map<string, number>();
@@ -637,6 +652,26 @@ export async function seedFullHistory(connection: mysql.Connection): Promise<voi
     console.log(`   ✓ Inserted ${clientMoves.length} client tray moves`);
   }
 
+  // Dispatches → create DISPATCHED pallets linked to each dispatch
+  const plannedDispatches = planDispatches({
+    rng,
+    customers: lookups.customers,
+    trays,
+    asOf,
+  });
+  let insertedDisp = 0;
+  let insertedPallets = 0;
+  for (const plan of plannedDispatches) {
+    const n = await insertSeedDispatch(connection, plan, lookups, stockDelta);
+    if (n > 0) {
+      insertedDisp += 1;
+      insertedPallets += n;
+    }
+  }
+  console.log(
+    `   ✓ Inserted ${insertedDisp} dispatches (${insertedPallets} pallets created)`,
+  );
+
   // Recalculate tray stocks: base 400 + deltas, floor at 50
   for (const [trayId, delta] of stockDelta.entries()) {
     const stock = Math.max(50, 400 + delta);
@@ -654,7 +689,9 @@ export async function seedFullHistory(connection: mysql.Connection): Promise<voi
   const report = await validateFullSeed(connection);
   console.log('\n📋 Full seed validation:');
   console.log(`   receptions=${report.receptionCount} paid=${report.paidCount} pending=${report.pendingCount}`);
-  console.log(`   advances=${report.advanceCount} palletCount=${report.palletCount} trayMoves=${report.trayMoveCount}`);
+  console.log(
+    `   advances=${report.advanceCount} dispatches=${report.dispatchCount} palletCount=${report.palletCount} trayMoves=${report.trayMoveCount}`,
+  );
   console.log(
     `   settledRecRel=${report.settledReceptionRelations} settledAdvRel=${report.settledAdvanceRelations}`
   );
@@ -665,4 +702,155 @@ export async function seedFullHistory(connection: mysql.Connection): Promise<voi
   } else {
     console.log('   ✓ Validation OK');
   }
+}
+
+/** Inserta un despacho y sus pallets (espejo de createDispatch). Retorna N pallets. */
+async function insertSeedDispatch(
+  connection: mysql.Connection,
+  plan: PlannedDispatch,
+  lookups: LookupMaps,
+  stockDelta: Map<string, number>,
+): Promise<number> {
+  const tray = lookups.traysByName.get(plan.trayName);
+  const user =
+    lookups.usersByName.get('admin') || [...lookups.usersByName.values()][0];
+  if (!tray || !user) return 0;
+
+  const createdAt = new Date(plan.createdAt);
+  const unitTrayWeight = Number(tray.weight) || 0.3;
+  const traysTotal = plan.pallets.reduce((s, p) => s + p.traysQuantity, 0);
+  const fruitKgTotal = Number(
+    plan.pallets.reduce((s, p) => s + p.fruitWeightKg, 0).toFixed(3),
+  );
+  const grossKgTotal = Number(
+    plan.pallets.reduce((s, p) => s + p.grossWeightKg, 0).toFixed(3),
+  );
+  const saleTotalCLP = Math.round(plan.pricePerKgCLP * fruitKgTotal);
+
+  const [trayOutResult] = await connection.execute<ResultSetHeader>(
+    `INSERT INTO transactions
+       (type, direction, amount, unit, seasonId, producerId, clientId, userId, metadata, createdAt, updatedAt)
+     VALUES ('TRAY_OUT_TO_CLIENT', 'OUT', ?, 'TRAY', ?, NULL, ?, ?, ?, ?, ?)`,
+    [
+      traysTotal,
+      plan.seasonId,
+      plan.customerId,
+      user.id,
+      JSON.stringify({
+        trayId: tray.id,
+        quantity: traysTotal,
+        counterpartyType: 'client',
+        counterpartyId: plan.customerId,
+        counterpartyName: plan.customerName,
+        seeded: true,
+        reason: 'Despacho a cliente',
+      }),
+      createdAt,
+      createdAt,
+    ],
+  );
+  const trayOutId = String(trayOutResult.insertId);
+  stockDelta.set(tray.id, (stockDelta.get(tray.id) ?? 0) - traysTotal);
+
+  const palletIds: number[] = [];
+  const palletLines: Array<{
+    emptyWeightKg: number;
+    traysQuantity: number;
+    grossWeightKg: number;
+    fruitWeightKg: number;
+    palletId: number;
+  }> = [];
+
+  for (const line of plan.pallets) {
+    const gross = Number(line.grossWeightKg.toFixed(3));
+    const capacity = Math.max(line.traysQuantity, 1);
+    const meta = {
+      fruitWeightKg: line.fruitWeightKg,
+      emptyWeightKg: line.emptyWeightKg,
+      traysQuantity: line.traysQuantity,
+      grossWeightKg: gross,
+      trayId: tray.id,
+    };
+    const [palletResult] = await connection.execute<ResultSetHeader>(
+      `INSERT INTO pallets
+         (trayId, traysQuantity, capacity, weight, dispatchWeight, metadata, status, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, 'DISPATCHED', ?, ?)`,
+      [
+        tray.id,
+        line.traysQuantity,
+        capacity,
+        gross,
+        gross,
+        JSON.stringify(meta),
+        createdAt,
+        createdAt,
+      ],
+    );
+    const palletId = Number(palletResult.insertId);
+    palletIds.push(palletId);
+    palletLines.push({ ...line, grossWeightKg: gross, palletId });
+  }
+
+  const dispatchMeta = {
+    status: 'COMPLETA',
+    customerId: plan.customerId,
+    customerName: plan.customerName,
+    trayId: tray.id,
+    trayName: tray.name,
+    unitTrayWeight,
+    palletIds,
+    trayOutTransactionId: trayOutId,
+    palletsCount: palletIds.length,
+    traysTotal,
+    fruitKgTotal,
+    grossKgTotal,
+    pricePerKgCLP: plan.pricePerKgCLP,
+    saleTotalCLP,
+    palletLines,
+    seeded: true,
+  };
+
+  const [dispatchResult] = await connection.execute<ResultSetHeader>(
+    `INSERT INTO transactions
+       (type, direction, amount, unit, seasonId, producerId, clientId, userId, metadata, createdAt, updatedAt)
+     VALUES ('DISPATCH', 'OUT', ?, 'KG', ?, NULL, ?, ?, ?, ?, ?)`,
+    [
+      fruitKgTotal,
+      plan.seasonId,
+      plan.customerId,
+      user.id,
+      JSON.stringify(dispatchMeta),
+      createdAt,
+      createdAt,
+    ],
+  );
+  const dispatchId = String(dispatchResult.insertId);
+
+  for (const palletId of palletIds) {
+    const [rows] = await connection.execute<
+      (RowDataPacket & { metadata: string | null })[]
+    >('SELECT metadata FROM pallets WHERE id = ? LIMIT 1', [palletId]);
+    let prev: Record<string, unknown> = {};
+    try {
+      const raw = rows[0]?.metadata;
+      prev =
+        typeof raw === 'string'
+          ? (JSON.parse(raw) as Record<string, unknown>)
+          : raw && typeof raw === 'object'
+            ? (raw as Record<string, unknown>)
+            : {};
+    } catch {
+      prev = {};
+    }
+    await connection.execute(
+      'UPDATE pallets SET metadata = ?, updatedAt = ? WHERE id = ?',
+      [
+        JSON.stringify({ ...prev, dispatchTransactionId: dispatchId }),
+        createdAt,
+        palletId,
+      ],
+    );
+  }
+
+  return palletIds.length;
 }

@@ -52,6 +52,10 @@ export interface DispatchMetadata {
   traysTotal: number;
   fruitKgTotal: number;
   grossKgTotal: number;
+  /** Precio manual CLP por kg de fruta neta. */
+  pricePerKgCLP: number;
+  /** Venta total = pricePerKgCLP × fruitKgTotal. */
+  saleTotalCLP: number;
   palletLines?: DispatchPalletLine[];
   notes?: string;
 }

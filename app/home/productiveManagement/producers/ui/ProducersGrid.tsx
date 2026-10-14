@@ -205,7 +205,7 @@ export default function ProducersGrid({
       filters={currentFilters}
       createForm={<CreateProducerButton onSuccess={handleRefresh} />}
       createFormTitle="Crear productor"
-      height="85vh"
+      fillViewport
       showBorder={false}
     />
   );

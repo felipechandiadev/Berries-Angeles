@@ -100,7 +100,7 @@ export default function CustomersGrid({
       sortField={currentSortField}
       createForm={<CreateCustomerButton onSuccess={handleRefresh} />}
       createFormTitle="Crear cliente"
-      height="85vh"
+      fillViewport
       showBorder={false}
     />
   );

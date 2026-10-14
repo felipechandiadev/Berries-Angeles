@@ -1,10 +1,17 @@
-export type DatePreset = 'today' | 'week' | 'month' | 'season' | 'custom';
+export type DatePreset =
+  | 'today'
+  | 'week'
+  | 'last7'
+  | 'month'
+  | 'season'
+  | 'custom';
 export type ReportGranularity = 'auto' | 'day' | 'week' | 'month';
 export type CompareWith = 'none' | 'previousPeriod' | 'samePeriodLastYear';
 
 export const DATE_PRESET_OPTIONS: Array<{ id: DatePreset; label: string }> = [
   { id: 'today', label: 'Hoy' },
-  { id: 'week', label: 'Últimos 7 días' },
+  { id: 'week', label: 'Esta semana' },
+  { id: 'last7', label: 'Últimos 7 días' },
   { id: 'month', label: 'Mes actual' },
   { id: 'custom', label: 'Personalizado' },
 ];
@@ -16,6 +23,15 @@ export function toIsoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Lunes de la semana calendario (ISO) que contiene `date`. */
+export function startOfWeekMonday(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay(); // 0=dom … 6=sáb
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + mondayOffset);
+  return d;
+}
+
 export function dateRangeForPreset(preset: DatePreset): { dateFrom: string; dateTo: string } {
   const now = new Date();
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -24,6 +40,10 @@ export function dateRangeForPreset(preset: DatePreset): { dateFrom: string; date
     return { dateFrom: iso, dateTo: iso };
   }
   if (preset === 'week') {
+    // Semana calendario: lunes → hoy
+    return { dateFrom: toIsoDate(startOfWeekMonday(end)), dateTo: toIsoDate(end) };
+  }
+  if (preset === 'last7') {
     const start = new Date(end);
     start.setDate(start.getDate() - 6);
     return { dateFrom: toIsoDate(start), dateTo: toIsoDate(end) };

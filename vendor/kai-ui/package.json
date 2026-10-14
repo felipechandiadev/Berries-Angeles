@@ -1,8 +1,8 @@
 {
   "name": "@felipechandiadev/ui",
-  "version": "1.4.0",
+  "version": "1.4.3",
   "private": false,
-  "description": "Design system compartido (vendored in Berries-Angeles).",
+  "description": "Design system compartido. Se publica en GitHub Packages.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,6 +22,9 @@
     "dist",
     "README.md"
   ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/felipechandiadev/kai-ui.git"

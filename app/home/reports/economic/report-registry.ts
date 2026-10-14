@@ -1,0 +1,133 @@
+import type { ReportRegistryEntry } from '@/lib/reports/types';
+
+const GRANULARITY_OPTIONS = [
+  { id: 'auto', label: 'Automática' },
+  { id: 'day', label: 'Día' },
+  { id: 'week', label: 'Semana' },
+  { id: 'month', label: 'Mes' },
+];
+
+export const ECONOMIC_REPORT_REGISTRY: ReportRegistryEntry[] = [
+  {
+    id: 'economic-pending-payable',
+    title: 'Recepciones por pagar',
+    description:
+      'Recepciones pendientes de liquidar (sin pago al recibir y sin liquidación).',
+    wave: 'mvp',
+    category: 'por-pagar',
+    categoryLabel: 'Por pagar',
+    params: [
+      { kind: 'dateRange', required: true, label: 'Período' },
+      {
+        kind: 'select',
+        key: 'producerId',
+        label: 'Productor',
+        optionsSource: 'producers',
+        allowClear: true,
+        placeholder: 'Todos',
+      },
+      {
+        kind: 'select',
+        key: 'seasonId',
+        label: 'Temporada',
+        optionsSource: 'seasons',
+        allowClear: true,
+        placeholder: 'Todas',
+      },
+      {
+        kind: 'number',
+        key: 'topN',
+        label: 'Top N (gráfico)',
+        default: 20,
+        min: 1,
+        max: 100,
+      },
+    ],
+  },
+  {
+    id: 'economic-settlements',
+    title: 'Liquidaciones',
+    description: 'Bruto, anticipos descontados y neto liquidado por período.',
+    wave: 'mvp',
+    category: 'liquidaciones',
+    categoryLabel: 'Liquidaciones',
+    params: [
+      { kind: 'dateRange', required: true, label: 'Período' },
+      {
+        kind: 'select',
+        key: 'producerId',
+        label: 'Productor',
+        optionsSource: 'producers',
+        allowClear: true,
+        placeholder: 'Todos',
+      },
+      {
+        kind: 'select',
+        key: 'seasonId',
+        label: 'Temporada',
+        optionsSource: 'seasons',
+        allowClear: true,
+        placeholder: 'Todas',
+      },
+      {
+        kind: 'select',
+        key: 'granularity',
+        label: 'Granularidad',
+        optionsSource: 'static',
+        options: GRANULARITY_OPTIONS,
+        allowClear: false,
+      },
+      {
+        kind: 'number',
+        key: 'topN',
+        label: 'Top N productores',
+        default: 20,
+        min: 1,
+        max: 100,
+      },
+    ],
+  },
+  {
+    id: 'economic-advances',
+    title: 'Anticipos',
+    description: 'Anticipos otorgados, aplicados y saldo disponible.',
+    wave: 'mvp',
+    category: 'anticipos',
+    categoryLabel: 'Anticipos',
+    params: [
+      { kind: 'dateRange', required: true, label: 'Período' },
+      {
+        kind: 'select',
+        key: 'producerId',
+        label: 'Productor',
+        optionsSource: 'producers',
+        allowClear: true,
+        placeholder: 'Todos',
+      },
+      {
+        kind: 'select',
+        key: 'seasonId',
+        label: 'Temporada',
+        optionsSource: 'seasons',
+        allowClear: true,
+        placeholder: 'Todas',
+      },
+      {
+        kind: 'select',
+        key: 'granularity',
+        label: 'Granularidad',
+        optionsSource: 'static',
+        options: GRANULARITY_OPTIONS,
+        allowClear: false,
+      },
+      {
+        kind: 'number',
+        key: 'topN',
+        label: 'Top N productores',
+        default: 20,
+        min: 1,
+        max: 100,
+      },
+    ],
+  },
+];

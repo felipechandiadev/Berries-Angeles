@@ -10,6 +10,7 @@ import { formatAuditDateLocaleES } from '@/lib/dateTimeUtils';
 import CreatePalletButton from './CreatePalletButton';
 import UpdatePalletButton from './UpdatePalletButton';
 import DeletePalletButton from './DeletePalletButton';
+import PrintPalletButton from './PrintPalletButton';
 import PalletStatusBadge, { getPalletStatusLabel } from './PalletStatusBadge';
 import type { PalletRow } from './types';
 import { PalletStatus } from '@/data/entities/Pallet';
@@ -199,6 +200,7 @@ export default function PalletsGrid({
         filterable: false,
         actionComponent: ({ row }: { row: PalletRow }) => (
           <div className="flex gap-1">
+            <PrintPalletButton pallet={row} />
             <UpdatePalletButton pallet={row} onSuccess={handleRefresh} />
             <DeletePalletButton pallet={row} onSuccess={handleRefresh} />
           </div>
@@ -219,7 +221,7 @@ export default function PalletsGrid({
         sortField={currentSortField}
         search={currentSearch}
         filters={currentFilters}
-        height={'85vh'}
+        fillViewport
         createForm={<CreatePalletButton onSuccess={handleRefresh} />}
         onExportExcel={handleExportExcel}
         showBorder={false}

@@ -5,7 +5,12 @@ import { useSubmitLock } from '@/app/state/hooks/useSubmitLock';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { Button } from '@/app/baseComponents/Button/Button';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
-import { PERMISSION_DEFINITIONS, PermissionDefinition, AbilityValue } from '@/lib/permissions';
+import {
+  PERMISSION_DEFINITIONS,
+  PermissionDefinition,
+  AbilityValue,
+  groupPermissionsByCategory,
+} from '@/lib/permissions';
 import { getUserPermissions, updateUserPermissions } from '@/app/actions/permissions';
 import { useSession } from 'next-auth/react';
 
@@ -38,6 +43,7 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
   const { isSubmitting: isSaving, run } = useSubmitLock();
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState<DragState>(null);
+  const [search, setSearch] = useState('');
   const { data: session, update: updateSession } = useSession();
 
   useEffect(() => {
@@ -47,11 +53,16 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
 
     setIsLoading(true);
     setError(null);
+    setSearch('');
 
     getUserPermissions(userId)
       .then((abilities) => {
         if (Array.isArray(abilities)) {
-          setAssignedAbilities(abilities.filter((ability): ability is AbilityValue => typeof ability === 'string'));
+          setAssignedAbilities(
+            abilities.filter(
+              (ability): ability is AbilityValue => typeof ability === 'string',
+            ),
+          );
         } else {
           setAssignedAbilities([]);
         }
@@ -74,13 +85,34 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
 
   const assignedSet = useMemo(() => new Set(assignedAbilities), [assignedAbilities]);
 
-  const availablePermissions = useMemo<PermissionDefinition[]>(() => {
-    return PERMISSION_DEFINITIONS.filter((definition) => !assignedSet.has(definition.ability));
-  }, [assignedSet]);
+  const filterDef = (definition: PermissionDefinition) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      definition.label.toLowerCase().includes(q) ||
+      definition.description.toLowerCase().includes(q) ||
+      definition.ability.toLowerCase().includes(q)
+    );
+  };
 
-  const assignedPermissionDefinitions = useMemo<PermissionDefinition[]>(() => {
-    return PERMISSION_DEFINITIONS.filter((definition) => assignedSet.has(definition.ability));
-  }, [assignedSet]);
+  const availableGroups = useMemo(() => {
+    const defs = PERMISSION_DEFINITIONS.filter(
+      (definition) => !assignedSet.has(definition.ability) && filterDef(definition),
+    );
+    return groupPermissionsByCategory(defs);
+  }, [assignedSet, search]);
+
+  const assignedGroups = useMemo(() => {
+    const defs = PERMISSION_DEFINITIONS.filter(
+      (definition) => assignedSet.has(definition.ability) && filterDef(definition),
+    );
+    return groupPermissionsByCategory(defs);
+  }, [assignedSet, search]);
+
+  const availableCount = useMemo(
+    () => availableGroups.reduce((s, g) => s + g.permissions.length, 0),
+    [availableGroups],
+  );
 
   const handleMoveAbility = (ability: AbilityValue, target: DragSource) => {
     setAssignedAbilities((current) => {
@@ -160,18 +192,54 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
     setAssignedAbilities([]);
   };
 
+  const handleAssignAllVisible = () => {
+    const toAdd = availableGroups.flatMap((g) => g.permissions.map((p) => p.ability));
+    setAssignedAbilities((current) => Array.from(new Set([...current, ...toAdd])));
+  };
+
   const renderPermissionCard = (definition: PermissionDefinition, source: DragSource) => (
     <div
       key={definition.ability}
-      className="border border-neutral-200 rounded-md p-3 bg-white shadow-sm cursor-grab active:cursor-grabbing"
+      className="border border-neutral-200 rounded-md p-2.5 bg-white shadow-sm cursor-grab active:cursor-grabbing"
       draggable
       onDragStart={() => setDragging({ ability: definition.ability, source })}
       onDragEnd={() => setDragging(null)}
+      data-test-id={`permission-card-${definition.ability}`}
     >
       <p className="font-semibold text-sm text-foreground">{definition.label}</p>
-      <p className="text-xs text-neutral-500 mt-1 leading-snug">{definition.description}</p>
+      <p className="text-[11px] text-neutral-500 mt-0.5 leading-snug">
+        {definition.description}
+      </p>
     </div>
   );
+
+  const renderGroupedColumn = (
+    groups: ReturnType<typeof groupPermissionsByCategory>,
+    source: DragSource,
+    emptyMessage: string,
+  ) => {
+    if (groups.length === 0) {
+      return (
+        <p className="text-xs text-neutral-400 text-center mt-4">{emptyMessage}</p>
+      );
+    }
+
+    return groups.map((group) => (
+      <div key={`${source}-${group.category}`} className="flex flex-col gap-2">
+        <div className="sticky top-0 z-[1] -mx-1 px-1 py-1 bg-neutral-50/95 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-2">
+            <h5 className="text-sm font-semibold text-primary">{group.categoryLabel}</h5>
+            <span className="text-[10px] text-neutral-500">{group.permissions.length}</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {group.permissions.map((definition) =>
+            renderPermissionCard(definition, source),
+          )}
+        </div>
+      </div>
+    ));
+  };
 
   const dialogActions = (
     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
@@ -179,13 +247,8 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
         <span className="material-symbols-outlined text-base text-neutral-500">info</span>
         Arrastra un permiso entre las columnas para asignarlo o quitarlo.
       </div>
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="text"
-          className="text-sm"
-          onClick={onClose}
-          disabled={isSaving}
-        >
+      <div className="flex justify-end gap-2 flex-wrap">
+        <Button variant="text" className="text-sm" onClick={onClose} disabled={isSaving}>
           Cancelar
         </Button>
         <Button
@@ -195,6 +258,14 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
           disabled={isSaving || assignedAbilities.length === 0}
         >
           Limpiar
+        </Button>
+        <Button
+          variant="outlined"
+          className="text-sm"
+          onClick={handleAssignAllVisible}
+          disabled={isSaving || availableCount === 0}
+        >
+          Asignar visibles
         </Button>
         <Button
           variant="primary"
@@ -213,7 +284,7 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
       open={open}
       onClose={onClose}
       title={`Permisos de ${userName}`}
-      size="lg"
+      size="xl"
       actions={dialogActions}
       data-test-id={dataTestId || 'manage-permissions-dialog'}
     >
@@ -229,26 +300,35 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
             </div>
           )}
 
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, descripción o código…"
+            className="w-full rounded-md border border-border px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary"
+            data-test-id="permissions-search"
+          />
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div
               onDrop={handleDrop('available')}
               onDragOver={handleDragOver}
-              className="border border-neutral-200 rounded-lg p-4 bg-neutral-50 min-h-[240px] flex flex-col gap-3"
+              className="border border-neutral-200 rounded-lg p-4 bg-neutral-50 min-h-[320px] max-h-[60vh] flex flex-col gap-3"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between shrink-0">
                 <h4 className="text-sm font-semibold text-foreground">Permisos disponibles</h4>
-                <span className="text-xs text-neutral-500">{availablePermissions.length}</span>
+                <span className="text-xs text-neutral-500">{availableCount}</span>
               </div>
-              <p className="text-xs text-neutral-500 leading-snug">
-                Arrastra un permiso hacia el panel derecho para asignarlo al usuario.
+              <p className="text-xs text-neutral-500 leading-snug shrink-0">
+                Clasificados por categoría. Arrastra al panel derecho para asignar.
               </p>
-              <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-1">
-                {availablePermissions.length === 0 ? (
-                  <p className="text-xs text-neutral-400 text-center mt-4">
-                    Todos los permisos disponibles ya están asignados.
-                  </p>
-                ) : (
-                  availablePermissions.map((definition) => renderPermissionCard(definition, 'available'))
+              <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
+                {renderGroupedColumn(
+                  availableGroups,
+                  'available',
+                  search
+                    ? 'Sin resultados en disponibles.'
+                    : 'Todos los permisos ya están asignados.',
                 )}
               </div>
             </div>
@@ -256,22 +336,22 @@ const ManageUserPermissionsDialog: React.FC<ManageUserPermissionsDialogProps> = 
             <div
               onDrop={handleDrop('assigned')}
               onDragOver={handleDragOver}
-              className="border border-neutral-200 rounded-lg p-4 bg-neutral-50 min-h-[240px] flex flex-col gap-3"
+              className="border border-neutral-200 rounded-lg p-4 bg-neutral-50 min-h-[320px] max-h-[60vh] flex flex-col gap-3"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between shrink-0">
                 <h4 className="text-sm font-semibold text-foreground">Permisos asignados</h4>
                 <span className="text-xs text-neutral-500">{assignedAbilities.length}</span>
               </div>
-              <p className="text-xs text-neutral-500 leading-snug">
-                Arrastra un permiso hacia este panel para quitarlo del usuario.
+              <p className="text-xs text-neutral-500 leading-snug shrink-0">
+                Arrastra al panel izquierdo para quitar del usuario.
               </p>
-              <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-1">
-                {assignedPermissionDefinitions.length === 0 ? (
-                  <p className="text-xs text-neutral-400 text-center mt-4">
-                    El usuario aún no tiene permisos asignados.
-                  </p>
-                ) : (
-                  assignedPermissionDefinitions.map((definition) => renderPermissionCard(definition, 'assigned'))
+              <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
+                {renderGroupedColumn(
+                  assignedGroups,
+                  'assigned',
+                  search
+                    ? 'Sin resultados en asignados.'
+                    : 'El usuario aún no tiene permisos asignados.',
                 )}
               </div>
             </div>

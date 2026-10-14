@@ -1663,10 +1663,22 @@ const formatReceptionRow = (raw: RawReceptionRow): ReceptionGridRow => {
     0
   );
 
+  const normalizeGuideNumber = (value: unknown): string => {
+    if (value == null) return '';
+    const text = String(value).trim();
+    if (!text || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined') {
+      return '';
+    }
+    return text;
+  };
+
   return {
     id: raw.id ? String(raw.id) : '',
     producerName: raw.producerName || metadata?.producerName || '—',
-    guideNumber: raw.guideNumber || metadata?.guideNumber || '—',
+    guideNumber:
+      normalizeGuideNumber(raw.guideNumber) ||
+      normalizeGuideNumber(metadata?.guideNumber) ||
+      '',
     varieties: uniqueVarieties,
     formats: uniqueFormats,
     totalTrays,

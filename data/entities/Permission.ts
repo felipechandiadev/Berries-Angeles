@@ -8,15 +8,12 @@ import {
   DeleteDateColumn,
   Unique,
   Index,
+  JoinColumn,
 } from 'typeorm';
 import { User } from './User';
 
-export enum Ability {
-  USERS_VIEW = 'USERS_VIEW',
-  USERS_CREATE = 'USERS_CREATE',
-  USERS_UPDATE = 'USERS_UPDATE',
-  USERS_DELETE = 'USERS_DELETE',
-}
+/** @deprecated Prefer AbilityValue from '@/lib/permissions'. Kept for import compatibility. */
+export type Ability = string;
 
 @Unique(['userId', 'ability'])
 @Entity('permissions')
@@ -25,17 +22,18 @@ export class Permission {
   id!: string;
 
   @Index()
-  @Column({ type: 'uuid' })
+  @Column({ type: 'varchar', length: 36 })
   userId!: string;
 
   @ManyToOne(() => User, {
     nullable: false,
     onDelete: 'CASCADE',
   })
+  @JoinColumn({ name: 'userId' })
   user!: User;
 
-  @Column({ type: 'enum', enum: Ability })
-  ability!: Ability;
+  @Column({ type: 'varchar', length: 64 })
+  ability!: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   description?: string;

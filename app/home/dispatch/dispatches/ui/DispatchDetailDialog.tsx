@@ -17,6 +17,12 @@ const kgFmt = new Intl.NumberFormat('es-CL', {
   maximumFractionDigits: 3,
 });
 
+const currencyFmt = new Intl.NumberFormat('es-CL', {
+  style: 'currency',
+  currency: 'CLP',
+  maximumFractionDigits: 0,
+});
+
 export default function DispatchDetailDialog({
   dispatchId,
   open,
@@ -94,6 +100,14 @@ export default function DispatchDetailDialog({
                 {kgFmt.format(detail.fruitKgTotal)} kg fruta
               </div>
             </div>
+            <div>
+              <div className="text-secondary">Precio</div>
+              <div>{currencyFmt.format(detail.pricePerKgCLP)}/kg</div>
+            </div>
+            <div>
+              <div className="text-secondary">Venta total</div>
+              <div className="font-medium">{currencyFmt.format(detail.saleTotalCLP)}</div>
+            </div>
           </div>
 
           {detail.notes ? (
@@ -105,7 +119,7 @@ export default function DispatchDetailDialog({
               <thead className="bg-muted/40 text-secondary">
                 <tr>
                   <th className="px-3 py-2 font-medium">Pallet</th>
-                  <th className="px-3 py-2 font-medium">Tara</th>
+                  <th className="px-3 py-2 font-medium">Peso pallet</th>
                   <th className="px-3 py-2 font-medium">Bandejas</th>
                   <th className="px-3 py-2 font-medium">Bruto</th>
                   <th className="px-3 py-2 font-medium">Fruta neta</th>

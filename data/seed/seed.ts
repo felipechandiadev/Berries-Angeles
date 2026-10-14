@@ -5,13 +5,9 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { randomUUID } from "crypto";
 import { resolveSeedProfile } from "./generators/profiles";
 import { seedFullHistory } from "./seedFullHistory";
+import { ABILITY_VALUES } from "../../lib/permissions";
 
-const VALID_ABILITIES = [
-  "USERS_VIEW",
-  "USERS_CREATE",
-  "USERS_UPDATE",
-  "USERS_DELETE",
-] as const;
+const VALID_ABILITIES = ABILITY_VALUES;
 
 interface SeedConfig {
   host: string;
@@ -296,7 +292,31 @@ const seedPermissions = async (connection: mysql.Connection) => {
     inserted++;
   }
 
-  console.log(`   ✓ Inserted ${inserted} permissions`);
+  // ADMIN: otorgar catálogo completo (idempotente por unique userId+ability)
+  const [adminRows] = (await connection.execute(
+    "SELECT id FROM users WHERE UPPER(rol) = 'ADMIN' AND deletedAt IS NULL",
+  )) as [RowDataPacket[], unknown];
+
+  let adminGranted = 0;
+  for (const admin of adminRows) {
+    const adminId = String(admin.id);
+    for (const ability of ABILITY_VALUES) {
+      const [existing] = (await connection.execute(
+        "SELECT id FROM permissions WHERE userId = ? AND ability = ? AND deletedAt IS NULL LIMIT 1",
+        [adminId, ability],
+      )) as [RowDataPacket[], unknown];
+      if (existing.length > 0) continue;
+      await connection.execute(
+        `INSERT INTO permissions (id, userId, ability, description, createdAt, updatedAt)
+         VALUES (?, ?, ?, NULL, NOW(), NOW())`,
+        [randomUUID(), adminId, ability],
+      );
+      adminGranted++;
+      inserted++;
+    }
+  }
+
+  console.log(`   ✓ Inserted ${inserted} permissions (${adminGranted} granted to ADMIN from catalog)`);
 
   if (skipped > 0) {
     console.warn(`   ⚠️  Skipped ${skipped} permission rows due to missing data or invalid ability`);
@@ -1308,143 +1328,11 @@ const seedSeasons = async (connection: mysql.Connection) => {
   console.log(`   ✓ Inserted ${inserted} seasons`);
 };
 
-const seedPallets = async (connection: mysql.Connection) => {
-  console.log("\n🪵 Seeding pallets from JSON file...");
-
-  let pallets: PalletSeedRow[];
-  try {
-    pallets = loadSeedJson<PalletSeedRow[]>("pallets.json");
-  } catch (error: any) {
-    console.log(
-      `   ℹ️  ${
-        error?.message ?? "pallets.json not found. Skipping pallets seed."
-      }`
-    );
-    return;
-  }
-
-  await connection.execute("DELETE FROM pallets");
-
-  if (!Array.isArray(pallets) || pallets.length === 0) {
-    console.log("   ℹ️  No pallets to seed.");
-    return;
-  }
-
-  let inserted = 0;
-  const missingTrays = new Set<string>();
-  const invalidRows = new Set<string>();
-
-  for (let index = 0; index < pallets.length; index++) {
-    const pallet = pallets[index];
-    const label = `[${index}]`;
-
-    let trayId: string | null = null;
-    const trayIdRaw = (pallet.trayId || "").trim();
-    if (trayIdRaw) {
-      const [trayRows] = await connection.execute<
-        (RowDataPacket & { id: string })[]
-      >("SELECT id FROM trays WHERE id = ? LIMIT 1", [trayIdRaw]);
-      if (trayRows.length) {
-        trayId = trayRows[0].id;
-      }
-    }
-
-    if (!trayId && pallet.trayName?.trim()) {
-      const [trayRowsByName] = await connection.execute<
-        (RowDataPacket & { id: string })[]
-      >("SELECT id FROM trays WHERE name = ? LIMIT 1", [pallet.trayName.trim()]);
-      if (trayRowsByName.length) {
-        trayId = trayRowsByName[0].id;
-      }
-    }
-
-    if (!trayId) {
-      missingTrays.add(`${label} → ${pallet.trayId || pallet.trayName || "(sin referencia)"}`);
-      continue;
-    }
-
-    const capacity = Number(pallet.capacity);
-    if (!Number.isFinite(capacity) || capacity <= 0) {
-      invalidRows.add(`${label} → capacidad inválida`);
-      continue;
-    }
-
-    const traysQuantityRaw = Number(pallet.traysQuantity ?? 0);
-    if (!Number.isFinite(traysQuantityRaw) || traysQuantityRaw < 0) {
-      invalidRows.add(`${label} → traysQuantity inválida`);
-      continue;
-    }
-
-    if (traysQuantityRaw > capacity) {
-      invalidRows.add(`${label} → traysQuantity excede capacity`);
-      continue;
-    }
-
-    let weight = Number(pallet.weightKg ?? 0);
-    if (!Number.isFinite(weight) || weight < 0) {
-      weight = 0;
-    }
-    weight = Number(weight.toFixed(3));
-
-    let dispatchWeight = Number(pallet.dispatchWeightKg ?? 0);
-    if (!Number.isFinite(dispatchWeight) || dispatchWeight < 0) {
-      dispatchWeight = 0;
-    }
-    dispatchWeight = Number(dispatchWeight.toFixed(3));
-    if (dispatchWeight > weight) {
-      dispatchWeight = weight;
-    }
-
-    const statusCandidate = (pallet.status || "AVAILABLE").toString().toUpperCase();
-    const status = VALID_PALLET_STATUSES.has(statusCandidate) ? statusCandidate : "AVAILABLE";
-
-    let metadataJson: string | null = null;
-    if (pallet.metadata !== undefined && pallet.metadata !== null) {
-      try {
-        metadataJson = JSON.stringify(pallet.metadata);
-      } catch {
-        invalidRows.add(`${label} → metadata inválida (no serializable)`);
-        metadataJson = null;
-      }
-    }
-
-    let createdAt = pallet.createdAt ? new Date(pallet.createdAt) : new Date();
-    if (Number.isNaN(createdAt.getTime())) {
-      createdAt = new Date();
-    }
-
-    await connection.execute(
-      `INSERT INTO pallets (trayId, traysQuantity, capacity, weight, dispatchWeight, metadata, status, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        trayId,
-        Number(traysQuantityRaw),
-        Number(capacity),
-        weight,
-        dispatchWeight,
-        metadataJson,
-        status,
-        createdAt,
-        createdAt,
-      ]
-    );
-
-    inserted++;
-  }
-
-  if (missingTrays.size > 0) {
-    const preview = Array.from(missingTrays).slice(0, 5).join(", ");
-    const suffix = missingTrays.size > 5 ? ` (+${missingTrays.size - 5} more)` : "";
-    console.warn(`   ⚠️  Pallets omitidos: bandejas desconocidas ${preview}${suffix}`);
-  }
-
-  if (invalidRows.size > 0) {
-    const preview = Array.from(invalidRows).slice(0, 5).join(", ");
-    const suffix = invalidRows.size > 5 ? ` (+${invalidRows.size - 5} more)` : "";
-    console.warn(`   ⚠️  Pallets omitidos por datos inválidos ${preview}${suffix}`);
-  }
-
-  console.log(`   ✓ Inserted ${inserted} pallets`);
+const seedPallets = async (_connection: mysql.Connection) => {
+  console.log("\n🪵 Skipping standalone pallets seed...");
+  console.log(
+    "   ℹ️  Pallets are created only via dispatches (seedFullHistory / createDispatch).",
+  );
 };
 
 const seedTrays = async (connection: mysql.Connection) => {

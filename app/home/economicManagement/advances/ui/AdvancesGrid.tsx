@@ -137,7 +137,7 @@ const AdvancesGrid = ({
         filters={currentFilters}
         sort={currentSort?.toLowerCase() as 'asc' | 'desc' | undefined}
         sortField={currentSortField}
-        height="85vh"
+        fillViewport
         showBorder={false}
         createForm={<CreateAdvanceButton onSuccess={handleRefresh} />}
         createFormTitle="Crear anticipo"

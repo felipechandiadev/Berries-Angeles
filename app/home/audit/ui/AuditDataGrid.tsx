@@ -237,7 +237,7 @@ export function AuditDataGrid({
         search={currentSearch}
         filters={currentFilters}
         onExportExcel={handleExportExcel}
-        height={'85vh'}
+        fillViewport
         data-test-id="audit-data-grid-component"
       />
     </div>

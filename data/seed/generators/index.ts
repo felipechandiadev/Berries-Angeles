@@ -7,5 +7,7 @@ export { generateAdvances } from './advances';
 export type { GeneratedAdvance } from './advances';
 export { planSettlements } from './settlements';
 export { planPallets, planClientTrayMoves } from './traysPallets';
+export { planDispatches } from './dispatches';
+export type { PlannedDispatch, PlannedDispatchPallet } from './dispatches';
 export { validateFullSeed } from './validate';
 export type { SeedValidationReport } from './validate';

@@ -3,7 +3,7 @@
 import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { getDb } from '../../data/db';
-import { Permission, Ability } from '../../data/entities/Permission';
+import { Permission } from '../../data/entities/Permission';
 import { validAbilities, AbilityValue } from '../../lib/permissions';
 
 export type UpdateUserPermissionsInput = {
@@ -55,7 +55,7 @@ export async function updateUserPermissions({ userId, abilities }: UpdateUserPer
           const permission = new Permission();
           permission.id = randomUUID();
           permission.userId = userId;
-          permission.ability = ability as Ability;
+          permission.ability = ability;
           permission.description = undefined;
           return permission;
         });

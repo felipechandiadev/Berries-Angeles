@@ -39,6 +39,7 @@ const MATERIAL_TO_LUCIDE: Record<string, LucideIconName> = {
   package_2: "Package",
   payments: "Wallet",
   group: "Users",
+  key: "Key",
 };
 
 export type IconButtonProps = Omit<KaiProps, "icon"> & {

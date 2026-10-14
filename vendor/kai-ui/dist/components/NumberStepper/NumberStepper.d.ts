@@ -15,6 +15,11 @@ interface NumberStepperProps {
     placeholder?: string;
     className?: string;
     disabled?: boolean;
+    /**
+     * Al enfocar el input, selecciona todo el valor (igual que TextField).
+     * Default `true` para facilitar reemplazar el número al escribir.
+     */
+    selectOnFocus?: boolean;
     ["data-test-id"]?: string;
 }
 export declare const NumberStepper: React.FC<NumberStepperProps>;

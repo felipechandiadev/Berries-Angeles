@@ -22,6 +22,12 @@ const kgFmt = new Intl.NumberFormat('es-CL', {
   maximumFractionDigits: 3,
 });
 
+const currencyFmt = new Intl.NumberFormat('es-CL', {
+  style: 'currency',
+  currency: 'CLP',
+  maximumFractionDigits: 0,
+});
+
 export default function DispatchesGrid({
   rows,
   totalRows,
@@ -96,6 +102,14 @@ export default function DispatchesGrid({
         renderCell: ({ value }) => <span>{kgFmt.format(Number(value) || 0)}</span>,
       },
       {
+        field: 'saleTotalCLP',
+        headerName: 'Venta',
+        flex: 0.9,
+        sortable: false,
+        filterable: false,
+        renderCell: ({ value }) => <span>{currencyFmt.format(Number(value) || 0)}</span>,
+      },
+      {
         field: 'actions',
         headerName: '',
         flex: 0.5,
@@ -128,7 +142,7 @@ export default function DispatchesGrid({
         filters={currentFilters}
         sort={currentSort?.toLowerCase() as 'asc' | 'desc' | undefined}
         sortField={currentSortField}
-        height="75vh"
+        fillViewport
         showBorder={false}
       />
       <DispatchDetailDialog

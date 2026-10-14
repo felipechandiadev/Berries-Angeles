@@ -1,10 +1,20 @@
-export default function OperationalReportsPage() {
+import {
+  listSeasonsForReportsAction,
+  runOperationalReportAction,
+} from '@/app/actions/reports';
+import ReportsWorkspace from '../ui/ReportsWorkspace';
+import { OPERATIONAL_REPORT_REGISTRY } from './report-registry';
+
+export default async function OperationalReportsPage() {
+  const seasons = await listSeasonsForReportsAction();
+
   return (
-    <div className="rounded border border-dashed border-gray-300 bg-gray-50 px-6 py-16 text-center">
-      <h2 className="text-lg font-medium text-gray-800">Reportes operativos</h2>
-      <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
-        Próximamente: stock, pallets y movimientos de bandejas.
-      </p>
-    </div>
+    <ReportsWorkspace
+      registry={OPERATIONAL_REPORT_REGISTRY}
+      producers={[]}
+      varieties={[]}
+      seasons={seasons}
+      runReport={runOperationalReportAction}
+    />
   );
 }

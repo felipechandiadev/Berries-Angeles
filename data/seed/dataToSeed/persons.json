@@ -642,5 +642,54 @@
     "dni": "10.160.538-8",
     "phone": "",
     "mail": ""
+  },
+  {
+    "id": "a1b2c3d4-c001-4e01-a001-000000000001",
+    "name": "Frutas del Sur SpA",
+    "dni": "76.100.201-1",
+    "phone": "+56961110001",
+    "mail": "compras@frutasdelsur.cl"
+  },
+  {
+    "id": "a1b2c3d4-c001-4e01-a001-000000000002",
+    "name": "Exportadora Andes Berries",
+    "dni": "76.100.202-K",
+    "phone": "+56961110002",
+    "mail": "ops@andesberries.cl"
+  },
+  {
+    "id": "a1b2c3d4-c001-4e01-a001-000000000003",
+    "name": "Mercado Central Berries",
+    "dni": "76.100.203-8",
+    "phone": "+56961110003",
+    "mail": "pedidos@mcberries.cl"
+  },
+  {
+    "id": "a1b2c3d4-c001-4e01-a001-000000000004",
+    "name": "Distribuidora Pacífico Fresh",
+    "dni": "76.100.204-6",
+    "phone": "+56961110004",
+    "mail": "logistica@pacificofresh.cl"
+  },
+  {
+    "id": "a1b2c3d4-c001-4e01-a001-000000000005",
+    "name": "Comercial Los Ríos",
+    "dni": "76.100.205-4",
+    "phone": "+56961110005",
+    "mail": "ventas@losriosberries.cl"
+  },
+  {
+    "id": "a1b2c3d4-c001-4e01-a001-000000000006",
+    "name": "Berry Hub Santiago",
+    "dni": "76.100.206-2",
+    "phone": "+56961110006",
+    "mail": "hub@berryhub.cl"
+  },
+  {
+    "id": "a1b2c3d4-c001-4e01-a001-000000000007",
+    "name": "Agroexport Maule",
+    "dni": "76.100.207-0",
+    "phone": "+56961110007",
+    "mail": "export@mauleagro.cl"
   }
 ]

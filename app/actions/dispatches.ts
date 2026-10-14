@@ -40,6 +40,8 @@ export type CreateDispatchInput = {
   userId: string;
   seasonId?: string;
   notes?: string;
+  /** Precio manual CLP por kg de fruta neta. */
+  pricePerKgCLP: number;
   pallets: CreateDispatchPalletInput[];
 };
 
@@ -54,6 +56,8 @@ export type DispatchSummaryRow = {
   traysTotal: number;
   fruitKgTotal: number;
   grossKgTotal: number;
+  pricePerKgCLP: number;
+  saleTotalCLP: number;
 };
 
 export type DispatchDetail = DispatchSummaryRow & {
@@ -77,9 +81,29 @@ function fruitWeightKg(
   return grossWeightKg - emptyWeightKg - traysQuantity * unitTrayWeight;
 }
 
+export type CreateDispatchResult = {
+  dispatchId: string;
+  palletIds: number[];
+  customerName: string;
+  trayName: string;
+  unitTrayWeight: number;
+  fruitKgTotal: number;
+  grossKgTotal: number;
+  traysTotal: number;
+  pricePerKgCLP: number;
+  saleTotalCLP: number;
+  palletLines: Array<{
+    palletId: number;
+    emptyWeightKg: number;
+    traysQuantity: number;
+    grossWeightKg: number;
+    fruitWeightKg: number;
+  }>;
+};
+
 export async function createDispatch(
   input: CreateDispatchInput,
-): Promise<{ success: boolean; data?: { dispatchId: string }; error?: string }> {
+): Promise<{ success: boolean; data?: CreateDispatchResult; error?: string }> {
   try {
     const customerId = input.customerId?.trim();
     const trayId = input.trayId?.trim();
@@ -92,6 +116,10 @@ export async function createDispatch(
     if (pallets.length === 0) {
       return { success: false, error: 'Debe agregar al menos un pallet.' };
     }
+    const pricePerKgCLP = normalizeNumber(input.pricePerKgCLP, NaN);
+    if (!Number.isFinite(pricePerKgCLP) || pricePerKgCLP < 0) {
+      return { success: false, error: 'El precio por kg debe ser un número mayor o igual a 0.' };
+    }
 
     const db = await getDb();
 
@@ -102,7 +130,7 @@ export async function createDispatch(
           relations: { person: true },
         }),
         manager.getRepository(Tray).findOne({
-          where: { id: trayId, deletedAt: IsNull(), active: true },
+          where: { id: trayId },
         }),
         manager.getRepository(User).findOne({
           where: { id: userId, deletedAt: IsNull() },
@@ -111,7 +139,12 @@ export async function createDispatch(
       ]);
 
       if (!customer) throw new Error('Cliente no encontrado.');
-      if (!tray) throw new Error('Tipo de bandeja no encontrado.');
+      if (!tray) {
+        throw new Error(
+          'Tipo de bandeja no encontrado. Recargá la página e elegí la bandeja de nuevo.',
+        );
+      }
+      if (!tray.active) throw new Error('Tipo de bandeja inactivo.');
       if (!user) throw new Error('Usuario no encontrado.');
 
       let seasonId = input.seasonId?.trim();
@@ -138,7 +171,7 @@ export async function createDispatch(
         const grossWeightKg = normalizeNumber(raw.grossWeightKg, NaN);
 
         if (!Number.isFinite(emptyWeightKg) || emptyWeightKg < 0) {
-          throw new Error(`Pallet #${index + 1}: peso vacío inválido.`);
+          throw new Error(`Pallet #${index + 1}: peso de pallet inválido.`);
         }
         if (!Number.isFinite(traysQuantity) || traysQuantity <= 0) {
           throw new Error(`Pallet #${index + 1}: cantidad de bandejas inválida.`);
@@ -150,7 +183,7 @@ export async function createDispatch(
         const fruit = fruitWeightKg(grossWeightKg, emptyWeightKg, traysQuantity, unitTrayWeight);
         if (fruit < -0.001) {
           throw new Error(
-            `Pallet #${index + 1}: el peso bruto no cubre tara + bandejas (fruta negativa).`,
+            `Pallet #${index + 1}: el peso bruto no cubre peso pallet + bandejas (fruta negativa).`,
           );
         }
 
@@ -210,19 +243,22 @@ export async function createDispatch(
 
       for (const line of lines) {
         const capacity = Math.max(line.traysQuantity, 1);
+        // chk_dispatch_vs_weight: dispatchWeight <= weight.
+        // En despacho el pallet nace DISPATCHED: ambos = bruto; tara/fruta van en metadata.
+        const grossRounded = Number(line.grossWeightKg.toFixed(3));
         const pallet = await manager.save(
           manager.create(Pallet, {
             trayId,
             traysQuantity: line.traysQuantity,
             capacity,
-            weight: line.emptyWeightKg,
-            dispatchWeight: line.grossWeightKg,
+            weight: grossRounded,
+            dispatchWeight: grossRounded,
             status: PalletStatus.DISPATCHED,
             metadata: {
               fruitWeightKg: line.fruitWeightKg,
               emptyWeightKg: line.emptyWeightKg,
               traysQuantity: line.traysQuantity,
-              grossWeightKg: line.grossWeightKg,
+              grossWeightKg: grossRounded,
               trayId,
             },
           }),
@@ -232,6 +268,9 @@ export async function createDispatch(
         createdPalletIds.push(palletId);
         savedLines.push({ ...line, palletId });
       }
+
+      const fruitKgRounded = Number(fruitKgTotal.toFixed(3));
+      const saleTotalCLP = Number((pricePerKgCLP * fruitKgRounded).toFixed(0));
 
       const dispatchMeta: DispatchMetadata = {
         status: 'COMPLETA',
@@ -244,8 +283,10 @@ export async function createDispatch(
         trayOutTransactionId: String(trayOut.id),
         palletsCount: createdPalletIds.length,
         traysTotal,
-        fruitKgTotal: Number(fruitKgTotal.toFixed(3)),
+        fruitKgTotal: fruitKgRounded,
         grossKgTotal: Number(grossKgTotal.toFixed(3)),
+        pricePerKgCLP,
+        saleTotalCLP,
         palletLines: savedLines,
         ...(input.notes?.trim() ? { notes: input.notes.trim() } : {}),
       };
@@ -279,7 +320,25 @@ export async function createDispatch(
         });
       }
 
-      return { dispatchId };
+      return {
+        dispatchId,
+        palletIds: createdPalletIds,
+        customerName,
+        trayName: tray.name,
+        unitTrayWeight,
+        fruitKgTotal: fruitKgRounded,
+        grossKgTotal: Number(grossKgTotal.toFixed(3)),
+        traysTotal,
+        pricePerKgCLP,
+        saleTotalCLP,
+        palletLines: savedLines.map((line) => ({
+          palletId: line.palletId,
+          emptyWeightKg: line.emptyWeightKg,
+          traysQuantity: line.traysQuantity,
+          grossWeightKg: line.grossWeightKg,
+          fruitWeightKg: line.fruitWeightKg,
+        })),
+      };
     });
 
     revalidatePath('/home/dispatch/dispatches');
@@ -461,6 +520,12 @@ export async function listDispatches(
 
     const rows: DispatchSummaryRow[] = rowsRaw.map((tx) => {
       const meta = (tx.metadata ?? {}) as DispatchMetadata;
+      const fruitKgTotal = meta.fruitKgTotal ?? normalizeNumber(tx.amount, 0);
+      const pricePerKgCLP = normalizeNumber(meta.pricePerKgCLP, 0);
+      const saleTotalCLP =
+        meta.saleTotalCLP != null
+          ? normalizeNumber(meta.saleTotalCLP, 0)
+          : Number((pricePerKgCLP * fruitKgTotal).toFixed(0));
       return {
         id: String(tx.id),
         createdAt: tx.createdAt ? new Date(tx.createdAt).toISOString() : '',
@@ -470,8 +535,10 @@ export async function listDispatches(
         trayName: meta.trayName ?? '—',
         palletsCount: meta.palletsCount ?? meta.palletIds?.length ?? 0,
         traysTotal: meta.traysTotal ?? 0,
-        fruitKgTotal: meta.fruitKgTotal ?? normalizeNumber(tx.amount, 0),
+        fruitKgTotal,
         grossKgTotal: meta.grossKgTotal ?? 0,
+        pricePerKgCLP,
+        saleTotalCLP,
       };
     });
 
@@ -504,6 +571,13 @@ export async function getDispatchDetail(
         }))
       : [];
 
+    const fruitKgTotal = meta.fruitKgTotal ?? 0;
+    const pricePerKgCLP = normalizeNumber(meta.pricePerKgCLP, 0);
+    const saleTotalCLP =
+      meta.saleTotalCLP != null
+        ? normalizeNumber(meta.saleTotalCLP, 0)
+        : Number((pricePerKgCLP * fruitKgTotal).toFixed(0));
+
     return {
       success: true,
       data: {
@@ -518,8 +592,10 @@ export async function getDispatchDetail(
         notes: meta.notes,
         palletsCount: meta.palletsCount ?? palletLines.length,
         traysTotal: meta.traysTotal ?? 0,
-        fruitKgTotal: meta.fruitKgTotal ?? 0,
+        fruitKgTotal,
         grossKgTotal: meta.grossKgTotal ?? 0,
+        pricePerKgCLP,
+        saleTotalCLP,
         palletLines,
       },
     };

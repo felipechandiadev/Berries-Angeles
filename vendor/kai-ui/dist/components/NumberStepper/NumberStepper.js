@@ -14,10 +14,29 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { useRef } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import './number-stepper.css';
+function selectAllFieldContents(el) {
+    try {
+        el.select();
+    }
+    catch (_a) {
+        // ignore
+    }
+    const len = el.value.length;
+    if (len === 0 || typeof el.setSelectionRange !== 'function') {
+        return;
+    }
+    try {
+        el.setSelectionRange(0, len);
+    }
+    catch (_b) {
+        // ignore — type=number often rejects setSelectionRange
+    }
+}
 export const NumberStepper = (_a) => {
-    var { label, icon, iconPosition = 'above', value, onChange, step = 1, min, max, required = false, allowNegative = true, allowFloat = false, placeholder, className = "", disabled = false } = _a, props = __rest(_a, ["label", "icon", "iconPosition", "value", "onChange", "step", "min", "max", "required", "allowNegative", "allowFloat", "placeholder", "className", "disabled"]);
+    var { label, icon, iconPosition = 'above', value, onChange, step = 1, min, max, required = false, allowNegative = true, allowFloat = false, placeholder, className = "", disabled = false, selectOnFocus = true } = _a, props = __rest(_a, ["label", "icon", "iconPosition", "value", "onChange", "step", "min", "max", "required", "allowNegative", "allowFloat", "placeholder", "className", "disabled", "selectOnFocus"]);
     const inputRef = useRef(null);
     const displayValue = Number.isFinite(value) ? value : 0;
+    const selectOnFocusEnabled = selectOnFocus && !disabled;
     // Función para validar y formatear el valor
     const validateAndFormatValue = (newValue) => {
         let validatedValue = newValue;
@@ -112,6 +131,25 @@ export const NumberStepper = (_a) => {
             onChange(validatedValue);
         }
     };
+    const handleFocus = (e) => {
+        if (!selectOnFocusEnabled)
+            return;
+        const el = e.currentTarget;
+        requestAnimationFrame(() => {
+            if (document.activeElement === el) {
+                selectAllFieldContents(el);
+            }
+        });
+    };
+    const handleMouseDown = (e) => {
+        if (!selectOnFocusEnabled || e.defaultPrevented)
+            return;
+        const el = e.currentTarget;
+        if (document.activeElement === el)
+            return;
+        e.preventDefault();
+        el.focus({ preventScroll: true });
+    };
     // Estilos base similares a TextField
     const baseInputClasses = `
     fs-number-stepper__input
@@ -164,7 +202,7 @@ export const NumberStepper = (_a) => {
         }
         return null;
     };
-    return (_jsx(_Fragment, { children: _jsxs("div", { className: containerClasses, "data-test-id": "number-stepper-root", "data-stepper-single-row": singleRowChrome ? 'true' : undefined, children: [_jsx("button", { type: "button", tabIndex: -1, onClick: decrement, disabled: disabled || (min !== undefined && value <= min), className: `${buttonClasses} rounded-l-md border-r border-border`, "data-test-id": `${props['data-test-id']}-decrement`, children: _jsx(Minus, { className: "text-muted-foreground", size: 16 }) }), _jsxs("div", { className: `flex flex-col items-center justify-center flex-1 gap-0 min-w-0 ${singleRowChrome ? 'min-h-0 self-stretch' : ''}`, children: [_jsx("input", { ref: inputRef, type: "number", value: displayValue, onChange: handleInputChange, min: min, max: max, step: allowFloat ? step : step, required: required, placeholder: placeholder, disabled: disabled, className: `${baseInputClasses} rounded-none text-center w-full`, "data-test-id": props['data-test-id'] }), renderLabelIcon()] }), _jsx("button", { type: "button", tabIndex: -1, onClick: increment, disabled: disabled || (max !== undefined && value >= max), className: `${buttonClasses} rounded-r-md border-l border-border`, "data-test-id": `${props['data-test-id']}-increment`, children: _jsx(Plus, { className: "text-muted-foreground", size: 16 }) })] }) }));
+    return (_jsx(_Fragment, { children: _jsxs("div", { className: containerClasses, "data-test-id": "number-stepper-root", "data-stepper-single-row": singleRowChrome ? 'true' : undefined, children: [_jsx("button", { type: "button", tabIndex: -1, onClick: decrement, disabled: disabled || (min !== undefined && value <= min), className: `${buttonClasses} rounded-l-md border-r border-border`, "data-test-id": `${props['data-test-id']}-decrement`, children: _jsx(Minus, { className: "text-muted-foreground", size: 16 }) }), _jsxs("div", { className: `flex flex-col items-center justify-center flex-1 gap-0 min-w-0 ${singleRowChrome ? 'min-h-0 self-stretch' : ''}`, children: [_jsx("input", { ref: inputRef, type: selectOnFocusEnabled ? 'text' : 'number', inputMode: allowFloat ? 'decimal' : 'numeric', value: displayValue, onChange: handleInputChange, onFocus: handleFocus, onMouseDown: handleMouseDown, min: min, max: max, step: step, required: required, placeholder: placeholder, disabled: disabled, className: `${baseInputClasses} rounded-none text-center w-full`, "data-test-id": props['data-test-id'] }), renderLabelIcon()] }), _jsx("button", { type: "button", tabIndex: -1, onClick: increment, disabled: disabled || (max !== undefined && value >= max), className: `${buttonClasses} rounded-r-md border-l border-border`, "data-test-id": `${props['data-test-id']}-increment`, children: _jsx(Plus, { className: "text-muted-foreground", size: 16 }) })] }) }));
 };
 export default NumberStepper;
 //# sourceMappingURL=NumberStepper.js.map

@@ -205,9 +205,12 @@ export default function ReceptionsGrid({
       flex: 0.7,
       sortable: true,
       filterable: true,
-      renderCell: ({ value }: { value: string }) => (
-        <span>{value && value.trim() ? value : '—'}</span>
-      ),
+      renderCell: ({ value }: { value: string | null | undefined }) => {
+        const text = value == null ? '' : String(value).trim();
+        const empty =
+          !text || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined';
+        return <span>{empty ? '' : text}</span>;
+      },
     },
     {
       field: 'createdAt',
@@ -361,7 +364,7 @@ export default function ReceptionsGrid({
         sortField={currentSortField}
         search={currentSearch}
         filters={currentFilters}
-        height={'85vh'}
+        fillViewport
         showBorder={false}
       />
 

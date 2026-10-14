@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
-import { Button } from '@/app/baseComponents/Button/Button';
 import DeleteUserDialog from './DeleteUserDialog';
 import UpdateUserDialog from './UpdateUserDialog';
 import ManageUserPermissionsDialog from './ManageUserPermissionsDialog';
@@ -32,7 +31,8 @@ const UserCard: React.FC<UserCardProps> = ({ user, 'data-test-id': dataTestId })
   const { has } = usePermissions();
   const canUpdate = has('USERS_UPDATE');
   const canDelete = has('USERS_DELETE');
-  const canManagePermissions = has('USERS_UPDATE');
+  const canManagePermissions =
+    has('USERS_MANAGE_PERMISSIONS') || has('USERS_UPDATE');
 
   const getRolBadgeVariant = (rol?: string): 'primary' | 'secondary' | 'success' | 'error' | 'warning' | 'info' | 'primary-outlined' | 'secondary-outlined' | 'success-outlined' | 'error-outlined' | 'warning-outlined' | 'info-outlined' => {
     switch (rol?.toUpperCase()) {
@@ -102,19 +102,18 @@ const UserCard: React.FC<UserCardProps> = ({ user, 'data-test-id': dataTestId })
               {getRolLabel(user.rol)}
             </Badge>
           )}
-          {canManagePermissions && !isAdmin && (
-            <Button
-              variant="outlined"
-              className="px-3 py-1 rounded-full text-xs"
-              onClick={() => setOpenPermissionsDialog(true)}
-              data-test-id={`${dataTestId}-permissions-button`}
-            >
-              Gestionar permisos
-            </Button>
-          )}
         </div>
         {/* Botones en la esquina derecha */}
         <div className="flex items-center" data-test-id={`${dataTestId}-buttons`}>
+          {canManagePermissions && !isAdmin && (
+            <IconButton
+              icon="key"
+              variant="basicSecondary"
+              aria-label={`Gestionar permisos de ${fullName}`}
+              onClick={() => setOpenPermissionsDialog(true)}
+              data-test-id={`${dataTestId}-permissions-button`}
+            />
+          )}
           <IconButton 
             icon="edit"
             variant="basicSecondary"

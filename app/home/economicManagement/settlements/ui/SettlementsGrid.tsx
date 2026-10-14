@@ -209,7 +209,8 @@ const SettlementsGrid = ({
       filters={currentFilters}
       sort={currentSort?.toLowerCase() as 'asc' | 'desc' | undefined}
       sortField={currentSortField}
-      height="85vh"
+      fillViewport
+      fillViewportInTabLayout
       showBorder={false}
     />
   );

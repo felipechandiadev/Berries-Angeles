@@ -1,71 +1,83 @@
 [
   {
+    "id": "b7e1a001-4001-4e01-a001-000000000001",
     "name": "ESPARRAGUERA",
     "weight": 1.5,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-000000000002",
     "name": "VERDE",
     "weight": 0.35,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-000000000003",
     "name": "NEGRA CHICA",
     "weight": 0.35,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-000000000004",
     "name": "BLANCA CHICA",
     "weight": 0.35,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-000000000005",
     "name": "FRESCO BLANCAS",
     "weight": 0.2,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-000000000006",
     "name": "FRUTILLERA",
     "weight": 1,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-000000000007",
     "name": "CARTON",
     "weight": 0.2,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-000000000008",
     "name": "ARANDANERA",
     "weight": 0.3,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-000000000009",
     "name": "AZUL",
     "weight": 0.3,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-00000000000a",
     "name": "BINS CHICO",
     "weight": 1,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-00000000000b",
     "name": "BINS GRANDE CERRADO",
     "weight": 1,
     "stock": 300,
     "active": true
   },
   {
+    "id": "b7e1a001-4001-4e01-a001-00000000000c",
     "name": "BINS RANURADO SIN TACC",
     "weight": 1,
     "stock": 300,

@@ -169,7 +169,7 @@ export default function ProductiveUnitsGrid({
         sortField={currentSortField}
         search={currentSearch}
         filters={currentFilters}
-        height={'85vh'}
+        fillViewport
         showBorder={false}
       />
  
